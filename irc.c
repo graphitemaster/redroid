@@ -173,6 +173,7 @@ void irc_destroy(irc_t *irc) {
     // free other data
     free(irc->nick);
     free(irc->name);
+    free(irc->pattern);
     free(irc);
 }
 
