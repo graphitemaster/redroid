@@ -1,5 +1,5 @@
 CC     ?= clang
-CFLAGS  = -std=gnu99 -ggdb3
+CFLAGS  = -std=gnu99 -Wall -ggdb3
 LDFLAGS = -ldl
 SOURCES = irc.c ircman.c list.c main.c module.c sock.c ini.c config.c
 OBJECTS = $(SOURCES:.c=.o)

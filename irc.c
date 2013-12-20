@@ -190,4 +190,6 @@ int irc_process(irc_t *irc) {
                     irc->bufferpos++;
         }
     }
+
+    return 0;
 }

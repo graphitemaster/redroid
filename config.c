@@ -3,11 +3,14 @@
 
 #include <string.h> // strlen, memset
 #include <stdlib.h> // malloc, free, strdup
+#include <stdio.h>
 
 static config_t *config_entry_create(void) {
     config_t *config = malloc(sizeof(*config));
     memset(config, 0, sizeof(*config));
     config->modules = list_create();
+
+    return config;
 }
 
 static void config_entry_destroy(config_t *entry) {
@@ -22,16 +25,15 @@ static void config_entry_destroy(config_t *entry) {
 }
 
 static config_t *config_entry_find(list_t *list, const char *name) {
-    list_iterator_t *it;
-    for (it = list_iterator_create(list); !list_iterator_end(it); ) {
-        config_t *entry = list_iterator_next(it);
-        if (!strcmp(entry->name, name)) {
-            list_iterator_destroy(it);
-            return entry;
-        }
+    config_t        *entry = NULL;
+    list_iterator_t *it    = list_iterator_create(list);
+    for (; !list_iterator_end(it); ) {
+        entry = list_iterator_next(it);
+        if (!strcmp(entry->name, name))
+            break;
     }
     list_iterator_destroy(it);
-    return NULL;
+    return entry;
 }
 
 static bool config_entry_handler(void *user, const char *section, const char *name, const char *value) {

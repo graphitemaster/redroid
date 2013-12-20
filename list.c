@@ -75,6 +75,8 @@ list_t *list_create(void) {
     list->length = 0;
     list->head   = NULL;
     list->tail   = NULL;
+
+    return list;
 }
 
 void list_destroy(list_t *list) {
