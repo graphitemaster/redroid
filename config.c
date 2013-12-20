@@ -3,7 +3,6 @@
 
 #include <string.h> // strlen, memset
 #include <stdlib.h> // malloc, free, strdup
-#include <stdio.h>
 
 static config_t *config_entry_create(void) {
     config_t *config = malloc(sizeof(*config));
@@ -47,8 +46,6 @@ static bool config_entry_handler(void *user, const char *section, const char *na
         list_push(config, exists);
     }
 
-    printf("thing: [%s] => %s\n", name, value);
-
     if      (!strcmp(name, "nick"))    exists->nick    = strdup(value);
     else if (!strcmp(name, "pattern")) exists->pattern = strdup(value);
     else if (!strcmp(name, "host"))    exists->host    = strdup(value);
@@ -68,4 +65,5 @@ void config_unload(list_t *list) {
     list_iterator_t *it;
     for (it = list_iterator_create(list); !list_iterator_end(it); )
         config_entry_destroy(list_iterator_next(it));
+    list_iterator_destroy(it);
 }
