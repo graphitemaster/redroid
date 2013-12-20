@@ -12,5 +12,6 @@ const char *irc_name(irc_t *irc);
 int irc_connect(irc_t *irc, const char *host, const char *port);
 
 bool irc_modules_add(irc_t *irc, const char *file);
+bool irc_channels_add(irc_t *irc, const char *channel);
 
 #endif

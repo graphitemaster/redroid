@@ -59,11 +59,24 @@ int main() {
         config_t *entry = list_iterator_next(it);
         irc_t    *irc   = irc_create(entry->name, entry->nick);
 
+        // add all modules
+        list_iterator_t *jt = list_iterator_create(entry->modules);
+        while (!list_iterator_end(jt))
+            irc_modules_add(irc, (const char *)list_iterator_next(jt));
+        list_iterator_destroy(jt);
+
+        // and all channels
+        jt = list_iterator_create(entry->channels);
+        while (!list_iterator_end(jt))
+            irc_channels_add(irc, (const char *)list_iterator_next(jt));
+        list_iterator_destroy(jt);
+
         irc_connect(irc, entry->host, entry->port);
         irc_manager_add(manager, irc);
+
     }
     list_iterator_destroy(it);
-    config_unload(list); // unload it
+    config_unload(list); // unload config
 
     while (signal_shutdown(false))
         irc_manager_process(manager);

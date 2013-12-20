@@ -3,13 +3,12 @@
 
 #include <dlfcn.h>  // dlopen, dlclose, dlsym, RTLD_LAZY
 #include <stdlib.h> // malloc, free
-#include <stdio.h>
-
+#include <stdio.h>  // fprintf, stderr
 struct module_s {
     void       *handle;
-    const char *file;
     const char *name;
     const char *match;
+    char       *file;
     void      (*enter)(irc_t *irc);
     void      (*close)(irc_t *irc);
     irc_t      *instance;
@@ -21,7 +20,7 @@ module_t *module_open(const char *file, irc_t *instance) {
     if (!(module->handle = dlopen(file, RTLD_LAZY)))
         goto module_open_error;
 
-    module->file     = file;
+    module->file     = strdup(file);
     module->instance = instance;
 
     //
@@ -67,6 +66,7 @@ void module_enter(module_t *module) {
 void module_close(module_t *module) {
     module->close(module->instance);
     dlclose(module->handle);
+    free(module->file);
     free(module);
 }
 

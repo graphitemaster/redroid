@@ -9,6 +9,7 @@ typedef struct {
     char   *host;       // server host
     char   *port;       // server port
     list_t *modules;    // list of modules
+    list_t *channels;   // list of channels
 } config_t;
 
 list_t *config_load(const char *file);
