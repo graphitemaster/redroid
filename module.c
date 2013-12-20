@@ -4,6 +4,8 @@
 #include <dlfcn.h>  // dlopen, dlclose, dlsym, RTLD_LAZY
 #include <stdlib.h> // malloc, free
 #include <stdio.h>  // fprintf, stderr
+#include <string.h>
+
 struct module_s {
     void       *handle;
     const char *name;

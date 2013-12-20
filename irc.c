@@ -42,7 +42,8 @@ static int irc_message(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
 }
 static int irc_join(irc_t *irc, const char *channel) {
-    return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
+    sock_sendf(irc->sock, "JOIN %s\r\n", channel);
+    return irc_message(irc, channel, "hello folks!\n");
 }
 
 // Instance management
@@ -89,28 +90,22 @@ module_t *irc_modules_find(irc_t *irc, const char *file) {
 
 bool irc_modules_add(irc_t *irc, const char *name) {
     module_t *module = NULL;
-    char     *file   = NULL;
-
-    asprintf(&file, "modules/%s.so", name);
 
     // prevent loading module twice
-    if ((module = irc_modules_find(irc, file))) {
-        printf("    module  => %s [%s] already loaded\n", module_name(module), file);
-        free(file);
+    if ((module = irc_modules_find(irc, name))) {
+        printf("    module  => %s [%s] already loaded\n", module_name(module), name);
         return false;
     }
 
     // load the module
-    module = module_open(file, irc);
-    free(file);
+    module = module_open(name, irc);
 
     if (module) {
         list_push(irc->modules, module);
         printf("    module  => %s [%s] loaded\n", module_name(module), module_file(module));
         return true;
     }
-
-    free(file);
+    printf("    module  => %s loading failed\n", name);
     return false;
 }
 

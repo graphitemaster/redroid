@@ -1,8 +1,13 @@
 #include "config.h"
 #include "ini.h"
 
-#include <string.h> // strlen, memset
+#define _GNU_SOURCE // asprintf
+#include <stdio.h>  // asprintf
+#include <string.h> // strlen, memset, strstr
 #include <stdlib.h> // malloc, free, strdup
+#include <dirent.h> // DIR, dirent, readdir, closedir
+
+#define MODULE_DIR "modules"
 
 static config_t *config_entry_create(void) {
     config_t *config = malloc(sizeof(*config));
@@ -58,15 +63,41 @@ static bool config_entry_handler(void *user, const char *section, const char *na
         list_push(config, exists);
     }
 
-    if      (!strcmp(name, "nick"))    exists->nick    = strdup(value);
-    else if (!strcmp(name, "pattern")) exists->pattern = strdup(value);
-    else if (!strcmp(name, "host"))    exists->host    = strdup(value);
-    else if (!strcmp(name, "port"))    exists->port    = strdup(value);
+    if      (!strcmp(name, "nick"))      exists->nick    = strdup(value);
+    else if (!strcmp(name, "pattern"))   exists->pattern = strdup(value);
+    else if (!strcmp(name, "host"))      exists->host    = strdup(value);
+    else if (!strcmp(name, "port"))      exists->port    = strdup(value);
     else if (!strcmp(name, "modules")) {
-        char *tok = strtok((char *)value, ", ");
-        while (tok) {
-            list_push(exists->modules, strdup(tok));
-            tok = strtok(NULL, ", ");
+        if (*value == '*') {
+            // load all modules
+            DIR           *dir;
+            struct dirent *ent;
+            if ((dir = opendir(MODULE_DIR))) {
+                while ((ent = readdir(dir))) {
+                    if (strstr(ent->d_name, ".so")) { // found module
+                        char *format = NULL;
+                        asprintf(&format, "%s/%s", MODULE_DIR, ent->d_name);
+                        list_push(exists->modules, format);
+                    }
+                }
+                closedir(dir);
+            } else {
+                fprintf(stderr, "failed to open modules directory: %s\n", MODULE_DIR);
+                return false;
+            }
+        } else {
+            // individually
+            char *tok = strtok((char *)value, ", ");
+            while (tok) {
+                char *format = NULL;
+                if (!strstr(tok, ".so")) // no .so add it
+                    asprintf(&format, "%s/%s.so", MODULE_DIR, tok);
+                else
+                    asprintf(&format, "%s/%s", MODULE_DIR, tok);
+
+                list_push(exists->modules, format);
+                tok = strtok(NULL, ", ");
+            }
         }
     }
     else if (!strcmp(name, "channels")) {
