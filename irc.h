@@ -20,6 +20,7 @@ extern "C" {
 #endif /*! __cplusplus */
 
 extern int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
+extern int irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
 
 #ifdef __cplusplus
 }

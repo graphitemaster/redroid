@@ -9,6 +9,7 @@
 #include <stdio.h>  // fprintf, stderr
 #include <signal.h> // raise, SIGUSR1
 #include <stdarg.h> // va_list, va_start, va_end
+#include <ctype.h>  // isspace
 
 struct irc_s {
     char   *name;        // irc instance name
@@ -45,6 +46,17 @@ static int irc_message(irc_t *irc, const char *channel, const char *data) {
 }
 static int irc_join(irc_t *irc, const char *channel) {
     return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
+}
+
+int irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
+    char *buffer = NULL;
+    va_list va;
+    va_start(va, fmt);
+    vasprintf(&buffer, fmt, va);
+    va_end(va);
+    int ret = sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, buffer);
+    free(buffer);
+    return ret;
 }
 
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
@@ -194,6 +206,22 @@ static void irc_channels_join(irc_t *irc) {
     list_iterator_destroy(it);
 }
 
+// trim leading and trailing whitespace from string
+static char *irc_process_trim(char *str) {
+    char *end;
+    while (isspace(*str)) str++;
+    if (!*str)
+        return str;
+
+    end = str + strlen(str) - 1;
+    while (end > str && isspace(*end))
+        end--;
+
+    *(end+1)='\0';
+
+    return str;
+}
+
 static void irc_process_line(irc_t *irc) {
     char *line = irc->buffer;
     if (!line || !*line)
@@ -283,10 +311,12 @@ static void irc_process_line(irc_t *irc) {
                         *match = '\0';
 
                     if ((cmd = irc_modules_command(irc, copy))) {
-                        // pass it in
-                        cmd(irc, channel, nick, message + strlen(irc->pattern) + strlen(copy) + 1); // "stuff"
+                        // trim trailing white
+                        char *trim = irc_process_trim(message + strlen(irc->pattern) + strlen(copy) + 1);
+                        cmd(irc, channel, nick, trim); // "stuff"
                     } else {
-                        irc_write(irc, channel, "unknown command %s%s", irc->pattern, message + strlen(irc->pattern));
+                        char *trim = irc_process_trim(message + strlen(irc->pattern));
+                        irc_write(irc, channel, "unknown command %s%s", irc->pattern, trim);
                     }
 
                     free(copy);
