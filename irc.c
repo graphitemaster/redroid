@@ -8,10 +8,12 @@
 #include <string.h> // memset
 #include <stdio.h>  // fprintf, stderr
 #include <signal.h> // raise, SIGUSR1
+#include <stdarg.h> // va_list, va_start, va_end
 
 struct irc_s {
     char   *name;        // irc instance name
     char   *nick;        // nick to use on this network
+    char   *pattern;     // pattern bot uses to know a command
     int     sock;        // network socket
     bool    ready;       // ready
     bool    readying;    // readying up
@@ -42,28 +44,33 @@ static int irc_message(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
 }
 static int irc_join(irc_t *irc, const char *channel) {
-    sock_sendf(irc->sock, "JOIN %s\r\n", channel);
-    return irc_message(irc, channel, "hello folks!\n");
+    return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
+}
+
+int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
+    char *buffer = NULL;
+    va_list  va;
+    va_start(va, fmt);
+    vasprintf(&buffer, fmt, va);
+    va_end(va);
+    int ret = irc_message(irc, channel, buffer);
+    free(buffer);
+    return ret;
 }
 
 // Instance management
-irc_t *irc_create(const char *name, const char *nick) {
+irc_t *irc_create(const char *name, const char *nick, const char *pattern) {
     irc_t *irc = malloc(sizeof(irc_t));
 
     if (!irc)
         return NULL;
 
-    if (!(irc->name = strdup(name))) {
-        free(irc);
-        return NULL;
-    }
-
-    if (!(irc->nick = strdup(nick))) {
-        free(irc->name);
-        free(irc);
-
-        return NULL;
-    }
+    if (!(irc->name = strdup(name)))
+        goto error;
+    if (!(irc->nick = strdup(nick)))
+        goto error;
+    if (!(irc->pattern = strdup(pattern)))
+        goto error;
 
     irc->ready     = false;
     irc->readying  = false;
@@ -73,6 +80,12 @@ irc_t *irc_create(const char *name, const char *nick) {
 
     printf("instance: %s\n", name);
     return irc;
+
+error:
+    if (irc->name)    free(irc->name);
+    if (irc->nick)    free(irc->nick);
+    if (irc->pattern) free(irc->pattern);
+    return NULL;
 }
 
 module_t *irc_modules_find(irc_t *irc, const char *file) {
@@ -107,6 +120,19 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     }
     printf("    module  => %s loading failed\n", name);
     return false;
+}
+
+void (*irc_modules_command(irc_t *irc, const char *command))(irc_t *, const char *, const char *, const char *) {
+    list_iterator_t *it = list_iterator_create(irc->modules);
+    while (!list_iterator_end(it)) {
+        module_t *entry = list_iterator_next(it);
+        if (!strcmp(entry->match, command)) {
+            list_iterator_destroy(it);
+            return entry->enter;
+        }
+    }
+    list_iterator_destroy(it);
+    return NULL;
 }
 
 bool irc_channels_add(irc_t *irc, const char *channel) {
@@ -168,17 +194,26 @@ static void irc_channels_join(irc_t *irc) {
 }
 
 static void irc_process_line(irc_t *irc) {
-    const char *line = irc->buffer;
+    char *line = irc->buffer;
     if (!line || !*line)
         return;
 
+    //
+    // when to know that the IRC server is ready to accept commands from
+    // is two stages:
+    //  stage 1: readying up: i.e first NOTICE from the server
+    //  stage 2: waiting for the server to accept the ident and get 001 NICK
+    //
+    //  after these stages succeed we're ready to send other commands, such
+    //  as QUIT and JOIN
+    //
     if (!irc->readying) {
         if (strstr(line, "NOTICE") && !irc->ready) {
             irc->readying = true;
             irc_register(irc);
         }
     } else if (!irc->ready) {
-        char ready[128];
+        char ready[512];
         snprintf(ready, sizeof(ready), "001 %s", irc->nick);
         if (strstr(line, ready)) {
             irc->ready = true;
@@ -188,25 +223,80 @@ static void irc_process_line(irc_t *irc) {
         }
     }
 
+
     if (!strncmp(line, "PING :", 6))
         irc_pong(irc, line + 6);
 
+    //
+    // Deal with NickServ on networks that support it:
+    //  TODO
+    //
     if (!strncmp(line, "NOTICE AUTH :", 13)) {
-        // TODO NickServ
+
     }
+
+    char *nick    = NULL;
+    char *message = NULL;
+    char *channel = NULL;
+    bool  private = false;
 
     // Just raise internal error if the ircd errors
     if (!strncmp(line, "ERROR :", 7))
         raise(SIGUSR1);
 
-    //
-    // TODO:
-    // parse where messages come from, and who they go to, channel,
-    // user, etc.
-    //
-    //
+    // non message strings are ignored
+    if (strchr(line, 1))
+        return;
 
-    //printf(">> %s\n", line);
+    // parse the contents of the line
+    if (*line == ':') {
+        char *ptr = strtok(line + 1, "!");
+        if (!ptr)
+            return;
+
+        nick = strdup(ptr);
+
+        while ((ptr = strtok(NULL, " "))) {
+            if (!strcmp(ptr, "PRIVMSG")) {
+                private = true;
+                break;
+            }
+        }
+
+        if (private) {
+            if ((ptr = strtok(NULL, ":")))
+                channel = strdup(ptr);
+            if ((ptr = strtok(NULL, "")))
+                message = strdup(ptr);
+        }
+
+        // write it back out to the channel
+        if (channel) {
+            void (*cmd)(irc_t *, const char *, const char *, const char *) = NULL;
+            if (private && strlen(nick) > 0 && strlen(message) > 0) {
+                if (!strncmp(message, irc->pattern, strlen(irc->pattern))) {
+                    // get the command entry and call it
+                    char *copy  = strdup(message + strlen(irc->pattern));
+                    char *match = strchr(copy, ' ');
+                    if (match)
+                        *match = '\0';
+
+                    if ((cmd = irc_modules_command(irc, copy))) {
+                        // pass it in
+                        cmd(irc, channel, nick, message + strlen(irc->pattern) + strlen(copy) + 1); // "stuff"
+                    } else {
+                        irc_write(irc, channel, "unknown command %s%s", irc->pattern, message + strlen(irc->pattern));
+                    }
+
+                    free(copy);
+                }
+            }
+            free(channel);
+        }
+
+        if (nick)    free(nick);
+        if (message) free(message);
+    }
 }
 
 int irc_process(irc_t *irc) {

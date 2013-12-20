@@ -6,16 +6,6 @@
 #include <stdio.h>  // fprintf, stderr
 #include <string.h>
 
-struct module_s {
-    void       *handle;
-    const char *name;
-    const char *match;
-    char       *file;
-    void      (*enter)(irc_t *irc);
-    void      (*close)(irc_t *irc);
-    irc_t      *instance;
-};
-
 module_t *module_open(const char *file, irc_t *instance) {
     module_t *module = malloc(sizeof(*module));
 
@@ -61,8 +51,8 @@ module_open_error:
     return NULL;
 }
 
-void module_enter(module_t *module) {
-    module->enter(module->instance);
+void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
+    module->enter(module->instance, channel, user, message);
 }
 
 void module_close(module_t *module) {
