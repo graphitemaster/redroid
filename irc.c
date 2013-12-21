@@ -2,7 +2,6 @@
 #include "sock.h"
 #include "module.h"
 
-#define _GNU_SOURCE // asprintf
 #include <stdlib.h> // malloc, free
 #include <string.h> // memset
 #include <stdio.h>  // fprintf, stderr
@@ -299,7 +298,7 @@ static void irc_process_line(irc_t *irc) {
                     if (match)
                         *match = '\0';
 
-                    if ((cmd = irc_modules_command(irc, copy))) {
+                    if ((cmd = irc_modules_command(irc, irc_process_trim(copy)))) {
                         // trim trailing white
                         char *trim = irc_process_trim(message + strlen(irc->pattern) + strlen(copy) + 1);
                         cmd(irc, channel, nick, trim); // "stuff"

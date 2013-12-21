@@ -8,6 +8,11 @@
 #include "sock.h"
 #include "list.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 // signal safe singleton, can consistently recieve a signal and
 // overwrite the stage without working about odd race conditions
 // i.e multiple CTRL+C to force quit.
@@ -36,10 +41,38 @@ static void signal_install(void) {
     signal(SIGINT,  &signal_handle);
 }
 
-int main() {
+int main(int argc, char **argv) {
+    argc--;
+    argv++;
+
+    pid_t          pid;
+    pid_t          sid;
     irc_manager_t *manager;
 
     signal_install();
+
+    if (argv[0][0] == '-') {
+        switch (argv[0][1]) {
+            case 'q': // quiet
+                freopen("/dev/null", "w", stdout);
+                freopen("/dev/null", "w", stderr);
+                break;
+
+            case 'd': // daemonize
+                pid = fork();
+                if (pid < 0)
+                    exit(EXIT_FAILURE);
+                if (pid > 0)
+                    exit(EXIT_SUCCESS);
+                umask(0);
+                if ((sid = setsid() < 0))
+                    exit(EXIT_FAILURE);
+                close(STDIN_FILENO);
+                close(STDOUT_FILENO);
+                close(STDERR_FILENO);
+                break;
+        }
+    }
 
     if (!(manager = irc_manager_create())) {
         fprintf(stderr, "failed creating irc manager\n");

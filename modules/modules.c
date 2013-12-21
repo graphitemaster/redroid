@@ -1,8 +1,6 @@
 #include <module.h>
-
-#define _GNU_SOURCE // asprintf
-#include <stdio.h>  // asprintf
-#include <stdlib.h> // free
+#include <stdio.h>
+#include <stdlib.h>
 
 MODULE_DEFAULT(modules);
 

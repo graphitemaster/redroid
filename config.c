@@ -1,7 +1,6 @@
 #include "config.h"
 #include "ini.h"
 
-#define _GNU_SOURCE // asprintf
 #include <stdio.h>  // asprintf
 #include <string.h> // strlen, memset, strstr
 #include <stdlib.h> // malloc, free, strdup
