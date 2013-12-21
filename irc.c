@@ -1,6 +1,5 @@
 #include "irc.h"
 #include "sock.h"
-#include "list.h"
 #include "module.h"
 
 #define _GNU_SOURCE // asprintf
@@ -11,19 +10,6 @@
 #include <stdarg.h> // va_list, va_start, va_end
 #include <ctype.h>  // isspace
 
-struct irc_s {
-    char   *name;        // irc instance name
-    char   *nick;        // nick to use on this network
-    char   *pattern;     // pattern bot uses to know a command
-    int     sock;        // network socket
-    bool    ready;       // ready
-    bool    readying;    // readying up
-    char    buffer[512]; // processing buffer
-    size_t  bufferpos;   // buffer position
-    list_t *modules;     // list of modules for this instance
-    list_t *channels;    // list of channels for this instance
-};
-
 // Some utility functions
 static int irc_pong(irc_t *irc, const char *data) {
     return sock_sendf(irc->sock, "PONG :%s\r\n", data);
@@ -33,11 +19,13 @@ static int irc_register(irc_t *irc) {
         return -1;
     return sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
 }
+#if 0
 static int irc_nick(irc_t *irc, const char *nick) {
     free(irc->nick);
     irc->nick = strdup(nick);
     return sock_sendf(irc->sock, "NICK %s\r\n", nick);
 }
+#endif
 static int irc_quit(irc_t *irc, const char *message) {
     return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
 }
@@ -84,11 +72,12 @@ irc_t *irc_create(const char *name, const char *nick, const char *pattern) {
     if (!(irc->pattern = strdup(pattern)))
         goto error;
 
-    irc->ready     = false;
-    irc->readying  = false;
-    irc->bufferpos = 0;
-    irc->modules   = list_create();
-    irc->channels  = list_create();
+    irc->ready      = false;
+    irc->readying   = false;
+    irc->bufferpos  = 0;
+    irc->modules    = list_create();
+    irc->channels   = list_create();
+    irc->floodlines = 0;
 
     printf("instance: %s\n", name);
     return irc;
@@ -104,7 +93,7 @@ module_t *irc_modules_find(irc_t *irc, const char *file) {
     list_iterator_t *it;
     for (it = list_iterator_create(irc->modules); !list_iterator_end(it); ) {
         module_t *module = list_iterator_next(it);
-        if (!strcmp(module_file(module), file)) {
+        if (!strcmp(module->file, file)) {
             list_iterator_destroy(it);
             return module;
         }
@@ -118,7 +107,7 @@ bool irc_modules_add(irc_t *irc, const char *name) {
 
     // prevent loading module twice
     if ((module = irc_modules_find(irc, name))) {
-        printf("    module  => %s [%s] already loaded\n", module_name(module), name);
+        printf("    module  => %s [%s] already loaded\n", module->name, name);
         return false;
     }
 
@@ -127,7 +116,7 @@ bool irc_modules_add(irc_t *irc, const char *name) {
 
     if (module) {
         list_push(irc->modules, module);
-        printf("    module  => %s [%s] loaded\n", module_name(module), module_file(module));
+        printf("    module  => %s [%s] loaded\n", module->name, module->file);
         return true;
     }
     printf("    module  => %s loading failed\n", name);
@@ -169,7 +158,7 @@ void irc_destroy(irc_t *irc) {
     // destory modules
     list_iterator_t *it;
     for (it = list_iterator_create(irc->modules); !list_iterator_end(it); )
-        module_close(list_iterator_next(it));
+        module_destroy(list_iterator_next(it));
     list_iterator_destroy(it);
     list_destroy(irc->modules);
 

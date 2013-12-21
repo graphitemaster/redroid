@@ -4,6 +4,7 @@
 // some stuff for modules
 #include "../irc.h"
 #include "../list.h"
+#include "../module.h"
 
 #define MODULE_DEFINE(NAME, COMMAND) \
     char module_name[]  = NAME;      \

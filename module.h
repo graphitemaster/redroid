@@ -16,9 +16,6 @@ struct module_s {
 };
 
 module_t *module_open(const char *file, irc_t *instance);
-void module_close(module_t *module);
-const char *module_file(module_t *module);
-void module_enter(module_t *module, const char *channel, const char *user, const char *message);
-const char *module_name(module_t *module);
+void module_destroy(module_t *module);
 
 #endif

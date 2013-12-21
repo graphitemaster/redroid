@@ -55,17 +55,9 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     module->enter(module->instance, channel, user, message);
 }
 
-void module_close(module_t *module) {
+void module_destroy(module_t *module) {
     module->close(module->instance);
     dlclose(module->handle);
     free(module->file);
     free(module);
-}
-
-const char *module_file(module_t *module) {
-    return module->file;
-}
-
-const char *module_name(module_t *module) {
-    return module->name;
 }
