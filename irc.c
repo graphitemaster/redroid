@@ -349,6 +349,18 @@ int irc_process(irc_t *irc) {
                 irc_process_line(irc);
                 break;
 
+            // ignore colors
+            case '\x03':
+                for (char ch = temp[i]; ch != '\x03'; i++)
+                    ;
+                break;
+
+            // ignore bold, italics and underline
+            case '\x02':
+            case '\x1D':
+            case '\x1F':
+                break;
+
             default:
                 irc->buffer[irc->bufferpos] = temp[i];
                 if (irc->bufferpos >= sizeof(irc->buffer) - 1)
@@ -357,6 +369,5 @@ int irc_process(irc_t *irc) {
                     irc->bufferpos++;
         }
     }
-
     return 0;
 }
