@@ -1,15 +1,16 @@
 #include "sock.h"
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <netdb.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <signal.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/select.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <fcntl.h>
 
 int sock_get(const char *host, const char *port) {
     int status;

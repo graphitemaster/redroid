@@ -18,13 +18,6 @@ static int irc_register(irc_t *irc) {
         return -1;
     return sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
 }
-#if 0
-static int irc_nick(irc_t *irc, const char *nick) {
-    free(irc->nick);
-    irc->nick = strdup(nick);
-    return sock_sendf(irc->sock, "NICK %s\r\n", nick);
-}
-#endif
 static int irc_quit(irc_t *irc, const char *message) {
     return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
 }

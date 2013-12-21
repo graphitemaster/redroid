@@ -49,7 +49,7 @@ irc_t *irc_manager_find(irc_manager_t *manager, const char *name) {
 
 void irc_manager_process(irc_manager_t *manager) {
     list_iterator_t *it = manager->iterator;
-    if (!it) // only if we have a list to process
+    if (!it)
         return;
 
     list_iterator_reset(it);
