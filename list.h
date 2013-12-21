@@ -1,7 +1,7 @@
 #ifndef REDROID_LIST_HDR
 #define REDROID_LIST_HDR
-#include <stdbool.h> // bool
-#include <stddef.h> // size_t
+#include <stdbool.h>
+#include <stddef.h>
 
 typedef struct list_iterator_s list_iterator_t;
 typedef struct list_s          list_t;

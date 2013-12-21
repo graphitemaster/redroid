@@ -1,6 +1,6 @@
 #include <module.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 MODULE_DEFAULT(modules);
 

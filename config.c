@@ -1,10 +1,10 @@
 #include "config.h"
 #include "ini.h"
 
-#include <stdio.h>  // asprintf
-#include <string.h> // strlen, memset, strstr
-#include <stdlib.h> // malloc, free, strdup
-#include <dirent.h> // DIR, dirent, readdir, closedir
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <dirent.h>
 
 #define MODULE_DIR "modules"
 

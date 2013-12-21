@@ -1,9 +1,9 @@
 #include "module.h"
 #include "irc.h"
 
-#include <dlfcn.h>  // dlopen, dlclose, dlsym, RTLD_LAZY
-#include <stdlib.h> // malloc, free
-#include <stdio.h>  // fprintf, stderr
+#include <dlfcn.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 static module_t *module_load(module_t *module) {

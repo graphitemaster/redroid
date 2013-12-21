@@ -2,12 +2,12 @@
 #include "sock.h"
 #include "module.h"
 
-#include <stdlib.h> // malloc, free
-#include <string.h> // memset
-#include <stdio.h>  // fprintf, stderr
-#include <signal.h> // raise, SIGUSR1
-#include <stdarg.h> // va_list, va_start, va_end
-#include <ctype.h>  // isspace
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <ctype.h>
 
 // Some utility functions
 static int irc_pong(irc_t *irc, const char *data) {

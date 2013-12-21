@@ -1,8 +1,8 @@
 #include "list.h"
 #include "ircman.h"
 
-#include <stdlib.h> // malloc, free
-#include <string.h> // strcmp
+#include <stdlib.h>
+#include <string.h>
 
 struct irc_manager_s {
     list_t          *instances;

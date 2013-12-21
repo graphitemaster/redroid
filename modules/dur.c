@@ -1,8 +1,8 @@
 #include <module.h>
-#include <time.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
-#include <stdlib.h> // strtol
+#include <time.h>
 
 MODULE_DEFAULT(dur);
 

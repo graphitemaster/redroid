@@ -1,6 +1,6 @@
-#include <stdio.h>  // printf, fprintf
-#include <stdlib.h> // EXIT_SUCCESS, EXIT_FAILURE
-#include <signal.h> // signal, SIGINT
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
 #include <string.h>
 
 #include "ircman.h"
@@ -108,6 +108,7 @@ int main(int argc, char **argv) {
         irc_manager_add(manager, irc);
 
     }
+
     list_iterator_destroy(it);
     config_unload(list); // unload config
 
