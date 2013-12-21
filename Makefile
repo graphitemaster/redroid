@@ -21,8 +21,11 @@ $(REDROID): $(OBJECTS)
 modules/%.so: modules/%.c
 	$(CC) $(MODULE_CFLAGS) $(MODULE_LDFLAGS) $< -o $@
 
+modules: $(MODULE_OBJECTS)
 
-clean:
+cleanmodules:
+	rm -f $(MODULE_OBJECTS)
+
+clean: cleanmodules
 	rm -f $(OBJECTS)
 	rm -f $(REDROID)
-	rm -f $(MODULE_OBJECTS)

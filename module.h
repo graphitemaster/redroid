@@ -17,5 +17,6 @@ struct module_s {
 
 module_t *module_open(const char *file, irc_t *instance);
 void module_destroy(module_t *module);
+bool module_reload(module_t *module);
 
 #endif
