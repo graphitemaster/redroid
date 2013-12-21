@@ -6,8 +6,8 @@
 #include "../list.h"
 #include "../module.h"
 
-#define MODULE_DEFINE(NAME, COMMAND) \
-    char module_name[]  = NAME;      \
-    char module_match[] = COMMAND
+#define MODULE_DEFAULT(NAME)      \
+    char module_name[]  = #NAME;  \
+    char module_match[] = #NAME
 
 #endif

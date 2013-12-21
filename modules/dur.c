@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h> // strtol
 
-MODULE_DEFINE("dur", "dur");
+MODULE_DEFAULT(dur);
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     char buffer[16];
