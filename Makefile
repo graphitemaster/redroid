@@ -5,8 +5,8 @@ SOURCES = irc.c ircman.c list.c main.c module.c sock.c ini.c config.c
 OBJECTS = $(SOURCES:.c=.o)
 REDROID = redroid
 
-MODULE_CFLAGS  = -fPIC -std=gnu99 -Imodules/
-MODULE_LDFLAGS = -shared -rdynamic
+MODULE_CFLAGS  = -fPIC -std=gnu99 -Imodules/ -ggdb3
+MODULE_LDFLAGS = -shared -rdynamic -lm
 MODULE_SOURCES = $(shell echo modules/*.c)
 MODULE_OBJECTS = $(MODULE_SOURCES:.c=.so)
 
