@@ -1,7 +1,7 @@
 CC     ?= clang
 CFLAGS  = -std=gnu99 -Wall -ggdb3 -D_GNU_SOURCE
 LDFLAGS = -ldl -Wl,--export-dynamic
-SOURCES = irc.c ircman.c list.c main.c module.c sock.c ini.c config.c
+SOURCES = irc.c ircman.c list.c main.c module.c sock.c ini.c config.c string.c
 OBJECTS = $(SOURCES:.c=.o)
 REDROID = redroid
 

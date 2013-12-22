@@ -42,7 +42,3 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
 
     freeaddrinfo(res);
 }
-
-void module_close(irc_t *irc) {
-    // nothing to do
-}

@@ -30,7 +30,7 @@ static module_t *module_load(module_t *module) {
 
     MODULE_TRY(match, "module_match", "command match");
     MODULE_TRY(enter, "module_enter", "entry function");
-    MODULE_TRY(close, "module_close", "cleanup function");
+    //MODULE_TRY(close, "module_close", "cleanup function");
 #   undef MODULE_TRY
 
     return module;
@@ -59,7 +59,8 @@ module_t *module_open(const char *file, irc_t *instance) {
 }
 
 bool module_reload(module_t *module) {
-    module->close(module->instance);
+    if (module->close)
+        module->close(module->instance);
     dlclose(module->handle);
     if (!(module->handle = dlopen(module->file, RTLD_LAZY)))
         goto module_reload_error;
@@ -80,7 +81,8 @@ void module_enter(module_t *module, const char *channel, const char *user, const
 }
 
 void module_destroy(module_t *module) {
-    module->close(module->instance);
+    if (module->close)
+        module->close(module->instance);
     dlclose(module->handle);
     free(module->file);
     free(module);

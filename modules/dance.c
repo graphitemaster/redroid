@@ -10,7 +10,3 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         // TODO: user list check
         irc_action(irc, channel, "gives %s a lap dance - oooh-lah-lah", message);
 }
-
-void module_close(irc_t *irc) {
-    // Nothing
-}

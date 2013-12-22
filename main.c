@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 
     signal_install();
 
-    if (argv[0][0] == '-') {
+    if (argc && argv[0][0] == '-') {
         switch (argv[0][1]) {
             case 'q': // quiet
                 freopen("/dev/null", "w", stdout);

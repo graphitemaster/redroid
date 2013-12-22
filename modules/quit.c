@@ -1,7 +1,8 @@
 #include <module.h>
+#include <signal.h>
 
-MODULE_DEFAULT(phail);
+MODULE_DEFAULT(quit);
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    irc_write(irc, channel, "%s: Uhuh, graphitemaster iz teh phail.", user);
+    raise(SIGINT);
 }

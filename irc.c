@@ -280,7 +280,6 @@ static void irc_process_line(irc_t *irc) {
                 message = strdup(ptr);
         }
 
-        // write it back out to the channel
         if (channel) {
             void (*cmd)(irc_t *, const char *, const char *, const char *) = NULL;
             if (private && strlen(nick) > 0 && strlen(message) > 0) {
@@ -297,15 +296,13 @@ static void irc_process_line(irc_t *irc) {
                         cmd(irc, channel, nick, trim); // "stuff"
                     } else {
                         char *trim = irc_process_trim(message + strlen(irc->pattern));
-                        irc_write(irc, channel, "unknown command %s%s", irc->pattern, trim);
+                        irc_write(irc, channel, "unknown command %s%s", irc->pattern, copy);
                     }
-
                     free(copy);
                 }
             }
             free(channel);
         }
-
         if (nick)    free(nick);
         if (message) free(message);
     }

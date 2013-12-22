@@ -32,7 +32,3 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     else
         reload_one(irc, channel, message);
 }
-
-void module_close(irc_t *irc) {
-    // nothing
-}

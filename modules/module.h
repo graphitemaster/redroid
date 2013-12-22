@@ -4,6 +4,7 @@
 // some stuff for modules
 #include "../irc.h"
 #include "../list.h"
+#include "../string.h"
 #include "../module.h"
 
 #define MODULE_DEFAULT(NAME)      \
