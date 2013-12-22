@@ -128,7 +128,7 @@ void cmd_pool_process(cmd_pool_t *pool) {
         );
 
         // restart it
-        pthread_kill(pool->handle, SIGTHR);
+        pthread_kill(pool->handle, SIGUSR2);
         cmd_pool_begin(pool);
         pool->current = NULL;
     }
