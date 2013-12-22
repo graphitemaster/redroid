@@ -23,7 +23,7 @@ struct irc_s {
 
 irc_t *irc_create(const char *name, const char *nick, const char *pattern);
 void  irc_destroy(irc_t *irc);
-int irc_process(irc_t *irc);
+int irc_process(irc_t *irc, void *commander);
 const char *irc_name(irc_t *irc);
 
 int irc_connect(irc_t *irc, const char *host, const char *port);

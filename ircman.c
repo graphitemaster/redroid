@@ -1,5 +1,6 @@
 #include "list.h"
 #include "ircman.h"
+#include "command.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +8,7 @@
 struct irc_manager_s {
     list_t          *instances;
     list_iterator_t *iterator; // cached iterator
+    cmd_pool_t      *commander;
 };
 
 irc_manager_t *irc_manager_create(void) {
@@ -19,7 +21,8 @@ irc_manager_t *irc_manager_create(void) {
         return NULL;
     }
 
-    man->iterator = NULL;
+    man->iterator  = NULL;
+    man->commander = cmd_pool_create();
     return man;
 }
 
@@ -32,6 +35,7 @@ void irc_manager_destroy(irc_manager_t *manager) {
         list_iterator_destroy(it);
     }
 
+    cmd_pool_destroy(manager->commander);
     list_destroy(manager->instances);
     free(manager);
 }
@@ -54,7 +58,12 @@ void irc_manager_process(irc_manager_t *manager) {
 
     list_iterator_reset(it);
     while (!list_iterator_end(it))
-        irc_process(list_iterator_next(it));
+        irc_process(list_iterator_next(it), manager->commander);
+
+    if (!cmd_pool_ready(manager->commander))
+        cmd_pool_begin(manager->commander);
+    else
+        cmd_pool_process(manager->commander);
 }
 
 void irc_manager_add(irc_manager_t *manager, irc_t *instance) {

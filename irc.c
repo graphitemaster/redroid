@@ -1,6 +1,7 @@
 #include "irc.h"
 #include "sock.h"
 #include "module.h"
+#include "command.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -203,7 +204,7 @@ static char *irc_process_trim(char *str) {
     return str;
 }
 
-static void irc_process_line(irc_t *irc) {
+static void irc_process_line(irc_t *irc, cmd_pool_t *commander) {
     char *line = irc->buffer;
     if (!line || !*line)
         return;
@@ -291,11 +292,10 @@ static void irc_process_line(irc_t *irc) {
                         *match = '\0';
 
                     if ((cmd = irc_modules_command(irc, irc_process_trim(copy)))) {
-                        // trim trailing white
-                        char *trim = irc_process_trim(message + strlen(irc->pattern) + strlen(copy) + 1);
-                        cmd(irc, channel, nick, trim); // "stuff"
+                        // create a command
+                        cmd_entry_t *entry = cmd_entry_create(irc, channel, nick, irc_process_trim(message + strlen(irc->pattern) + strlen(copy) + 1), cmd);
+                        cmd_pool_queue(commander, entry);
                     } else {
-                        char *trim = irc_process_trim(message + strlen(irc->pattern));
                         irc_write(irc, channel, "unknown command %s%s", irc->pattern, copy);
                     }
                     free(copy);
@@ -308,7 +308,9 @@ static void irc_process_line(irc_t *irc) {
     }
 }
 
-int irc_process(irc_t *irc) {
+int irc_process(irc_t *irc, void *cmd) {
+    cmd_pool_t *commander = cmd;
+
     char temp[128];
     int  read;
 
@@ -324,7 +326,7 @@ int irc_process(irc_t *irc) {
                 irc->buffer[irc->bufferpos] = '\0';
                 irc->bufferpos              = 0;
 
-                irc_process_line(irc);
+                irc_process_line(irc, commander);
                 break;
 
             // ignore colors
