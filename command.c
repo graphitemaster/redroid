@@ -45,6 +45,9 @@ cmd_entry_t *cmd_entry_create (
 }
 
 void cmd_entry_destroy(cmd_entry_t *entry) {
+    if (!entry)
+        return;
+
     free(entry->channel);
     free(entry->user);
     free(entry->message);
@@ -93,6 +96,7 @@ static void *cmd_pool_dispatcher(void *data) {
             pool->current = entry;
 
             entry->entry(entry->irc, entry->channel, entry->user, entry->message);
+
             cmd_entry_destroy(entry);
         }
     }
@@ -100,7 +104,12 @@ static void *cmd_pool_dispatcher(void *data) {
     return NULL;
 }
 
+static void cmd_pool_signalhandler(int sig) {
+    pthread_exit(NULL);
+}
+
 void cmd_pool_begin(cmd_pool_t *pool) {
+    signal(SIGUSR2, &cmd_pool_signalhandler);
     pthread_create(&pool->handle, NULL, &cmd_pool_dispatcher, pool);
     pool->ready = true;
     printf("    queue   => running\n");
@@ -110,7 +119,7 @@ void cmd_pool_process(cmd_pool_t *pool) {
     if (!pool || !pool->current)
         return;
 
-    if (difftime(time(0), pool->timeout) >= 10) {
+    if (difftime(time(0), pool->timeout) >= 5) {
         irc_write (
             pool->current->irc,
             pool->current->channel,
@@ -118,7 +127,8 @@ void cmd_pool_process(cmd_pool_t *pool) {
             pool->current->user
         );
 
-        pthread_cancel(pool->handle);
+        // restart it
+        pthread_kill(pool->handle, SIGTHR);
         cmd_pool_begin(pool);
         pool->current = NULL;
     }

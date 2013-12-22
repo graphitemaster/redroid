@@ -24,13 +24,14 @@ static bool signal_shutdown(bool shutdown) {
 }
 
 static void signal_handle(int signal) {
-    signal_shutdown(true);
-
     if (signal == SIGTERM || signal == SIGINT)
         printf("Recieved shutdown signal\n");
-    else
+    else if (signal != SIGUSR1)
         printf("Recieved internal error\n");
+    else
+        return;
 
+    signal_shutdown(true);
     printf("Shutting down ...\n");
     fflush(NULL);
 }
