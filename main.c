@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 
 // signal safe singleton, can consistently recieve a signal and
 // overwrite the stage without working about odd race conditions
@@ -26,7 +27,7 @@ static bool signal_shutdown(bool shutdown) {
 static void signal_handle(int signal) {
     if (signal == SIGTERM || signal == SIGINT)
         printf("Recieved shutdown signal\n");
-    else if (signal != SIGUSR1)
+    else if (signal == SIGUSR1)
         printf("Recieved internal error\n");
     else
         return;
@@ -51,6 +52,7 @@ int main(int argc, char **argv) {
     irc_manager_t *manager;
 
     signal_install();
+    srand(time(0));
 
     if (argc && argv[0][0] == '-') {
         switch (argv[0][1]) {

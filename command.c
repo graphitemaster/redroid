@@ -7,6 +7,8 @@
 #include <time.h>
 #include <signal.h>
 
+static pthread_mutex_t global_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 struct cmd_pool_s {
     pthread_t    handle;
     list_t      *queue;
@@ -59,6 +61,7 @@ cmd_pool_t *cmd_pool_create(void) {
     pool->queue   = list_create();
     pool->ready   = false;
     pool->current = NULL;
+    pool->timeout = time(0);
 
     return pool;
 }
@@ -89,16 +92,18 @@ static void *cmd_pool_dispatcher(void *data) {
         if (!queue)
             continue;
 
+        pthread_mutex_lock(&global_pool_mutex);
         cmd_entry_t *entry = list_pop(queue);
 
         if (entry) {
-            pool->timeout = time(0);
             pool->current = entry;
-
+            pool->timeout = time(0); // begin the time just before the module call.
             entry->entry(entry->irc, entry->channel, entry->user, entry->message);
+            pool->current = NULL; // of we return then make this NULL right away.
 
             cmd_entry_destroy(entry);
         }
+        pthread_mutex_unlock(&global_pool_mutex);
     }
 
     return NULL;
@@ -116,21 +121,22 @@ void cmd_pool_begin(cmd_pool_t *pool) {
 }
 
 void cmd_pool_process(cmd_pool_t *pool) {
-    if (!pool || !pool->current)
+    if (!cmd_pool_ready(pool) || !pool->current)
         return;
 
-    if (difftime(time(0), pool->timeout) >= 5) {
+    if (difftime(time(0), pool->timeout) >= 20) {
         irc_write (
             pool->current->irc,
             pool->current->channel,
-            "%s: command timedout",
+            "%s: command timeout",
             pool->current->user
         );
 
-        // restart it
+        // restart the thread
+        pthread_mutex_unlock(&global_pool_mutex);
         pthread_kill(pool->handle, SIGUSR2);
-        cmd_pool_begin(pool);
         pool->current = NULL;
+        cmd_pool_begin(pool);
     }
 }
 

@@ -14,6 +14,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         if (!(strcmp(((module_t*)list_iterator_next(it))->name, message)))
             break;
     }
+
     if (list_iterator_end(it)) {
         // try loading the module from modules/name.so
         char *load = NULL;
