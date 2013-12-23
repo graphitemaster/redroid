@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <unistd.h>
 
 struct cmd_link_s {
     cmd_entry_t *data;
@@ -24,6 +25,9 @@ struct cmd_channel_s {
     volatile bool   wrend;
     void          (*destroy)(cmd_entry_t *);
     bool            ready;
+    time_t          cmd_time;
+    cmd_entry_t    *cmd_entry;
+    pthread_mutex_t cmd_mutex;
 };
 
 struct cmd_entry_s {
@@ -48,29 +52,33 @@ void cmd_link_destroy(cmd_link_t *link, void (*destroy)(cmd_entry_t *)) {
 cmd_channel_t *cmd_channel_create(void) {
     cmd_channel_t *channel = malloc(sizeof(*channel));
 
-    pthread_mutex_init(&channel->mutex, NULL);
-    pthread_cond_init (&channel->waiter, NULL);
+    pthread_mutex_init(&channel->mutex,     NULL);
+    pthread_mutex_init(&channel->cmd_mutex, NULL);
+    pthread_cond_init (&channel->waiter,    NULL);
 
-    channel->head     = cmd_link_create();
-    channel->tail     = channel->head;
-    channel->rdintent = NULL;
-    channel->rdend    = false;
-    channel->wrend    = false;
-    channel->destroy  = NULL;
-    channel->ready    = false;
+    channel->head      = cmd_link_create();
+    channel->tail      = channel->head;
+    channel->rdintent  = NULL;
+    channel->rdend     = false;
+    channel->wrend     = false;
+    channel->destroy   = NULL;
+    channel->ready     = false;
+    channel->cmd_time  = 0;
+    channel->cmd_entry = NULL;
 
     return channel;
 }
 
 void cmd_channel_destroy(cmd_channel_t *channel) {
-    cmd_channel_rdclose(channel);
+    cmd_channel_wrclose(channel);
+    if (cmd_channel_timeout(channel))
+        cmd_entry_destroy(channel->cmd_entry);
+    else
+        pthread_join(channel->thread, NULL);
 
     pthread_mutex_destroy(&channel->mutex);
+    pthread_mutex_destroy(&channel->cmd_mutex);
     pthread_cond_destroy (&channel->waiter);
-
-    // kill thread
-    pthread_kill(channel->thread, SIGUSR2);
-    pthread_join(channel->thread, NULL);
 
     cmd_link_t *link = channel->head;
     while (link) {
@@ -133,7 +141,7 @@ void cmd_channel_wrclose(cmd_channel_t *channel) {
     if (channel->rdintent == channel->tail) {
         pthread_mutex_lock(&channel->mutex);
         if (channel->rdintent == channel->tail)
-            pthread_cond_wait(&channel->waiter, &channel->mutex);
+            pthread_cond_signal(&channel->waiter);
         pthread_mutex_unlock(&channel->mutex);
     }
 }
@@ -187,20 +195,25 @@ static void *cmd_channel_threader(void *data) {
     cmd_channel_t *channel = data;
     cmd_entry_t   *entry   = NULL;
 
-    for(;;) {
-        while (cmd_channel_pop(channel, &entry)) {
-            if (entry->method) {
-                entry->method(
-                    entry->instance,
-                    string_contents(entry->channel),
-                    string_contents(entry->user),
-                    string_contents(entry->message)
-                );
-                cmd_entry_destroy(entry);
-            }
+    while (cmd_channel_pop(channel, &entry)) {
+        if (entry->method) {
+            channel->cmd_time = time(NULL);
+            channel->cmd_entry = entry;
+            entry->method(
+                entry->instance,
+                string_contents(entry->channel),
+                string_contents(entry->user),
+                string_contents(entry->message)
+            );
+            pthread_mutex_lock(&channel->cmd_mutex);
+            cmd_entry_destroy(entry);
+            channel->cmd_time  = 0;
+            channel->cmd_entry = NULL;
+            pthread_mutex_unlock(&channel->cmd_mutex);
         }
     }
 
+    cmd_channel_rdclose(channel);
     return NULL;
 }
 
@@ -221,6 +234,45 @@ bool cmd_channel_ready(cmd_channel_t *channel) {
     return channel->ready;
 }
 
+bool cmd_channel_timeout(cmd_channel_t *channel) {
+    if (!channel->cmd_time || channel->cmd_time + 3 >= time(NULL))
+        return false;
+    // a command timed out:
+    pthread_mutex_lock(&channel->cmd_mutex);
+    // it's possible the thread locked the mutex first, which means the command
+    // took _exactly_ as much time as allowed, so we need to recheck
+    // for whether the command actually did time out:
+    if (!channel->cmd_time || channel->cmd_time + 3 >= time(NULL)) {
+        // it didn't
+        pthread_mutex_unlock(&channel->cmd_mutex);
+        return false;
+    }
+    // now we send the kill signal
+    pthread_kill(channel->thread, SIGUSR2);
+    pthread_join(channel->thread, NULL);
+    pthread_mutex_unlock(&channel->cmd_mutex);
+    return true;
+}
+
 void cmd_channel_process(cmd_channel_t *channel) {
-    // TODO: consult blub
+    if (!cmd_channel_timeout(channel))
+        return;
+
+    // the entry is ours now, we need to clean this up:
+    cmd_entry_t *entry = channel->cmd_entry;
+    channel->cmd_entry = NULL;
+    channel->cmd_time  = 0;
+
+    irc_write(
+        entry->instance,
+        string_contents(entry->channel),
+        "%s: command timed out",
+        string_contents(entry->user)
+    );
+
+    cmd_entry_destroy(entry);
+
+    // reopen the reading end
+    channel->rdend = false;
+    cmd_channel_begin(channel);
 }
