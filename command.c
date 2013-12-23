@@ -63,17 +63,25 @@ cmd_channel_t *cmd_channel_create(void) {
 }
 
 void cmd_channel_destroy(cmd_channel_t *channel) {
+    cmd_channel_rdclose(channel);
+
     pthread_mutex_destroy(&channel->mutex);
     pthread_cond_destroy (&channel->waiter);
+
+    // kill thread
+    pthread_kill(channel->thread, SIGUSR2);
+    pthread_join(channel->thread, NULL);
 
     cmd_link_t *link = channel->head;
     while (link) {
         cmd_link_t *next = link->next;
         if (next && channel->destroy)
             channel->destroy(link->data);
-        cmd_link_destroy(link, NULL);
+        cmd_link_destroy(link, &cmd_entry_destroy);
         link = next;
     }
+
+    free(channel);
 }
 
 bool cmd_channel_push(cmd_channel_t *channel, cmd_entry_t *entry) {
@@ -160,6 +168,9 @@ cmd_entry_t *cmd_entry_create(
 }
 
 void cmd_entry_destroy(cmd_entry_t *entry) {
+    if (!entry)
+        return;
+
     if (entry->channel) string_destroy(entry->channel);
     if (entry->user)    string_destroy(entry->user);
     if (entry->message) string_destroy(entry->message);

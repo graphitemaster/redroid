@@ -71,19 +71,15 @@ bool module_reload(module_t *module) {
     return true;
 
 module_reload_error:
-    free(module->file);
-    free(module);
+    module_destroy(module);
     return false;
-}
-
-void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
-    module->enter(module->instance, channel, user, message);
 }
 
 void module_destroy(module_t *module) {
     if (module->close)
         module->close(module->instance);
-    dlclose(module->handle);
+    if (module->handle)
+        dlclose(module->handle);
     free(module->file);
     free(module);
 }

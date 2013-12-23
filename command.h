@@ -16,6 +16,10 @@ cmd_entry_t *cmd_entry_create(
     void         (*method)(irc_t *, const char *, const char *, const char *)
 );
 
+void cmd_entry_destroy(cmd_entry_t *entry);
+void cmd_channel_rdclose(cmd_channel_t *channel);
+void cmd_channel_wrclose(cmd_channel_t *channel);
+
 bool cmd_channel_push(cmd_channel_t *channel, cmd_entry_t *entry);
 bool cmd_channel_begin(cmd_channel_t *channel);
 bool cmd_channel_ready(cmd_channel_t *channel);

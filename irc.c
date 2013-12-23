@@ -105,13 +105,12 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     }
 
     // load the module
-    module = module_open(name, irc);
-
-    if (module) {
+    if ((module = module_open(name, irc))) {
         list_push(irc->modules, module);
         printf("    module  => %s [%s] loaded\n", module->name, module->file);
         return true;
     }
+
     printf("    module  => %s loading failed\n", name);
     return false;
 }
@@ -149,9 +148,10 @@ void irc_destroy(irc_t *irc) {
     irc_quit(irc, "Shutting down");
 
     // destory modules
-    list_iterator_t *it;
+    list_iterator_t *it = NULL;
     for (it = list_iterator_create(irc->modules); !list_iterator_end(it); )
         module_destroy(list_iterator_next(it));
+
     list_iterator_destroy(it);
     list_destroy(irc->modules);
 
