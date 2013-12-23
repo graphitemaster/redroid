@@ -11,6 +11,28 @@ Prerequisites:
     - C99 compiler
     - pthreads
 
+Configuration:
+    By default redroid searches the current running directory for a
+    config.ini file containing irc instances. For example an ini file
+    may looks like:
+
+    [freenode]
+        server = irc.freenode.org
+        port = 6667
+        nick = foo
+        auth = nick_serv_password
+        channel = #channel
+        modules = load, modules ; using * loads all modules
+
+    ; [quakenet]
+    ;   ...
+
+    // these are also comments
+    # as are these
+    ; and these
+
+    If no ini file is present the bot won't run.
+
 Modules:
     Modules are commands. Currently there is two types of
     modules:
