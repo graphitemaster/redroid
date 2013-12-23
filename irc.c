@@ -337,16 +337,27 @@ int irc_process(irc_t *irc, void *data) {
                 irc_process_line(irc, commander);
                 break;
 
-            // ignore colors
-            case '\x03':
-                for (char ch = temp[i]; ch != '\x03'; i++)
-                    ;
-                break;
-
-            // ignore bold, italics and underline
-            case '\x02':
-            case '\x1D':
-            case '\x1F':
+            // ignore stuff
+            case '\x13':    // strike-through
+            case '\x15':    // reset
+            case '\x1F':    // underline
+            case '\x16':    // reverse
+            case '\x00':    // white
+            case '\x01':    // black
+            case '\x02':    // dark blue  / (control: bold)
+            case '\x03':    // dark green / (control: color)
+            case '\x04':    // red
+            case '\x05':    // dark red
+            case '\x06':    // dark violet
+            case '\x07':    // orange
+            case '\x08':    // yellow
+            case '\x09':    // light green  / (control: italic)
+            //case '\x0A':    // cornflower blue
+            case '\x0B':    // light blue
+            case '\x0C':    // blue
+            //case '\x0D':    // violet
+            case '\x0E':    // dark grey
+            case '\x0F':    // light grey
                 break;
 
             default:

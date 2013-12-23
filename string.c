@@ -18,7 +18,7 @@ static void string_reallocate(string_t *string) {
 void string_catf(string_t *string, const char *fmt, ...) {
     va_list va;
     for (;;) {
-        size_t left  = string->allocated - string->length;
+        size_t left = string->allocated - string->length;
         size_t write;
 
         va_start(va, fmt);

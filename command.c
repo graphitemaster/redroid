@@ -205,7 +205,13 @@ static void *cmd_channel_threader(void *data) {
 }
 
 bool cmd_channel_begin(cmd_channel_t *channel) {
+    //
+    // if a module segfaults or times out the handler will gracefully
+    // (while cleaning up resources) get rid of it. Without bringing
+    // the whole bot process down.
+    //
     signal(SIGUSR2, &cmd_channel_signalhandle);
+    signal(SIGSEGV, &cmd_channel_signalhandle);
     pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel);
     printf("    queue   => running\n");
     return channel->ready = true;

@@ -8,7 +8,10 @@ MODULE_DEFAULT(gibberish);
 static const char *consonants = "bcdfghjklmnpqrstvwxz";
 static const char *vowels     = "aeiouy";
 
-void gibber(string_t *string, size_t max) {
+bool gibber(string_t *string, size_t max) {
+    if (!max)
+        max = 1;
+
     size_t a = rand() % max;
     size_t b = 1;
     size_t c = 0;
@@ -28,22 +31,28 @@ void gibber(string_t *string, size_t max) {
         }
         b++;
     }
+
+    return b > 1;
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     if (!message)
-        message = " ";
+        message = user;
 
-    size_t x = isdigit(*message) ? *message : (rand() % 36);
+    const char *digit = message;
+    while (*digit && isspace(*digit))
+        digit++;
+
+    size_t x = isdigit(*digit) ? atoi(message) : (rand() % 36);
     size_t y = 0;
 
-    string_t *string = NULL;
+    while (*digit && isdigit(*digit)) digit++;
+    while (*digit && isspace(*digit)) digit++;
+
+    string_t *string = string_construct();
     while (x > y) {
-        if (string)
+        if (gibber(string, (isdigit(*digit) ? atoi(digit) : 16)) && y+1 != x)
             string_catf(string, " ");
-        else
-            string = string_construct();
-        gibber(string, (isdigit(message[y]) ? message[y] : 16));
         y++;
     }
 
