@@ -24,6 +24,9 @@ static void config_entry_destroy(config_t *entry) {
     free(entry->host);
     free(entry->port);
 
+    if (entry->auth)
+        free(entry->auth);
+
     list_iterator_t *it;
     for (it = list_iterator_create(entry->modules); !list_iterator_end(it); )
         free(list_iterator_next(it));
@@ -66,6 +69,7 @@ static bool config_entry_handler(void *user, const char *section, const char *na
     else if (!strcmp(name, "pattern"))   exists->pattern = strdup(value);
     else if (!strcmp(name, "host"))      exists->host    = strdup(value);
     else if (!strcmp(name, "port"))      exists->port    = strdup(value);
+    else if (!strcmp(name, "auth"))      exists->auth    = strdup(value);
     else if (!strcmp(name, "modules")) {
         if (*value == '*') {
             // load all modules

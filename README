@@ -1,1 +1,59 @@
-A rewrite of redroid in C
+A modular rewrite of the popular mIRC redroid IRC bot:
+
+Features:
+    - Multiple channels
+    - Multiple networks
+    - Modules
+
+Prerequisites:
+    - Linux 2.6+
+    - GNU make
+    - C99 compiler
+    - pthreads
+
+Modules:
+    Modules are commands. Currently there is two types of
+    modules:
+        - default
+        - always
+
+    Default modules will only have their entry function invoked if the
+    command matches the module name. Always modules will always be entered
+    for any text.
+
+    To make a module create the appropriate module_name.c file in modules/
+    with a choice of being a default module or an always module. An example
+    is provided below:
+
+    #include <module>
+    MODULE_DEFAULT(echo);
+
+    void module_entry(irc_t *irc, const char *channel, const char *user, const char *message) {
+        if (!message)
+            return;
+
+        irc_write(irc, channel, "%s: %s", user, message);
+    }
+
+    Modules may need to free resources allocated globally. If a module
+    contains a module_exit(irc_t *) function it will be invoked when the
+    module is unloaded or the IRC bot is closed.
+
+    Modules are queued up by a threaded task. This prevents modules which block
+    from timing out the IRC bot. It also helps prevent from modules which crash
+    from taking down the IRC bot.
+
+List of implemented modules:
+    cookie      - crumble someone up into cookies
+    dance       - give someone a dance
+    dns         - resolve domain name and get ipv4/ipv6 addresses
+    dur         - convert seconds into week:days:hours:seconds
+    fail        - determine if someone fails
+    gibberish   - generate gibberish
+    lava        - burn yourself or someone in lava
+    load        - load a module
+    modules     - get list of loaded modules
+    penish      - famous quinbot penish
+    phail       - author always fail
+    quit        - bring down the IRC bot
+    reload      - reload a module or all modules

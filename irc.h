@@ -11,6 +11,7 @@ struct irc_s {
     char   *name;        // irc instance name
     char   *nick;        // nick to use on this network
     char   *pattern;     // pattern bot uses to know a command
+    char   *auth;        // authenticaion (NickServ)
     int     sock;        // network socket
     bool    ready;       // ready
     bool    readying;    // readying up
@@ -22,7 +23,7 @@ struct irc_s {
 };
 
 #include "command.h"
-irc_t *irc_create(const char *name, const char *nick, const char *pattern);
+irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern);
 void  irc_destroy(irc_t *irc);
 int irc_process(irc_t *irc, void *data);
 const char *irc_name(irc_t *irc);

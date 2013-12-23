@@ -8,6 +8,7 @@ typedef struct {
     char   *pattern;    // bot pattern
     char   *host;       // server host
     char   *port;       // server port
+    char   *auth;       // auth password (NickServ)
     list_t *modules;    // list of modules
     list_t *channels;   // list of channels
 } config_t;

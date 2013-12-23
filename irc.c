@@ -14,17 +14,34 @@
 static int irc_pong(irc_t *irc, const char *data) {
     return sock_sendf(irc->sock, "PONG :%s\r\n", data);
 }
+
 static int irc_register(irc_t *irc) {
+    int accumulate = 0;
+
     if (irc->ready)
         return -1;
-    return sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
+
+    accumulate = sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
+
+    // try auth
+    if (irc->auth) {
+        // catch early error
+        if (accumulate < 0)
+            return accumulate;
+        accumulate += irc_write(irc, "NickServ", "IDENTIFY %s %s", irc->nick, irc->auth);
+    }
+
+    return accumulate;
 }
+
 static int irc_quit(irc_t *irc, const char *message) {
     return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
 }
+
 static int irc_message(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
 }
+
 static int irc_join(irc_t *irc, const char *channel) {
     return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
 }
@@ -52,7 +69,7 @@ int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
 }
 
 // Instance management
-irc_t *irc_create(const char *name, const char *nick, const char *pattern) {
+irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern) {
     irc_t *irc = malloc(sizeof(irc_t));
 
     if (!irc)
@@ -64,6 +81,13 @@ irc_t *irc_create(const char *name, const char *nick, const char *pattern) {
         goto error;
     if (!(irc->pattern = strdup(pattern)))
         goto error;
+
+    if (auth) {
+        if (!(irc->auth = strdup(auth)))
+            goto error;
+    } else {
+        irc->auth = NULL;
+    }
 
     irc->ready      = false;
     irc->readying   = false;
@@ -79,6 +103,7 @@ error:
     if (irc->name)    free(irc->name);
     if (irc->nick)    free(irc->nick);
     if (irc->pattern) free(irc->pattern);
+    if (irc->auth)    free(irc->auth);
     return NULL;
 }
 
@@ -238,12 +263,8 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     if (!strncmp(line, "PING :", 6))
         irc_pong(irc, line + 6);
 
-    //
-    // Deal with NickServ on networks that support it:
-    //  TODO
-    //
     if (!strncmp(line, "NOTICE AUTH :", 13)) {
-
+        // ignore
     }
 
     char *nick    = NULL;
@@ -304,7 +325,8 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
                             )
                         );
                     } else {
-                        irc_write(irc, channel, "unknown command %s%s", irc->pattern, copy);
+                        // make it go to PRIVMSG
+                        irc_write(irc, nick, "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", copy);
                     }
                     free(copy);
                 }
