@@ -9,7 +9,6 @@ typedef struct {
     size_t  length;
 } string_t;
 
-static void string_reallocate(string_t *string);
 void string_catf(string_t *string, const char *fmt, ...);
 string_t *string_construct(void);
 string_t *string_create(const char *contents);

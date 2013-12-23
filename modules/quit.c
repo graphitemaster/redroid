@@ -1,8 +1,12 @@
 #include <module.h>
 #include <signal.h>
+#include <string.h>
 
 MODULE_DEFAULT(quit);
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    raise(SIGINT);
+    if (strcmp(user, "graphitemaster"))
+        irc_write(irc, channel, "q66: sorry, you're not allowed to quit");
+    else
+        raise(SIGINT);
 }

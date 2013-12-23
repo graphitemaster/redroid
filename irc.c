@@ -204,7 +204,7 @@ static char *irc_process_trim(char *str) {
     return str;
 }
 
-static void irc_process_line(irc_t *irc, cmd_pool_t *commander) {
+static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     char *line = irc->buffer;
     if (!line || !*line)
         return;
@@ -293,8 +293,8 @@ static void irc_process_line(irc_t *irc, cmd_pool_t *commander) {
 
                     if ((cmd = irc_modules_command(irc, irc_process_trim(copy)))) {
                         // create a command
-                        cmd_entry_t *entry = cmd_entry_create(irc, channel, nick, irc_process_trim(message + strlen(irc->pattern) + strlen(copy)), cmd);
-                        cmd_pool_queue(commander, entry);
+                        cmd_entry_t *entry = cmd_entry_create(commander, irc, channel, nick, irc_process_trim(message + strlen(irc->pattern) + strlen(copy)), cmd);
+                        cmd_channel_push(commander, entry);
                     } else {
                         irc_write(irc, channel, "unknown command %s%s", irc->pattern, copy);
                     }
@@ -308,8 +308,8 @@ static void irc_process_line(irc_t *irc, cmd_pool_t *commander) {
     }
 }
 
-int irc_process(irc_t *irc, void *cmd) {
-    cmd_pool_t *commander = cmd;
+int irc_process(irc_t *irc, void *data) {
+    cmd_channel_t *commander = data;
 
     char temp[128];
     int  read;

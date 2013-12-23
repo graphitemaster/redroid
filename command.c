@@ -1,145 +1,204 @@
 #include "command.h"
+#include "string.h"
 
 #include <pthread.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
-#include <signal.h>
 
-static pthread_mutex_t global_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+struct cmd_link_s {
+    cmd_entry_t *data;
+    cmd_link_t  *next;
+};
 
-struct cmd_pool_s {
-    pthread_t    handle;
-    list_t      *queue;
-    cmd_entry_t *current;
-    time_t       timeout;
-    bool         ready;
+struct cmd_channel_s {
+    pthread_t       thread;
+    pthread_mutex_t mutex;
+    pthread_cond_t  waiter;
+    cmd_link_t     *head;
+    cmd_link_t     *tail;
+    cmd_link_t     *volatile rdintent;
+    volatile bool   rdend;
+    volatile bool   wrend;
+    void          (*destroy)(cmd_entry_t *);
+    bool            ready;
 };
 
 struct cmd_entry_s {
-    void (*entry)(irc_t *, const char *, const char *, const char *);
-    irc_t *irc;
-
-    // copied over
-    char *channel;
-    char *user;
-    char *message;
+    cmd_channel_t *associated; // to help with some stuff
+    irc_t         *instance;   // which IRC instance this is associated with
+    void         (*method)(irc_t *, const char *, const char *, const char *);
+    string_t      *channel;
+    string_t      *user;
+    string_t      *message;
 };
 
-cmd_entry_t *cmd_entry_create (
-    irc_t      *irc,
-    const char *channel,
-    const char *user,
-    const char *message,
-    void      (*func)(irc_t *, const char *, const char *, const char *)
-){
+cmd_link_t *cmd_link_create(void) {
+    return memset(malloc(sizeof(cmd_link_t)), 0, sizeof(cmd_link_t));
+}
 
+void cmd_link_destroy(cmd_link_t *link, void (*destroy)(cmd_entry_t *)) {
+    if (destroy)
+        destroy(link->data);
+    free(link);
+}
+
+cmd_channel_t *cmd_channel_create(void) {
+    cmd_channel_t *channel = malloc(sizeof(*channel));
+
+    pthread_mutex_init(&channel->mutex, NULL);
+    pthread_cond_init (&channel->waiter, NULL);
+
+    channel->head     = cmd_link_create();
+    channel->tail     = channel->head;
+    channel->rdintent = NULL;
+    channel->rdend    = false;
+    channel->wrend    = false;
+    channel->destroy  = NULL;
+    channel->ready    = false;
+
+    return channel;
+}
+
+void cmd_channel_destroy(cmd_channel_t *channel) {
+    pthread_mutex_destroy(&channel->mutex);
+    pthread_cond_destroy (&channel->waiter);
+
+    cmd_link_t *link = channel->head;
+    while (link) {
+        cmd_link_t *next = link->next;
+        if (next && channel->destroy)
+            channel->destroy(link->data);
+        cmd_link_destroy(link, NULL);
+        link = next;
+    }
+}
+
+bool cmd_channel_push(cmd_channel_t *channel, cmd_entry_t *entry) {
+    cmd_link_t *tail = channel->tail;
+    tail->data = entry;
+    channel->tail = channel->tail->next = cmd_link_create();
+
+    if (channel->rdintent == tail) {
+        pthread_mutex_lock(&channel->mutex);
+        if (channel->rdintent == tail)
+            pthread_cond_signal(&channel->waiter);
+        pthread_mutex_unlock(&channel->mutex);
+    }
+    return !channel->rdend;
+}
+
+bool cmd_channel_pop(cmd_channel_t *channel, cmd_entry_t **output) {
+    channel->rdintent = channel->head;
+    if (channel->head == channel->tail) {
+        if (channel->wrend)
+            return false;
+
+        pthread_mutex_lock(&channel->mutex);
+        if (channel->wrend) {
+            pthread_mutex_unlock(&channel->mutex);
+            return false;
+        }
+
+        if (channel->head == channel->tail)
+            pthread_cond_wait(&channel->waiter, &channel->mutex);
+
+        channel->rdintent = NULL;
+        pthread_mutex_unlock(&channel->mutex);
+        if (channel->wrend)
+            return false;
+    }
+
+    channel->rdintent = NULL;
+    cmd_link_t *head = channel->head;
+    channel->head = channel->head->next;
+    *output = head->data;
+    cmd_link_destroy(head, channel->destroy);
+
+    return true;
+}
+
+void cmd_channel_wrclose(cmd_channel_t *channel) {
+    channel->wrend = true;
+    if (channel->rdintent == channel->tail) {
+        pthread_mutex_lock(&channel->mutex);
+        if (channel->rdintent == channel->tail)
+            pthread_cond_wait(&channel->waiter, &channel->mutex);
+        pthread_mutex_unlock(&channel->mutex);
+    }
+}
+
+void cmd_channel_rdclose(cmd_channel_t *channel) {
+    channel->rdend = true;
+}
+
+cmd_entry_t *cmd_entry_create(
+    cmd_channel_t *associated,
+    irc_t         *irc,
+    const char    *channel,
+    const char    *user,
+    const char    *message,
+    void         (*method)(irc_t *, const char *, const char *, const char *)
+) {
     cmd_entry_t *entry = malloc(sizeof(*entry));
 
-    entry->entry   = func;
-    entry->irc     = irc;
-    entry->channel = strdup(channel);
-    entry->user    = strdup(user);
-    entry->message = strdup(message);
+    entry->associated = associated;
+    entry->instance   = irc;
+    entry->method     = method;
+    entry->channel    = string_create(channel);
+    entry->user       = string_create(user);
+    entry->message    = string_create(message);
 
     return entry;
 }
 
 void cmd_entry_destroy(cmd_entry_t *entry) {
-    if (!entry)
-        return;
+    if (entry->channel) string_destroy(entry->channel);
+    if (entry->user)    string_destroy(entry->user);
+    if (entry->message) string_destroy(entry->message);
 
-    free(entry->channel);
-    free(entry->user);
-    free(entry->message);
     free(entry);
 }
 
-cmd_pool_t *cmd_pool_create(void) {
-    cmd_pool_t *pool = malloc(sizeof(*pool));
-    pool->queue   = list_create();
-    pool->ready   = false;
-    pool->current = NULL;
-    pool->timeout = time(0);
-
-    return pool;
+static void cmd_channel_signalhandle(int sig) {
+    (void)sig;
+    pthread_exit(NULL);
 }
 
-void cmd_pool_destroy(cmd_pool_t *pool) {
-    // wait for the thread to complete
-    pool->ready = false;
-    pthread_join(pool->handle, NULL);
+static void *cmd_channel_threader(void *data) {
+    cmd_channel_t *channel = data;
+    cmd_entry_t   *entry   = NULL;
 
-    // collect unprocessed ones
-    list_iterator_t *it = list_iterator_create(pool->queue);
-    while (!list_iterator_end(it))
-        cmd_entry_destroy(list_iterator_next(it));
-    list_iterator_destroy(it);
-    list_destroy(pool->queue);
-    free(pool);
-}
-
-void cmd_pool_queue(cmd_pool_t *pool, cmd_entry_t *entry) {
-    list_push(pool->queue, entry);
-}
-
-static void *cmd_pool_dispatcher(void *data) {
-    cmd_pool_t *pool  = data;
-    list_t     *queue = pool->queue;
-
-    while (pool->ready) {
-        if (!queue)
-            continue;
-
-        pthread_mutex_lock(&global_pool_mutex);
-        cmd_entry_t *entry = list_pop(queue);
-
-        if (entry) {
-            pool->current = entry;
-            pool->timeout = time(0); // begin the time just before the module call.
-            entry->entry(entry->irc, entry->channel, entry->user, entry->message);
-            pool->current = NULL; // of we return then make this NULL right away.
-
-            cmd_entry_destroy(entry);
+    for(;;) {
+        while (cmd_channel_pop(channel, &entry)) {
+            if (entry->method) {
+                entry->method(
+                    entry->instance,
+                    string_contents(entry->channel),
+                    string_contents(entry->user),
+                    string_contents(entry->message)
+                );
+                cmd_entry_destroy(entry);
+            }
         }
-        pthread_mutex_unlock(&global_pool_mutex);
     }
 
     return NULL;
 }
 
-static void cmd_pool_signalhandler(int sig) {
-    pthread_exit(NULL);
-}
-
-void cmd_pool_begin(cmd_pool_t *pool) {
-    signal(SIGUSR2, &cmd_pool_signalhandler);
-    pthread_create(&pool->handle, NULL, &cmd_pool_dispatcher, pool);
-    pool->ready = true;
+bool cmd_channel_begin(cmd_channel_t *channel) {
+    signal(SIGUSR2, &cmd_channel_signalhandle);
+    pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel);
     printf("    queue   => running\n");
+    return channel->ready = true;
 }
 
-void cmd_pool_process(cmd_pool_t *pool) {
-    if (!cmd_pool_ready(pool) || !pool->current)
-        return;
-
-    if (difftime(time(0), pool->timeout) >= 20) {
-        irc_write (
-            pool->current->irc,
-            pool->current->channel,
-            "%s: command timeout",
-            pool->current->user
-        );
-
-        // restart the thread
-        pthread_mutex_unlock(&global_pool_mutex);
-        pthread_kill(pool->handle, SIGUSR2);
-        pool->current = NULL;
-        cmd_pool_begin(pool);
-    }
+bool cmd_channel_ready(cmd_channel_t *channel) {
+    return channel->ready;
 }
 
-bool cmd_pool_ready(cmd_pool_t *pool) {
-    return pool ? pool->ready : false;
+void cmd_channel_process(cmd_channel_t *channel) {
+    // TODO: consult blub
 }

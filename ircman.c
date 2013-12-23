@@ -8,7 +8,7 @@
 struct irc_manager_s {
     list_t          *instances;
     list_iterator_t *iterator; // cached iterator
-    cmd_pool_t      *commander;
+    cmd_channel_t   *commander;
 };
 
 irc_manager_t *irc_manager_create(void) {
@@ -22,7 +22,8 @@ irc_manager_t *irc_manager_create(void) {
     }
 
     man->iterator  = NULL;
-    man->commander = cmd_pool_create();
+    man->commander = cmd_channel_create();
+
     return man;
 }
 
@@ -35,7 +36,7 @@ void irc_manager_destroy(irc_manager_t *manager) {
         list_iterator_destroy(it);
     }
 
-    cmd_pool_destroy(manager->commander);
+    cmd_channel_destroy(manager->commander);
     list_destroy(manager->instances);
     free(manager);
 }
@@ -60,10 +61,10 @@ void irc_manager_process(irc_manager_t *manager) {
     while (!list_iterator_end(it))
         irc_process(list_iterator_next(it), manager->commander);
 
-    if (!cmd_pool_ready(manager->commander))
-        cmd_pool_begin(manager->commander);
+    if (!cmd_channel_ready(manager->commander))
+        cmd_channel_begin(manager->commander);
     else
-        cmd_pool_process(manager->commander);
+        cmd_channel_process(manager->commander);
 }
 
 void irc_manager_add(irc_manager_t *manager, irc_t *instance) {
