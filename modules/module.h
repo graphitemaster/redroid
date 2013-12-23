@@ -7,8 +7,14 @@
 #include "../string.h"
 #include "../module.h"
 
+// only runs when command match
 #define MODULE_DEFAULT(NAME)      \
     char module_name[]  = #NAME;  \
     char module_match[] = #NAME
+
+// always runs
+#define MODULE_ALWAYS(NAME)       \
+    char module_name[]  = #NAME;  \
+    char module_match[] = ""
 
 #endif

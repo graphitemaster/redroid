@@ -20,18 +20,15 @@ static module_t *module_load(module_t *module) {
         return NULL;
     }
 
-#   define MODULE_TRY(THING, NAME, DESC) \
-        do { \
-            if (!(module->THING = dlsym(module->handle, NAME))) { \
-                fprintf(stderr, "missing %s in %s => %s\n", DESC, module->name, module->file); \
-                return NULL; \
-            } \
-        } while (0) \
+    if (!(module->match = dlsym(module->handle, "module_match"))) {
+        fprintf(stderr, "   module  => missing command match rule %s [%s]\n", module->name, module->file);
+        return NULL;
+    }
 
-    MODULE_TRY(match, "module_match", "command match");
-    MODULE_TRY(enter, "module_enter", "entry function");
-    //MODULE_TRY(close, "module_close", "cleanup function");
-#   undef MODULE_TRY
+    if (!(module->enter = dlsym(module->handle, "module_enter"))) {
+        fprintf(stderr, "   module  => missing command handler %s [%s]\n", module->name, module->file);
+        return NULL;
+    }
 
     return module;
 }

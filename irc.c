@@ -283,8 +283,8 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
 
         if (channel) {
             void (*cmd)(irc_t *, const char *, const char *, const char *) = NULL;
-            if (private && strlen(nick) > 0 && strlen(message) > 0) {
-                if (!strncmp(message, irc->pattern, strlen(irc->pattern))) {
+            if (private && strlen(nick) > 0) {
+                if (strlen(message) > 0 && !strncmp(message, irc->pattern, strlen(irc->pattern))) {
                     // get the command entry and call it
                     char *copy  = strdup(message + strlen(irc->pattern));
                     char *match = strchr(copy, ' ');
@@ -308,7 +308,17 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
                     }
                     free(copy);
                 }
+
+                // run all modules with no match rule
+                list_iterator_t *it = list_iterator_create(irc->modules);
+                while (!list_iterator_end(it)) {
+                    module_t *module = list_iterator_next(it);
+                    if (!strlen(module->match))
+                        cmd_channel_push(commander, cmd_entry_create(commander, irc, channel, nick, message, module->enter));
+                }
+                list_iterator_destroy(it);
             }
+
             free(channel);
         }
         if (nick)    free(nick);
