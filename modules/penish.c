@@ -16,7 +16,10 @@ static const signed char quinbot_table[] = {
 // TODO: bot level stuff
 static const size_t botlevel = 0;
 
-void penish(irc_t *irc, const char *channel, const char *who, const char *string) {
+void module_enter(irc_t *irc, const char *channel, const char *who, const char *string) {
+    if (!string)
+        string = who;
+
     string_t *str = string_construct();
     string_catf(str, "%s: ((", who);
 
@@ -55,8 +58,4 @@ void penish(irc_t *irc, const char *channel, const char *who, const char *string
         irc_write(irc, channel, "%s: (%d/%zu)+%d = %.2fcm [%.2fin]", who, value, length, bonus, cm, in);
     else
         irc_write(irc, channel, "%s: (%d/%zu)%d = %.2fcm [%.2fin]", who, value, length, bonus, cm, in);
-}
-
-void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    penish(irc, channel, user, strlen(message) ? message : user);
 }

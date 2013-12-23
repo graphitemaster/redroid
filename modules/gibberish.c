@@ -31,6 +31,9 @@ void gibber(string_t *string, size_t max) {
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
+    if (!message)
+        message = " ";
+
     size_t x = isdigit(*message) ? *message : (rand() % 36);
     size_t y = 0;
 

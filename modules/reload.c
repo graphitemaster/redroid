@@ -27,7 +27,7 @@ static void reload_one(irc_t *irc, const char *channel, const char *name) {
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    if (!message || !strlen(message))
+    if (!message)
         reload_all(irc, channel);
     else
         reload_one(irc, channel, message);

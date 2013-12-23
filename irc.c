@@ -199,7 +199,7 @@ static char *irc_process_trim(char *str) {
     while (end > str && isspace(*end))
         end--;
 
-    *(end+1)='\0';
+    *(end + 1) = '\0';
 
     return str;
 }
@@ -292,9 +292,17 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
                         *match = '\0';
 
                     if ((cmd = irc_modules_command(irc, irc_process_trim(copy)))) {
-                        // create a command
-                        cmd_entry_t *entry = cmd_entry_create(commander, irc, channel, nick, irc_process_trim(message + strlen(irc->pattern) + strlen(copy)), cmd);
-                        cmd_channel_push(commander, entry);
+                        cmd_channel_push(
+                            commander,
+                            cmd_entry_create(
+                                commander,
+                                irc,
+                                channel,
+                                nick,
+                                irc_process_trim(message + strlen(irc->pattern) + strlen(copy)),
+                                cmd
+                            )
+                        );
                     } else {
                         irc_write(irc, channel, "unknown command %s%s", irc->pattern, copy);
                     }

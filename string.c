@@ -65,7 +65,7 @@ void string_destroy(string_t *string) {
 }
 
 const char *const string_contents(string_t *string) {
-    return string->buffer;
+    return (string) ? string->buffer : NULL;
 }
 
 size_t string_length(string_t *string) {

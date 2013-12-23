@@ -149,7 +149,12 @@ cmd_entry_t *cmd_entry_create(
     entry->method     = method;
     entry->channel    = string_create(channel);
     entry->user       = string_create(user);
-    entry->message    = string_create(message);
+
+    // messages can be empty
+    if (message && strlen(message))
+        entry->message = string_create(message);
+    else
+        entry->message = NULL;
 
     return entry;
 }
