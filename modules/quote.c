@@ -28,8 +28,10 @@ static bool quote_split(const char *input, string_t **nick, string_t **message) 
     clean = (*(copy = strdup(input)) == '<') ? quote_skip(&copy[1]) : copy;
 
     *nick = string_construct();
-    for (const char *fill = clean; *fill && *fill != ((*copy == '<') ? '>' : ' '); fill++, clean++)
+    for (const char *fill = clean; *fill && *fill != ((*copy == '<') ? '>' : ' '); fill++, clean++) {
+        if (isspace(*fill)) continue;
         string_catf(*nick, "%c", *fill);
+    }
 
     if (!*clean || *clean != ((*copy == '<') ? '>' : ' '))
         goto error;
