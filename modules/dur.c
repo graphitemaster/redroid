@@ -31,8 +31,6 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         }                                                    \
     } while (0)
 
-    TERM(3.15569e7, years,   "y");
-    TERM(2.62974e6, months,  "m");
     TERM(604800,    weeks,   "w");
     TERM(86400,     days,    "d");
     TERM(3600,      hours,   "h");

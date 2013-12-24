@@ -9,9 +9,7 @@ static const char *consonants = "bcdfghjklmnpqrstvwxz";
 static const char *vowels     = "aeiouy";
 
 bool gibber(string_t *string, size_t max) {
-    if (!max)
-        max = 1;
-
+    max++;
     size_t a = rand() % max;
     size_t b = 1;
     size_t c = 0;
@@ -50,8 +48,8 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     while (*digit && isspace(*digit)) digit++;
 
     string_t *string = string_construct();
-    while (x > y) {
-        if (gibber(string, (isdigit(*digit) ? atoi(digit) : 16)) && y+1 != x)
+    while (x >= y+1) {
+        if (gibber(string, (isdigit(*digit) ? atoi(digit) + 1 : 16)) && y+1 != x)
             string_catf(string, " ");
         y++;
     }
