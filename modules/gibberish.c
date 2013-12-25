@@ -8,7 +8,7 @@ MODULE_DEFAULT(gibberish);
 static const char *consonants = "bcdfghjklmnpqrstvwxz";
 static const char *vowels     = "aeiouy";
 
-bool gibber(string_t *string, size_t max) {
+static bool gibber(string_t *string, size_t max) {
     max++;
     size_t a = rand() % max;
     size_t b = 1;

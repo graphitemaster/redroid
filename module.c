@@ -33,7 +33,100 @@ static module_t *module_load(module_t *module) {
     return module;
 }
 
+//
+// ensure a module doesn't use any functions by the ones provided by
+// a whitelist. This way we can ensure modules don't allocate resources
+// with standard library functions.
+//
+#include <elf.h>
+#include <stdint.h>
+#if INPTR_MAX == INT64_MAX
+#   define ELF(X) Elf64_##X
+#   define FUN(X) ELF64_ST_TYPE(X)
+#else
+#   define ELF(X) Elf32_##X
+#   define FUN(X) ELF32_ST_TYPE(X)
+#endif
+
+static bool module_allow_symbol(const char *name) {
+    static const char *list[] = {
+        // standard allowed library functions
+        "strcmp",    "strncmp",  "raise",    "strstr",  "strchr",
+        "strlen",    "snprintf", "toupper",  "tolower", "memcpy",
+        "isspace",   "isdigit",  "isxdigit", "isalpha", "isprint",
+        "memmove",   "atoi",     "atol",     "atof",    "atod",
+        "inet_ntop", "srand",    "rand",     "memset",  "strtol",
+        "strcat",
+
+        // module specific API needs to be exposed
+        "module_enter",
+        "module_close",
+
+        // here for now until garbage collected functions are implemented
+        // to take over
+        "getaddrinfo", "freeaddrinfo", "malloc", "free", "strdup",
+        "asprintf",
+
+        // here for now until sqlite interface is provided via module API
+        "sqlite3_exec", "sqlite3_open", "sqlite3_prepare_v2",
+        "sqlite3_column_text", "sqlite3_column_int", "sqlite3_errmsg",
+        "sqlite3_step", "sqlite3_close", "sqlite3_bind_text",
+        "sqlite3_finalize", "sqlite3_free"
+    };
+
+    for (size_t i = 0; i < sizeof(list) / sizeof(*list); i++)
+        if (!strcmp(list[i], name) || *name == '_')
+            return true;
+
+    return false;
+}
+
+static bool module_allow(const char *path) {
+    void      *base;
+    size_t     size;
+    ELF(Ehdr) *ehdr;
+    ELF(Shdr) *shdr;
+    ELF(Sym)  *dsymtab;
+    ELF(Sym)  *dsymtab_end;
+    char      *dstrtab;
+    FILE      *file = fopen(path, "r");
+
+    fseek(file, 0, SEEK_END);
+    size = ftell(file);
+    base = malloc(size);
+    fseek(file, 0, SEEK_SET);
+    fread(base, size, 1, file);
+    fclose(file);
+
+    ehdr = base;
+    shdr = (ELF(Shdr)*)(base + ehdr->e_shoff);
+    for (size_t i = 0; i < ehdr->e_shnum; i++) {
+        if (shdr[i].sh_type == SHT_DYNSYM) {
+            dsymtab     = (ELF(Sym)*)(base + shdr[i].sh_offset);
+            dsymtab_end = (ELF(Sym)*)((char *)dsymtab + shdr[i].sh_size);
+            dstrtab     = (char *)(base + shdr[shdr[i].sh_link].sh_offset);
+        }
+    }
+
+    while (dsymtab < dsymtab_end) {
+        if (FUN(dsymtab->st_info) == STT_FUNC) {
+            if (!module_allow_symbol(&dstrtab[dsymtab->st_name])) {
+                fprintf(stderr, "%s", &dstrtab[dsymtab->st_name]);
+                free(base);
+                return false;
+            }
+        }
+        dsymtab++;
+    }
+
+    free(base);
+    return true;
+}
+
 module_t *module_open(const char *file, irc_t *instance) {
+    if (!module_allow(file))
+        return NULL;
+
     module_t *module = malloc(sizeof(*module));
 
     if (!(module->handle = dlopen(file, RTLD_LAZY))) {
