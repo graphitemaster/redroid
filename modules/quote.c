@@ -86,9 +86,9 @@ static bool quote_find(const char *user, const char *quote) {
     if (sqlite3_prepare_v2(database, statement_string, -1, &statement, NULL) != SQLITE_OK)
         return false;
 
-    if (sqlite3_bind_text(statement, 1, strdup(user), -1, &free) != SQLITE_OK)
+    if (sqlite3_bind_text(statement, 1, user, -1, NULL) != SQLITE_OK)
         goto error;
-    if (sqlite3_bind_text(statement, 2, strdup(quote), -1, &free) != SQLITE_OK)
+    if (sqlite3_bind_text(statement, 2, quote, -1, NULL) != SQLITE_OK)
         goto error;
 
     if (sqlite3_step(statement) != SQLITE_ROW)
@@ -140,9 +140,9 @@ static void quote_add_forget(irc_t *irc, const char *channel, const char *user, 
         goto process_error;
 
     // bind must copy out the strings
-    if (sqlite3_bind_text(statement, 1, strdup(string_contents(quotenick)), -1, &free) != SQLITE_OK)
+    if (sqlite3_bind_text(statement, 1, string_contents(quotenick), -1, NULL) != SQLITE_OK)
         goto process_error;
-    if (sqlite3_bind_text(statement, 2, strdup(string_contents(quotemessage)), -1, &free) != SQLITE_OK)
+    if (sqlite3_bind_text(statement, 2, string_contents(quotemessage), -1, NULL) != SQLITE_OK)
         goto process_error;
 
     if (sqlite3_step(statement) != SQLITE_DONE)
@@ -202,7 +202,7 @@ static void quote_entry(irc_t *irc, const char *channel, const char *user, const
     if (sqlite3_prepare_v2(database, statement_string, -1, &statement, NULL) != SQLITE_OK)
         goto entry_error;
 
-    if (sqlite3_bind_text(statement, 1, strdup(message), -1, &free) != SQLITE_OK)
+    if (sqlite3_bind_text(statement, 1, message, -1, NULL) != SQLITE_OK)
         goto entry_error;
 
     int step = sqlite3_step(statement);

@@ -19,11 +19,11 @@ void module_enter(module_t *module, const char *channel, const char *user, const
 
     if (list_iterator_end(it)) {
         // try loading the module from modules/name.so
-        char *load = NULL;
-        asprintf(&load, "modules/%s.so", message);
-        if ((irc_modules_add(irc, load)))
+        string_t *string = string_create("modules/");
+        string_catf(string, "%s.so", message);
+        if ((irc_modules_add(irc, string_contents(string))))
             irc_write(irc, channel, "loaded module %s", message);
-        free(load);
+        string_destroy(string);
     }
     list_iterator_destroy(it);
 }

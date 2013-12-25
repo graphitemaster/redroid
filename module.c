@@ -40,7 +40,7 @@ static module_t *module_load(module_t *module) {
 //
 #include <elf.h>
 #include <stdint.h>
-#if INPTR_MAX == INT64_MAX
+#if __x86_64__
 #   define ELF(X) Elf64_##X
 #   define FUN(X) ELF64_ST_TYPE(X)
 #else
@@ -49,12 +49,12 @@ static module_t *module_load(module_t *module) {
 #endif
 
 static bool module_allow_symbol(const char *name) {
+
     static const char *list[] = {
         // ctype.h
         "isalnum",    "isalpha",  "islower",   "isupper",    "isdigit",
         "isxdigit",   "iscntrl",  "isgraph",   "isspace",    "isblank",
         "isprint",    "ispunct",  "tolower",   "toupper",
-
         // math.h
         "abs",        "labs",     "llabs",     "fabs",       "div",
         "ldiv",       "lldiv",    "fmod",      "remainder",  "remquo",
@@ -71,29 +71,29 @@ static bool module_allow_symbol(const char *name) {
         "scalbn",     "scalbln",  "nextafter", "nexttoward", "copysign",
         "fpclassify", "isfinite", "isinf",     "isnan",      "isnormal",
         "signbit",
-
         // stdio.h
         "sscanf",     "vsscanf",  "sprintf",   "snprintf",   "vsprintf",
         "vsnprintf",
-
+        // stdlib.h
+        "abs",        "atof",     "atoi",      "atol",       "atoll",
+        "div",        "getenv",   "labs",      "ldiv",       "llabs",
+        "lldiv",      "qsort",    "strtod",    "strtof",     "strtol",
+        "strtold",    "strtoll",  "strtoul",   "strtoull",   "rand",
         // string.h
         "strcpy",     "strncpy",  "strcat",    "strncat",    "strxfrm",
         "strlen",     "strcmp",   "strncmp",   "strcoll",    "strchr",
         "strrchr",    "strspn",   "strcspn",   "strpbrk",    "strstr",
         "strtok",     "memset",   "memcpy",    "memmove",    "memcmp",
         "memchr",
-
         // time.h
         "difftime",   "time",     "clock",     "asctime",    "ctime",
         "strftime",   "gmtime",   "localtime", "mktime",
-
         // module.h
         "module_enter",
         "module_close",
 
         // to be removed:
-        "getaddrinfo", "freeaddrinfo", "malloc", "free", "strdup",
-        "asprintf",
+        "getaddrinfo", "freeaddrinfo", "raise", "inet_ntop",
         "sqlite3_exec", "sqlite3_open", "sqlite3_prepare_v2",
         "sqlite3_column_text", "sqlite3_column_int", "sqlite3_errmsg",
         "sqlite3_step", "sqlite3_close", "sqlite3_bind_text",
