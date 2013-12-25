@@ -8,46 +8,55 @@ MODULE_DEFAULT(quote);
 
 static sqlite3 *database = NULL;
 
-// skip some whitespace
-char *quote_skip(const char *input) {
-    while (*input && isspace(*input))
-        input++;
-    return (char*)input;
-}
+//
+// The following function will clever handle all sorts of common methods
+// IRC clients impose on nick | message, in line copies.
+//
+// The following methods are caught:
+//
+//  <nick>  message
+//  nick    message
+//  nick|   message
+//  nick>   message
+//
+// As well as variable whitespace between delimiters in nick.
+// For instance:
+//
+//  <nick  >
+//  <  nick>
+//  nick   |
+//
+// And variable whitespace between the nick and the message is dealt
+// with as well.
+//
+static bool quote_split(const char *string, string_t **nick, string_t **message) {
+    char *terminate = NULL;
+    for (const char *find = ">| "; *find; find++)
+        if ((terminate = strchr(string, *find)))
+            break;
 
-// split a "USER MESSAGE" or "<USER> MESSAGE" into two strings
-static bool quote_split(const char *input, string_t **nick, string_t **message) {
-    char *copy;
-    char *clean;
-
-    if (!*input)
+    if (!terminate)
         return false;
-    if (!*(input = quote_skip(input)))
-        return false;
-
-    clean = (*(copy = strdup(input)) == '<') ? quote_skip(&copy[1]) : copy;
 
     *nick = string_construct();
-    for (const char *fill = clean; *fill && *fill != ((*copy == '<') ? '>' : ' '); fill++, clean++) {
-        if (isspace(*fill)) continue;
-        string_catf(*nick, "%c", *fill);
+    for (; string != terminate; string++) {
+        for (const char *strip = "< "; *strip; strip++)
+            if (*string == *strip)
+                goto next;
+        string_catf(*nick, "%c", *string);
+        next: ;
     }
 
-    if (!*clean || *clean != ((*copy == '<') ? '>' : ' '))
-        goto error;
-    clean++;
-    clean = quote_skip(clean);
-    if (!*clean)
-        goto error;
+    while (*string && (*string == '>' || *string == '|' || *string == ' '))
+        string++;
 
-    *message = string_create(clean);
-    free(copy);
+    if (!*string) {
+        string_destroy(*nick);
+        return false;
+    }
+
+    *message = string_create(string);
     return true;
-
-error:
-    string_destroy(*nick);
-    free(copy);
-    return false;
 }
 
 static size_t quote_length(void) {
