@@ -50,24 +50,50 @@ static module_t *module_load(module_t *module) {
 
 static bool module_allow_symbol(const char *name) {
     static const char *list[] = {
-        // standard allowed library functions
-        "strcmp",    "strncmp",  "raise",    "strstr",  "strchr",
-        "strlen",    "snprintf", "toupper",  "tolower", "memcpy",
-        "isspace",   "isdigit",  "isxdigit", "isalpha", "isprint",
-        "memmove",   "atoi",     "atol",     "atof",    "atod",
-        "inet_ntop", "srand",    "rand",     "memset",  "strtol",
-        "strcat",
+        // ctype.h
+        "isalnum",    "isalpha",  "islower",   "isupper",    "isdigit",
+        "isxdigit",   "iscntrl",  "isgraph",   "isspace",    "isblank",
+        "isprint",    "ispunct",  "tolower",   "toupper",
 
-        // module specific API needs to be exposed
+        // math.h
+        "abs",        "labs",     "llabs",     "fabs",       "div",
+        "ldiv",       "lldiv",    "fmod",      "remainder",  "remquo",
+        "fma",        "fmax",     "fmin",      "fdim",       "nan",
+        "nan",        "nanl",     "exp",       "exp2",       "expm1",
+        "log",        "log2",     "log10",     "log1p",      "ilogb",
+        "logb",       "sqrt",     "cbrt",      "hypot",      "pow",
+        "sin",        "cos",      "tan",       "asin",       "acos",
+        "atan",       "atan2",    "sinh",      "cosh",       "tanh",
+        "asinh",      "acosh",    "atanh",     "erf",        "erfc",
+        "lgamma",     "tgamma",   "ceil",      "floor",      "trunc",
+        "round",      "lround",   "llround",   "nearbyint",  "rint",
+        "lrint",      "llrint",   "frexp",     "ldexp",      "modf",
+        "scalbn",     "scalbln",  "nextafter", "nexttoward", "copysign",
+        "fpclassify", "isfinite", "isinf",     "isnan",      "isnormal",
+        "signbit",
+
+        // stdio.h
+        "sscanf",     "vsscanf",  "sprintf",   "snprintf",   "vsprintf",
+        "vsnprintf",
+
+        // string.h
+        "strcpy",     "strncpy",  "strcat",    "strncat",    "strxfrm",
+        "strlen",     "strcmp",   "strncmp",   "strcoll",    "strchr",
+        "strrchr",    "strspn",   "strcspn",   "strpbrk",    "strstr",
+        "strtok",     "memset",   "memcpy",    "memmove",    "memcmp",
+        "memchr",
+
+        // time.h
+        "difftime",   "time",     "clock",     "asctime",    "ctime",
+        "strftime",   "gmtime",   "localtime", "mktime",
+
+        // module.h
         "module_enter",
         "module_close",
 
-        // here for now until garbage collected functions are implemented
-        // to take over
+        // to be removed:
         "getaddrinfo", "freeaddrinfo", "malloc", "free", "strdup",
         "asprintf",
-
-        // here for now until sqlite interface is provided via module API
         "sqlite3_exec", "sqlite3_open", "sqlite3_prepare_v2",
         "sqlite3_column_text", "sqlite3_column_int", "sqlite3_errmsg",
         "sqlite3_step", "sqlite3_close", "sqlite3_bind_text",
