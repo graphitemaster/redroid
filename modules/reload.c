@@ -26,7 +26,8 @@ static void reload_one(irc_t *irc, const char *channel, const char *name) {
     list_iterator_destroy(it);
 }
 
-void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
+void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
+    irc_t *irc = module->instance;
     if (!message)
         reload_all(irc, channel);
     else

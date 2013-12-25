@@ -57,7 +57,7 @@ module_t *module_open(const char *file, irc_t *instance) {
 
 bool module_reload(module_t *module) {
     if (module->close)
-        module->close(module->instance);
+        module->close(module);
     dlclose(module->handle);
     if (!(module->handle = dlopen(module->file, RTLD_LAZY)))
         goto module_reload_error;
@@ -74,7 +74,7 @@ module_reload_error:
 
 void module_destroy(module_t *module) {
     if (module->close)
-        module->close(module->instance);
+        module->close(module);
     if (module->handle)
         dlclose(module->handle);
     free(module->file);

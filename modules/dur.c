@@ -6,7 +6,9 @@
 
 MODULE_DEFAULT(dur);
 
-void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
+void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
+    irc_t *irc = module->instance;
+
     char buffer[16];
     char output[80];
     memset(output, 0, sizeof(output));

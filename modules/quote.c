@@ -222,8 +222,9 @@ static void quote_stats(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel, "%s: quote stats -> %zu quotes -> requested ? times", user, quote_length());
 }
 
-void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    char *error = NULL;
+void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
+    irc_t *irc   = module->instance;
+    char  *error = NULL;
     if (!database) {
         if (sqlite3_open("quote.db", &database))
             goto quote_error;
@@ -257,7 +258,7 @@ quote_error:
     database = NULL;
 }
 
-void module_close(irc_t *irc) {
+void module_close(module_t *module) {
     if (database)
         sqlite3_close(database);
 }

@@ -22,7 +22,6 @@ struct irc_s {
     size_t  floodlines;
 };
 
-#include "command.h"
 irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern);
 void  irc_destroy(irc_t *irc);
 int irc_process(irc_t *irc, void *data);
@@ -32,7 +31,6 @@ int irc_connect(irc_t *irc, const char *host, const char *port);
 
 bool irc_modules_add(irc_t *irc, const char *file);
 bool irc_channels_add(irc_t *irc, const char *channel);
-void (*irc_modules_command(irc_t *irc, const char *command))(irc_t *irc, const char *channel, const char *nick, const char *message);
 
 
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);

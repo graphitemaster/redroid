@@ -32,8 +32,7 @@ struct cmd_channel_s {
 
 struct cmd_entry_s {
     cmd_channel_t *associated; // to help with some stuff
-    irc_t         *instance;   // which IRC instance this is associated with
-    void         (*method)(irc_t *, const char *, const char *, const char *);
+    module_t      *instance;
     string_t      *channel;
     string_t      *user;
     string_t      *message;
@@ -152,17 +151,15 @@ void cmd_channel_rdclose(cmd_channel_t *channel) {
 
 cmd_entry_t *cmd_entry_create(
     cmd_channel_t *associated,
-    irc_t         *irc,
+    module_t      *module,
     const char    *channel,
     const char    *user,
-    const char    *message,
-    void         (*method)(irc_t *, const char *, const char *, const char *)
+    const char    *message
 ) {
     cmd_entry_t *entry = malloc(sizeof(*entry));
 
     entry->associated = associated;
-    entry->instance   = irc;
-    entry->method     = method;
+    entry->instance   = module;
     entry->channel    = string_create(channel);
     entry->user       = string_create(user);
 
@@ -196,10 +193,10 @@ static void *cmd_channel_threader(void *data) {
     cmd_entry_t   *entry   = NULL;
 
     while (cmd_channel_pop(channel, &entry)) {
-        if (entry->method) {
+        if (entry->instance->enter) {
             channel->cmd_time = time(NULL);
             channel->cmd_entry = entry;
-            entry->method(
+            entry->instance->enter(
                 entry->instance,
                 string_contents(entry->channel),
                 string_contents(entry->user),
@@ -264,7 +261,7 @@ void cmd_channel_process(cmd_channel_t *channel) {
     channel->cmd_time  = 0;
 
     irc_write(
-        entry->instance,
+        entry->instance->instance,
         string_contents(entry->channel),
         "%s: command timed out",
         string_contents(entry->user)

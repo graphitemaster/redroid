@@ -1,7 +1,6 @@
 #ifndef REDROID_COMMAND_HDR
 #define REDROID_COMMAND_HDR
-#include "irc.h"
-#include <stdbool.h>
+#include "module.h"
 
 typedef struct cmd_link_s    cmd_link_t;
 typedef struct cmd_channel_s cmd_channel_t;
@@ -9,11 +8,10 @@ typedef struct cmd_entry_s   cmd_entry_t;
 
 cmd_entry_t *cmd_entry_create(
     cmd_channel_t *associated,
-    irc_t         *irc,
+    module_t      *module,
     const char    *channel,
     const char    *user,
-    const char    *message,
-    void         (*method)(irc_t *, const char *, const char *, const char *)
+    const char    *message
 );
 
 void cmd_entry_destroy(cmd_entry_t *entry);

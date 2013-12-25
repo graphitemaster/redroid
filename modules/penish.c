@@ -16,7 +16,9 @@ static const signed char quinbot_table[] = {
 // TODO: bot level stuff
 static const size_t botlevel = 0;
 
-void module_enter(irc_t *irc, const char *channel, const char *who, const char *string) {
+void module_enter(module_t *module, const char *channel, const char *who, const char *string) {
+    irc_t *irc = module->instance;
+
     if (!string)
         string = who;
 

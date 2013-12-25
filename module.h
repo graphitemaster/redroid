@@ -10,8 +10,8 @@ struct module_s {
     const char *name;
     const char *match;
     char       *file;
-    void      (*enter)(irc_t *irc, const char *channel, const char *user, const char *message);
-    void      (*close)(irc_t *irc);
+    void      (*enter)(module_t *module, const char *channel, const char *user, const char *message);
+    void      (*close)(module_t *module);
     irc_t      *instance;
 };
 

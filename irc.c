@@ -140,13 +140,13 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     return false;
 }
 
-void (*irc_modules_command(irc_t *irc, const char *command))(irc_t *, const char *, const char *, const char *) {
+static module_t *irc_modules_command(irc_t *irc, const char *command) {
     list_iterator_t *it = list_iterator_create(irc->modules);
     while (!list_iterator_end(it)) {
         module_t *entry = list_iterator_next(it);
         if (!strcmp(entry->match, command)) {
             list_iterator_destroy(it);
-            return entry->enter;
+            return entry;
         }
     }
     list_iterator_destroy(it);
@@ -303,7 +303,6 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
         }
 
         if (channel) {
-            void (*cmd)(irc_t *, const char *, const char *, const char *) = NULL;
             if (private && strlen(nick) > 0) {
                 if (strlen(message) > 0 && !strncmp(message, irc->pattern, strlen(irc->pattern))) {
                     // get the command entry and call it
@@ -312,16 +311,17 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
                     if (match)
                         *match = '\0';
 
-                    if ((cmd = irc_modules_command(irc, irc_process_trim(copy)))) {
+                    module_t *module = irc_modules_command(irc, irc_process_trim(copy));
+
+                    if (module) {
                         cmd_channel_push(
                             commander,
                             cmd_entry_create(
                                 commander,
-                                irc,
+                                module,
                                 channel,
                                 nick,
-                                irc_process_trim(message + strlen(irc->pattern) + strlen(copy)),
-                                cmd
+                                irc_process_trim(message + strlen(irc->pattern) + strlen(copy))
                             )
                         );
                     } else {
@@ -336,7 +336,7 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
                 while (!list_iterator_end(it)) {
                     module_t *module = list_iterator_next(it);
                     if (!strlen(module->match))
-                        cmd_channel_push(commander, cmd_entry_create(commander, irc, channel, nick, message, module->enter));
+                        cmd_channel_push(commander, cmd_entry_create(commander, module, channel, nick, message));
                 }
                 list_iterator_destroy(it);
             }
