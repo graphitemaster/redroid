@@ -49,7 +49,6 @@ static module_t *module_load(module_t *module) {
 #endif
 
 static bool module_allow_symbol(const char *name) {
-
     static const char *list[] = {
         // ctype.h
         "isalnum",    "isalpha",  "islower",   "isupper",    "isdigit",
@@ -107,7 +106,7 @@ static bool module_allow_symbol(const char *name) {
     return false;
 }
 
-static bool module_allow(const char *path) {
+static bool module_allow(const char *path, char **function) {
     void      *base;
     size_t     size;
     ELF(Ehdr) *ehdr;
@@ -137,7 +136,7 @@ static bool module_allow(const char *path) {
     while (dsymtab < dsymtab_end) {
         if (FUN(dsymtab->st_info) == STT_FUNC) {
             if (!module_allow_symbol(&dstrtab[dsymtab->st_name])) {
-                fprintf(stderr, "%s", &dstrtab[dsymtab->st_name]);
+                *function = strdup(&dstrtab[dsymtab->st_name]);
                 free(base);
                 return false;
             }
@@ -149,9 +148,14 @@ static bool module_allow(const char *path) {
     return true;
 }
 
-module_t *module_open(const char *file, irc_t *instance) {
-    if (!module_allow(file))
+module_t *module_open(const char *file, irc_t *instance, string_t **error) {
+    char *function = NULL;
+    if (!module_allow(file, &function)) {
+        *error = string_construct();
+        string_catf(*error, "%s is blacklisted", function);
+        free(function);
         return NULL;
+    }
 
     module_t *module = malloc(sizeof(*module));
 

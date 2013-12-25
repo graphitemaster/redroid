@@ -19,8 +19,7 @@ int sock_get(const char *host, const char *port) {
     struct addrinfo *result;
     struct addrinfo  hints = {
         .ai_family   = AF_UNSPEC,
-        .ai_socktype = SOCK_STREAM,
-        .ai_flags    = AI_PASSIVE
+        .ai_socktype = SOCK_STREAM
     };
 
     if ((status = getaddrinfo(host, port, &hints, &result)) < 0) {

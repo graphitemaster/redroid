@@ -1,6 +1,7 @@
 #ifndef REDROID_MODULE_HDR
 #define REDROID_MODULE_HDR
 #include "irc.h"
+#include "string.h"
 
 struct module_s;
 typedef struct module_s module_t;
@@ -15,7 +16,7 @@ struct module_s {
     irc_t      *instance;
 };
 
-module_t *module_open(const char *file, irc_t *instance);
+module_t *module_open(const char *file, irc_t *instance, string_t **error);
 void module_destroy(module_t *module);
 bool module_reload(module_t *module);
 

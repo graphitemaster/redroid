@@ -121,6 +121,7 @@ module_t *irc_modules_find(irc_t *irc, const char *file) {
 }
 
 bool irc_modules_add(irc_t *irc, const char *name) {
+    string_t *error  = NULL;
     module_t *module = NULL;
 
     // prevent loading module twice
@@ -130,13 +131,19 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     }
 
     // load the module
-    if ((module = module_open(name, irc))) {
+    if ((module = module_open(name, irc, &error))) {
         list_push(irc->modules, module);
         printf("    module  => %s [%s] loaded\n", module->name, module->file);
         return true;
     }
 
-    printf("    module  => %s loading failed\n", name);
+    if (error) {
+        printf("    module  => %s loading failed (%s)\n", name, string_contents(error));
+        string_destroy(error);
+    } else {
+        printf("    module  => %s loading failed\n", name);
+    }
+
     return false;
 }
 
