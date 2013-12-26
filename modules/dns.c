@@ -1,9 +1,5 @@
 #include <module.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 
 MODULE_DEFAULT(dns);
 
@@ -22,7 +18,7 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     };
 
     int status;
-    if ((status = getaddrinfo(message, NULL, &hints, &res)) != 0) {
+    if ((status = module_getaddrinfo(module, message, NULL, &hints, &res)) != 0) {
         irc_write(irc, channel, "%s: domain name resolution failed", message);
         return;
     }
@@ -44,6 +40,4 @@ void module_enter(module_t *module, const char *channel, const char *user, const
         inet_ntop(p->ai_family, addr, ipbuffer, sizeof(ipbuffer));
         irc_write(irc, channel, "%s: %s", user, ipbuffer);
     }
-
-    freeaddrinfo(res);
 }

@@ -180,6 +180,8 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
     if (entry->user)    string_destroy(entry->user);
     if (entry->message) string_destroy(entry->message);
 
+    module_mem_destroy(entry->instance->memory);
+
     free(entry);
 }
 
@@ -196,6 +198,7 @@ static void *cmd_channel_threader(void *data) {
         if (entry->instance->enter) {
             channel->cmd_time = time(NULL);
             channel->cmd_entry = entry;
+            entry->instance->memory = module_mem_create();
             entry->instance->enter(
                 entry->instance,
                 string_contents(entry->channel),
@@ -232,22 +235,27 @@ bool cmd_channel_ready(cmd_channel_t *channel) {
 }
 
 bool cmd_channel_timeout(cmd_channel_t *channel) {
+    module_t *instance;
     if (!channel->cmd_time || channel->cmd_time + 3 >= time(NULL))
         return false;
     // a command timed out:
     pthread_mutex_lock(&channel->cmd_mutex);
+    instance = channel->cmd_entry->instance;
+    module_mem_mutex_lock(instance);
     // it's possible the thread locked the mutex first, which means the command
     // took _exactly_ as much time as allowed, so we need to recheck
     // for whether the command actually did time out:
     if (!channel->cmd_time || channel->cmd_time + 3 >= time(NULL)) {
         // it didn't
         pthread_mutex_unlock(&channel->cmd_mutex);
+        module_mem_mutex_unlock(instance);
         return false;
     }
     // now we send the kill signal
     pthread_kill(channel->thread, SIGUSR2);
     pthread_join(channel->thread, NULL);
     pthread_mutex_unlock(&channel->cmd_mutex);
+    module_mem_mutex_unlock(instance);
     return true;
 }
 

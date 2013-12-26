@@ -5,6 +5,62 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <pthread.h>
+
+struct module_mem_s {
+    module_mem_node_t *head;
+    module_mem_node_t *tail;
+    pthread_mutex_t    mutex;
+};
+
+static module_mem_node_t *module_mem_node_create(void) {
+    return memset(malloc(sizeof(module_mem_node_t)), 0, sizeof(module_mem_node_t));
+}
+
+static void module_mem_node_destroy(module_mem_node_t *node) {
+    if (node->cleanup)
+        node->cleanup(node->data);
+    free(node);
+}
+
+module_mem_t *module_mem_create(void) {
+    module_mem_t *mem = malloc(sizeof(*mem));
+    mem->head = module_mem_node_create();
+    mem->tail = mem->head;
+
+    pthread_mutex_init(&mem->mutex, NULL);
+
+    return mem;
+}
+
+void module_mem_push(module_mem_t *mem, void *data, void (*cleanup)(void *)) {
+    mem->tail->next    = module_mem_node_create();
+    mem->tail->data    = data;
+    mem->tail->cleanup = cleanup;
+    mem->tail          = mem->tail->next;
+}
+
+static bool module_mem_pop(module_mem_t *mem) {
+    if (!mem->head->data)
+        return false;
+
+    module_mem_node_t *temp = mem->head->next;
+    module_mem_node_destroy(mem->head);
+    mem->head = temp;
+
+    return true;
+}
+
+void module_mem_destroy(module_mem_t *mem) {
+    while (module_mem_pop(mem))
+        ;
+    module_mem_node_destroy(mem->head);
+    pthread_mutex_destroy(&mem->mutex);
+    free(mem);
+}
 
 static module_t *module_load(module_t *module) {
     //
@@ -29,6 +85,11 @@ static module_t *module_load(module_t *module) {
         fprintf(stderr, "   module  => missing command handler %s [%s]\n", module->name, module->file);
         return NULL;
     }
+
+    module_mem_t *mem = module_mem_create();
+    char *d = strdup("hello world");
+    module_mem_push(mem, d, &free);
+    module_mem_destroy(mem);
 
     return module;
 }
@@ -91,8 +152,11 @@ static bool module_allow_symbol(const char *name) {
         "module_enter",
         "module_close",
 
+        // misc
+        "inet_ntop",
+
         // to be removed:
-        "getaddrinfo", "freeaddrinfo", "raise", "inet_ntop",
+        "raise",
         "sqlite3_exec", "sqlite3_open", "sqlite3_prepare_v2",
         "sqlite3_column_text", "sqlite3_column_int", "sqlite3_errmsg",
         "sqlite3_step", "sqlite3_close", "sqlite3_bind_text",
@@ -202,4 +266,30 @@ void module_destroy(module_t *module) {
         dlclose(module->handle);
     free(module->file);
     free(module);
+}
+
+void module_mem_mutex_lock(module_t *module) {
+    pthread_mutex_lock(&module->memory->mutex);
+}
+
+void module_mem_mutex_unlock(module_t *module) {
+    pthread_mutex_unlock(&module->memory->mutex);
+}
+
+void *module_alloc(module_t *module, size_t bytes) {
+    void *p = malloc(bytes);
+    module_mem_mutex_lock(module);
+    module_mem_push(module->memory, p, &free);
+    module_mem_mutex_unlock(module);
+    return p;
+}
+
+int module_getaddrinfo(module_t *module, const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
+    int value = getaddrinfo(mode, service, hints, result);
+    if (value == 0) {
+        module_mem_mutex_lock(module);
+        module_mem_push(module->memory, *result, (void (*)(void *))freeaddrinfo);
+        module_mem_mutex_unlock(module);
+    }
+    return value;
 }
