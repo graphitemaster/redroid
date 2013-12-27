@@ -303,8 +303,10 @@ void module_mem_mutex_unlock(module_t *module) {
     } while (0);
 
 void *module_malloc(module_t *module, size_t bytes) {
+    module_mem_mutex_lock(module);
     void *p = malloc(bytes);
-    MODULE_ALLOC(module, p, free);
+    module_mem_push(module->memory, p, &free);
+    module_mem_mutex_unlock(module);
     return p;
 }
 

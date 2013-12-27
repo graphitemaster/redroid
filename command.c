@@ -245,7 +245,6 @@ bool cmd_channel_timeout(cmd_channel_t *channel) {
     // a command timed out:
     pthread_mutex_lock(&channel->cmd_mutex);
     instance = channel->cmd_entry->instance;
-    module_mem_mutex_lock(instance);
     // it's possible the thread locked the mutex first, which means the command
     // took _exactly_ as much time as allowed, so we need to recheck
     // for whether the command actually did time out:
@@ -256,6 +255,7 @@ bool cmd_channel_timeout(cmd_channel_t *channel) {
         return false;
     }
     // now we send the kill signal
+    module_mem_mutex_lock(instance);
     pthread_kill(channel->thread, SIGUSR2);
     pthread_join(channel->thread, NULL);
     pthread_mutex_unlock(&channel->cmd_mutex);
