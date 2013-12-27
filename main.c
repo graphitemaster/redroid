@@ -14,9 +14,6 @@
 #include <unistd.h>
 #include <time.h>
 
-// signal safe singleton, can consistently recieve a signal and
-// overwrite the stage without working about odd race conditions
-// i.e multiple CTRL+C to force quit.
 static bool signal_shutdown(bool shutdown) {
     static bool stage = false;
     if (shutdown)

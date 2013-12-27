@@ -72,7 +72,7 @@ void cmd_channel_destroy(cmd_channel_t *channel) {
     cmd_channel_wrclose(channel);
     if (cmd_channel_timeout(channel))
         cmd_entry_destroy(channel->cmd_entry);
-    else
+    else if (channel->thread)
         pthread_join(channel->thread, NULL);
 
     pthread_mutex_destroy(&channel->mutex);
