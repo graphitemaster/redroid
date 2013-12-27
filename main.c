@@ -24,7 +24,7 @@ static bool signal_shutdown(bool shutdown) {
     return !stage;
 }
 
-static void signal_deamonize(void) {
+static void signal_daemonize(void) {
     pid_t pid;
     pid_t sid;
 
@@ -50,7 +50,7 @@ static void signal_handle(int signal) {
     else if (signal == SIGUSR1)
         printf("Recieved internal error\n");
     else if (signal == SIGHUP)
-        return signal_deamonize();
+        return signal_daemonize();
     else
         return;
 
