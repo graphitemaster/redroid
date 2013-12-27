@@ -33,7 +33,10 @@ static bool quote_split(module_t *module, const char *string, string_t **nick, s
     char *terminate = NULL;
     for (const char *find = ">| "; *find; find++)
         if ((terminate = strchr(string, *find)))
-            break;
+            if (*terminate != '|')
+                break;
+            else if (terminate[1] == ' ')
+                break;
 
     if (!terminate)
         return false;

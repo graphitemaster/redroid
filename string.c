@@ -73,5 +73,5 @@ size_t string_length(string_t *string) {
 }
 
 bool string_empty(string_t *string) {
-    return (string_length(string)) && *string->buffer;
+    return (string_length(string) == 0) || !*string->buffer;
 }
