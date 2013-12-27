@@ -29,7 +29,7 @@ static sqlite3 *database = NULL;
 // And variable whitespace between the nick and the message is dealt
 // with as well.
 //
-static bool quote_split(const char *string, string_t **nick, string_t **message) {
+static bool quote_split(module_t *module, const char *string, string_t **nick, string_t **message) {
     char *terminate = NULL;
     for (const char *find = ">| "; *find; find++)
         if ((terminate = strchr(string, *find)))
@@ -38,7 +38,7 @@ static bool quote_split(const char *string, string_t **nick, string_t **message)
     if (!terminate)
         return false;
 
-    *nick = string_construct();
+    *nick = string_construct(module);
     for (; string != terminate; string++) {
         for (const char *strip = "< "; *strip; strip++)
             if (*string == *strip)
@@ -49,13 +49,10 @@ static bool quote_split(const char *string, string_t **nick, string_t **message)
 
     while (*string && (*string == '>' || *string == '|' || *string == ' '))
         string++;
-
-    if (!*string) {
-        string_destroy(*nick);
+    if (!*string)
         return false;
-    }
 
-    *message = string_create(string);
+    *message = string_create(module, string);
     return true;
 }
 
@@ -109,11 +106,12 @@ static void quote_help(irc_t *irc, const char *channel, const char *user) {
 
 // quote -add
 // quote -forget
-static void quote_add_forget(irc_t *irc, const char *channel, const char *user, const char *message, bool forget) {
+static void quote_add_forget(module_t *module, const char *channel, const char *user, const char *message, bool forget) {
+    irc_t    *irc = module->instance;
     string_t *quotenick;
     string_t *quotemessage;
 
-    if (!quote_split(message, &quotenick, &quotemessage))
+    if (!quote_split(module, message, &quotenick, &quotemessage))
         return;
 
     const char   *statement_string;
@@ -127,8 +125,6 @@ static void quote_add_forget(irc_t *irc, const char *channel, const char *user, 
                 string_contents(quotemessage),
                 quote_length()
             );
-            string_destroy(quotenick);
-            string_destroy(quotemessage);
             return;
         }
         statement_string = "DELETE FROM QUOTES WHERE NAME = ? AND CONTENT = ?";
@@ -164,16 +160,11 @@ static void quote_add_forget(irc_t *irc, const char *channel, const char *user, 
         );
     }
 
-    string_destroy(quotenick);
-    string_destroy(quotemessage);
     return;
 
 process_error:
     if (statement)
         sqlite3_finalize(statement);
-
-    string_destroy(quotenick);
-    string_destroy(quotemessage);
 }
 
 // quote
@@ -195,7 +186,8 @@ error:
 }
 
 // quote <nick>
-static void quote_entry(irc_t *irc, const char *channel, const char *user, const char *message) {
+static void quote_entry(module_t *module, const char *channel, const char *user, const char *message) {
+    irc_t        *irc              = module->instance;
     const char   *statement_string = "SELECT * FROM QUOTES WHERE NAME = ? ORDER BY RANDOM() LIMIT 1";
     sqlite3_stmt *statement        = NULL;
 
@@ -246,13 +238,13 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     else if (!strcmp(message, "-help"))
         return quote_help(irc, channel, user);
     else if (strstr(message, "-add") == &message[0])
-        return quote_add_forget(irc, channel, user, &message[5], false);
+        return quote_add_forget(module, channel, user, &message[5], false);
     else if (strstr(message, "-forget") == &message[0])
-        return quote_add_forget(irc, channel, user, &message[8], true);
+        return quote_add_forget(module, channel, user, &message[8], true);
     else if (strstr(message, "-stats") == &message[0])
         return quote_stats(irc, channel, user);
     else
-        return quote_entry(irc, channel, user, message);
+        return quote_entry(module, channel, user, message);
 
     return;
 

@@ -198,7 +198,7 @@ static void *cmd_channel_threader(void *data) {
         if (entry->instance->enter) {
             channel->cmd_time = time(NULL);
             channel->cmd_entry = entry;
-            entry->instance->memory = module_mem_create();
+            entry->instance->memory = module_mem_create(entry->instance);
             entry->instance->enter(
                 entry->instance,
                 string_contents(entry->channel),

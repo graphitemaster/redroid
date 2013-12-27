@@ -8,9 +8,9 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     irc_t           *irc      = module->instance;
     list_t          *modules  = irc->modules;
     list_iterator_t *it       = NULL;
-    string_t        *list     = string_construct();
+    string_t        *list     = string_construct(module);
 
-    for (it = list_iterator_create(modules); !list_iterator_end(it); ) {
+    for (it = list_iterator_create(module, modules); !list_iterator_end(it); ) {
         module_t *module = list_iterator_next(it);
         string_catf(list, "%s", module->name);
         if (!list_iterator_end(it))
@@ -18,6 +18,4 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     }
 
     irc_write(irc, channel, "%s: loaded modules: %s", user, string_contents(list));
-    string_destroy(list);
-    list_iterator_destroy(it);
 }

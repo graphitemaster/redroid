@@ -4,16 +4,15 @@
 
 MODULE_DEFAULT(reload);
 
-static void reload_all(irc_t *irc, const char *channel) {
-    list_iterator_t *it = list_iterator_create(irc->modules);
+static void reload_all(module_t *module, const char *channel) {
+    list_iterator_t *it = list_iterator_create(module, module->instance->modules);
     while (!list_iterator_end(it))
         module_reload(list_iterator_next(it));
-    list_iterator_destroy(it);
-    irc_write(irc, channel, "reloaded all modules");
+    irc_write(module->instance, channel, "reloaded all modules");
 }
 
-static void reload_one(irc_t *irc, const char *channel, const char *name) {
-    list_iterator_t *it = list_iterator_create(irc->modules);
+static void reload_one(module_t *module, const char *channel, const char *name) {
+    list_iterator_t *it = list_iterator_create(module, module->instance->modules);
     while (!list_iterator_end(it)) {
         module_t *module = list_iterator_next(it);
         if (!strcmp(module->name, name)) {
@@ -22,14 +21,12 @@ static void reload_one(irc_t *irc, const char *channel, const char *name) {
         }
     }
     if (!list_iterator_end(it))
-        irc_write(irc, channel, "reloaded module %s", name);
-    list_iterator_destroy(it);
+        irc_write(module->instance, channel, "reloaded module %s", name);
 }
 
 void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
-    irc_t *irc = module->instance;
     if (!message)
-        reload_all(irc, channel);
+        reload_all(module, channel);
     else
-        reload_one(irc, channel, message);
+        reload_one(module, channel, message);
 }

@@ -11,6 +11,7 @@
 #include <pthread.h>
 
 struct module_mem_s {
+    module_t          *instance;
     module_mem_node_t *head;
     module_mem_node_t *tail;
     pthread_mutex_t    mutex;
@@ -26,10 +27,12 @@ static void module_mem_node_destroy(module_mem_node_t *node) {
     free(node);
 }
 
-module_mem_t *module_mem_create(void) {
+module_mem_t *module_mem_create(module_t *instance) {
     module_mem_t *mem = malloc(sizeof(*mem));
-    mem->head = module_mem_node_create();
-    mem->tail = mem->head;
+
+    mem->instance = instance;
+    mem->head     = module_mem_node_create();
+    mem->tail     = mem->head;
 
     pthread_mutex_init(&mem->mutex, NULL);
 
@@ -86,11 +89,6 @@ static module_t *module_load(module_t *module) {
         return NULL;
     }
 
-    module_mem_t *mem = module_mem_create();
-    char *d = strdup("hello world");
-    module_mem_push(mem, d, &free);
-    module_mem_destroy(mem);
-
     return module;
 }
 
@@ -110,6 +108,9 @@ static module_t *module_load(module_t *module) {
 #endif
 
 static bool module_allow_symbol(const char *name) {
+    if (!name || !*name || !strncmp(name, "module_", 7))
+        return true;
+
     static const char *list[] = {
         // ctype.h
         "isalnum",    "isalpha",  "islower",   "isupper",    "isdigit",
@@ -148,9 +149,20 @@ static bool module_allow_symbol(const char *name) {
         // time.h
         "difftime",   "time",     "clock",     "asctime",    "ctime",
         "strftime",   "gmtime",   "localtime", "mktime",
-        // module.h
-        "module_enter",
-        "module_close",
+
+        // list.h
+        "list_iterator_next",
+        "list_iterator_end",
+
+        // string.h
+        "string_contents",
+        "string_length",
+        "string_catf",
+
+        // irc.h
+        "irc_modules_add",
+        "irc_action",
+        "irc_write",
 
         // misc
         "inet_ntop",
@@ -198,7 +210,9 @@ static bool module_allow(const char *path, char **function) {
     }
 
     while (dsymtab < dsymtab_end) {
-        if (FUN(dsymtab->st_info) == STT_FUNC) {
+        if (FUN(dsymtab->st_info) == STT_FUNC ||
+            FUN(dsymtab->st_info) == STT_NOTYPE) // no type functions are hard
+        {
             if (!module_allow_symbol(&dstrtab[dsymtab->st_name])) {
                 *function = strdup(&dstrtab[dsymtab->st_name]);
                 free(base);
@@ -276,20 +290,50 @@ void module_mem_mutex_unlock(module_t *module) {
     pthread_mutex_unlock(&module->memory->mutex);
 }
 
-void *module_alloc(module_t *module, size_t bytes) {
+//
+// module API wrappers around things which allocate memory.
+// these register allocations with the garbage collector.
+//
+#define MODULE_ALLOC(MOD, ITEM, FREE)                                \
+    do {                                                             \
+        module_mem_mutex_lock(MOD);                                  \
+        module_mem_push((MOD)->memory, ITEM, (void(*)(void*))&FREE); \
+        module_mem_mutex_unlock(MOD);                                \
+    } while (0);
+
+void *module_malloc(module_t *module, size_t bytes) {
     void *p = malloc(bytes);
-    module_mem_mutex_lock(module);
-    module_mem_push(module->memory, p, &free);
-    module_mem_mutex_unlock(module);
+    MODULE_ALLOC(module, p, free);
     return p;
+}
+
+string_t *module_string_create(module_t *module, const char *input) {
+    string_t *string = string_create(input);
+    MODULE_ALLOC(module, string, string_destroy);
+    return string;
+}
+
+string_t *module_string_construct(module_t *module) {
+    string_t *string = string_construct();
+    MODULE_ALLOC(module, string, string_destroy);
+    return string;
+}
+
+list_iterator_t *module_list_iterator_create(module_t *module, list_t *list) {
+    list_iterator_t *it = list_iterator_create(list);
+    MODULE_ALLOC(module, it, list_iterator_destroy);
+    return it;
+}
+
+list_t *module_list_create(module_t *module) {
+    list_t *list = list_create();
+    MODULE_ALLOC(module, list, list_destroy);
+    return list;
 }
 
 int module_getaddrinfo(module_t *module, const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
     int value = getaddrinfo(mode, service, hints, result);
-    if (value == 0) {
-        module_mem_mutex_lock(module);
-        module_mem_push(module->memory, *result, (void (*)(void *))freeaddrinfo);
-        module_mem_mutex_unlock(module);
-    }
+    if (value == 0)
+        MODULE_ALLOC(module, *result, freeaddrinfo);
     return value;
 }

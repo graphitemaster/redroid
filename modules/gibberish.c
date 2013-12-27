@@ -49,7 +49,7 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     while (*digit && isdigit(*digit)) digit++;
     while (*digit && isspace(*digit)) digit++;
 
-    string_t *string = string_construct();
+    string_t *string = string_construct(module);
     while (x >= y+1) {
         if (gibber(string, (isdigit(*digit) ? atoi(digit) + 1 : 16)) && y+1 != x)
             string_catf(string, " ");
@@ -57,5 +57,4 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     }
 
     irc_write(irc, channel, "%s: %s", user, string_contents(string));
-    string_destroy(string);
 }

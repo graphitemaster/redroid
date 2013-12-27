@@ -22,7 +22,7 @@ void module_enter(module_t *module, const char *channel, const char *who, const 
     if (!string)
         string = who;
 
-    string_t *str = string_construct();
+    string_t *str = string_construct(module);
     string_catf(str, "%s: ((", who);
 
     size_t index  = 0;
@@ -51,7 +51,6 @@ void module_enter(module_t *module, const char *channel, const char *who, const 
         string_catf(str, "-PENALTY[%d]", 0 - bonus);
 
     irc_write(irc, channel, string_contents(str));
-    string_destroy(str);
 
     float cm = (((float)value / length) + bonus);
     float in = (cm * 0.393700787);
