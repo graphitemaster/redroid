@@ -225,9 +225,13 @@ bool cmd_channel_begin(cmd_channel_t *channel) {
     //
     signal(SIGUSR2, &cmd_channel_signalhandle);
     signal(SIGSEGV, &cmd_channel_signalhandle);
-    pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel);
-    printf("    queue   => running\n");
-    return channel->ready = true;
+
+    if (pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel) == 0) {
+        printf("    queue   => running\n");
+        return channel->ready = true;
+    }
+
+    return false;
 }
 
 bool cmd_channel_ready(cmd_channel_t *channel) {
