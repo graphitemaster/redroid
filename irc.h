@@ -2,8 +2,9 @@
 #define REDROID_IRC_HDR
 #include "list.h"
 
-#include <stdbool.h> // bool, true, false
-#include <stddef.h>  // size_t
+#include <stdbool.h>
+#include <stddef.h>
+#include <time.h>
 
 typedef struct irc_s irc_t;
 
@@ -19,7 +20,8 @@ struct irc_s {
     size_t  bufferpos;   // buffer position
     list_t *modules;     // list of modules for this instance
     list_t *channels;    // list of channels for this instance
-    size_t  floodlines;
+    list_t *queue;       // queue of IRC messages
+    time_t  flood;       // flood protection time
 };
 
 irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern);

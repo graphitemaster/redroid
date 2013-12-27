@@ -10,6 +10,56 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+static int irc_write_raw(irc_t *irc, const char *channel, const char *message);
+static int irc_action_raw(irc_t *irc, const char *channel, const char *message);
+
+typedef struct {
+    char  *channel;
+    char  *message;
+    int  (*raw)(irc_t *irc, const char *channel, const char *message);
+} irc_queue_entry_t;
+
+void irc_queue_enqueue(irc_t *irc, int (*raw)(irc_t *irc, const char *, const char *), const char *channel, char *message) {
+    list_push(
+        irc->queue,
+        memcpy(
+            malloc(sizeof(irc_queue_entry_t)),
+            &(irc_queue_entry_t) {
+                .channel = strdup(channel),
+                .message = message,
+                .raw     = raw
+            },
+            sizeof(irc_queue_entry_t)
+        )
+    );
+}
+
+void irc_queue_entry_destroy(irc_queue_entry_t *entry) {
+    free(entry->channel); // allocated from irc_queue_enqueue
+    free(entry->message); // allocated from irc_write, irc_action
+    free(entry);
+}
+
+static bool irc_queue_dequeue(irc_t *irc) {
+    irc_queue_entry_t *entry = list_pop(irc->queue);
+    if (!entry)
+        return false;
+
+    // run it
+    entry->raw(irc, entry->channel, entry->message);
+
+    irc_queue_entry_destroy(entry);
+
+    return true;
+}
+
+static void irc_queue_destroy(irc_t *irc) {
+    while (irc_queue_dequeue(irc))
+        ;
+
+    list_destroy(irc->queue);
+}
+
 // Some utility functions
 static int irc_pong(irc_t *irc, const char *data) {
     return sock_sendf(irc->sock, "PONG :%s\r\n", data);
@@ -38,34 +88,36 @@ static int irc_quit(irc_t *irc, const char *message) {
     return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
 }
 
-static int irc_message(irc_t *irc, const char *channel, const char *data) {
+static int irc_join(irc_t *irc, const char *channel) {
+    return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
+}
+
+static int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
 }
 
-static int irc_join(irc_t *irc, const char *channel) {
-    return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
+static int irc_action_raw(irc_t *irc, const char *channel, const char *data) {
+    return sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, data);
 }
 
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
     char *buffer = NULL;
     va_list va;
     va_start(va, fmt);
-    vasprintf(&buffer, fmt, va);
+    vasprintf(&buffer, fmt, va); // buffer freed in queue
     va_end(va);
-    int ret = sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, buffer);
-    free(buffer);
-    return ret;
+    irc_queue_enqueue(irc, &irc_action_raw, channel, buffer);
+    return 1;
 }
 
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
     char *buffer = NULL;
     va_list  va;
     va_start(va, fmt);
-    vasprintf(&buffer, fmt, va);
+    vasprintf(&buffer, fmt, va); // buffer freed in queue
     va_end(va);
-    int ret = irc_message(irc, channel, buffer);
-    free(buffer);
-    return ret;
+    irc_queue_enqueue(irc, &irc_write_raw, channel, buffer);
+    return 1;
 }
 
 // Instance management
@@ -94,7 +146,7 @@ irc_t *irc_create(const char *name, const char *nick, const char *auth, const ch
     irc->bufferpos  = 0;
     irc->modules    = list_create();
     irc->channels   = list_create();
-    irc->floodlines = 0;
+    irc->queue      = list_create();
 
     printf("instance: %s\n", name);
     return irc;
@@ -179,6 +231,13 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
 void irc_destroy(irc_t *irc) {
     irc_quit(irc, "Shutting down");
 
+    //
+    // process anything left in the queue before closing off / releasing
+    // any other irc resources that something in the queue may depend
+    // on.
+    //
+    irc_queue_destroy(irc);
+
     // destory modules
     list_iterator_t *it = NULL;
     for (it = list_iterator_create(irc->modules); !list_iterator_end(it); )
@@ -196,7 +255,6 @@ void irc_destroy(irc_t *irc) {
     // close the socket
     sock_close(irc->sock);
 
-    // free other data
     free(irc->nick);
     free(irc->name);
     free(irc->pattern);
@@ -366,6 +424,8 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
 int irc_process(irc_t *irc, void *data) {
     cmd_channel_t *commander = data;
 
+    irc_queue_dequeue(irc); // TODO flood protect
+
     char temp[128];
     int  read;
 
@@ -415,5 +475,6 @@ int irc_process(irc_t *irc, void *data) {
                     irc->bufferpos++;
         }
     }
+
     return 0;
 }
