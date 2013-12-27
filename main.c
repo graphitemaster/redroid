@@ -21,7 +21,7 @@ static bool signal_shutdown(bool shutdown) {
     return !stage;
 }
 
-static void signal_daemonize(void) {
+static void signal_daemonize(bool closehandles) {
     pid_t pid;
     pid_t sid;
 
@@ -36,6 +36,9 @@ static void signal_daemonize(void) {
     if ((sid = setsid() < 0))
         exit(EXIT_FAILURE);
 
+    if (!closehandles)
+        return;
+
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
@@ -47,7 +50,7 @@ static void signal_handle(int signal) {
     else if (signal == SIGUSR1)
         printf("Recieved internal error\n");
     else if (signal == SIGHUP)
-        return signal_daemonize();
+        return signal_daemonize(true);
     else
         return;
 
@@ -74,13 +77,20 @@ int main(int argc, char **argv) {
 
     if (argc && argv[0][0] == '-') {
         switch (argv[0][1]) {
+            case 'l': // logging
+                freopen(&argv[0][3], "w", stdout);
+                freopen(&argv[0][3], "w", stderr);
+                signal_daemonize(false);
+                break;
+
             case 'q': // quiet
                 freopen("/dev/null", "w", stdout);
                 freopen("/dev/null", "w", stderr);
+                signal_daemonize(false);
                 break;
 
             case 'd': // daemonize
-                raise(SIGHUP);
+                signal_daemonize(true);
                 break;
         }
     }

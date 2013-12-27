@@ -387,6 +387,14 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
 
         if (kick && channel) {
             irc_join(irc, channel);
+
+            free(channel);
+
+            if (nick)
+                free(nick);
+            if (message)
+                free(message);
+
             return;
         }
 
@@ -431,8 +439,12 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
 
             free(channel);
         }
-        if (nick)    free(nick);
-        if (message) free(message);
+
+        if (nick)
+            free(nick);
+
+        if (message)
+            free(message);
     }
 }
 
