@@ -266,7 +266,6 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
         }
     }
 
-
     if (!strncmp(line, "PING :", 6))
         irc_pong(irc, line + 6);
 
@@ -278,6 +277,7 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     char *message = NULL;
     char *channel = NULL;
     bool  private = false;
+    bool  kick    = false;
 
     // Just raise internal error if the ircd errors
     if (!strncmp(line, "ERROR :", 7))
@@ -299,14 +299,22 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
             if (!strcmp(ptr, "PRIVMSG")) {
                 private = true;
                 break;
+            } else if (!strcmp(ptr, "KICK")) {
+                kick = true;
+                break;
             }
         }
 
-        if (private) {
+        if (private || kick) {
             if ((ptr = strtok(NULL, ":")))
                 channel = strdup(ptr);
             if ((ptr = strtok(NULL, "")))
                 message = strdup(ptr);
+        }
+
+        if (kick && channel) {
+            irc_join(irc, channel);
+            return;
         }
 
         if (channel) {
