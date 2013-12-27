@@ -21,7 +21,6 @@ struct irc_s {
     list_t *modules;     // list of modules for this instance
     list_t *channels;    // list of channels for this instance
     list_t *queue;       // queue of IRC messages
-    time_t  flood;       // flood protection time
 };
 
 irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern);

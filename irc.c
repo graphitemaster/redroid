@@ -45,9 +45,7 @@ static bool irc_queue_dequeue(irc_t *irc) {
     if (!entry)
         return false;
 
-    // run it
     entry->raw(irc, entry->channel, entry->message);
-
     irc_queue_entry_destroy(entry);
 
     return true;
@@ -424,7 +422,7 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
 int irc_process(irc_t *irc, void *data) {
     cmd_channel_t *commander = data;
 
-    irc_queue_dequeue(irc); // TODO flood protect
+    irc_queue_dequeue(irc);
 
     char temp[128];
     int  read;
