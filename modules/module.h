@@ -1,5 +1,6 @@
 #ifndef REDROID_MODULE_MODULE_HDR
 #define REDROID_MODULE_MODULE_HDR
+#define MODULE_API
 #include "../module.h"
 
 #include <sys/types.h>
@@ -8,14 +9,6 @@
 
 #define MODULE_DEFAULT(NAME) char module_name[]  = #NAME, module_match[] = #NAME
 #define MODULE_ALWAYS(NAME)  char module_name[]  = #NAME, module_match[] = ""
-
-struct list_s;
-struct string_s;
-struct list_iterator_s;
-
-typedef struct list_s          list_t;
-typedef struct string_s        string_t;
-typedef struct list_iterator_s list_iterator_t;
 
 void *module_malloc(module_t *module, size_t bytes);
 string_t *module_string_create(module_t *module, const char *input);
