@@ -1,6 +1,5 @@
 #ifndef REDROID_MODULE_MODULE_HDR
 #define REDROID_MODULE_MODULE_HDR
-#define MODULE_API
 #include "../module.h"
 
 #include <sys/types.h>

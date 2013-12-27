@@ -239,6 +239,7 @@ module_t *module_open(const char *file, irc_t *instance, string_t **error) {
 
     if (!(module->handle = dlopen(file, RTLD_LAZY))) {
         free(module);
+        *error = string_create(dlerror());
         return NULL;
     }
 

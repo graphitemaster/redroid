@@ -4,10 +4,13 @@
 #include <string.h>
 #include <stdarg.h>
 #include <signal.h>
+#include <errno.h>
+#include <stdbool.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <fcntl.h>
@@ -32,10 +35,35 @@ int sock_get(const char *host, const char *port) {
         goto sock_get_error;
     }
 
-    if (connect(sock, result->ai_addr, result->ai_addrlen) < 0) {
-        fprintf(stderr, "failed to connect: %s:%s\n", host, port);
-        goto sock_get_error;
+    // try all of them until it succeeds
+    bool failed = false;
+    for (struct addrinfo *current = result; current; current = current->ai_next) {
+        char ipbuffer[INET6_ADDRSTRLEN];
+        void *addr = NULL;
+        if (current->ai_family == AF_INET) {
+            struct sockaddr_in *ipv4 = (struct sockaddr_in*)current->ai_addr;
+            addr = &(ipv4->sin_addr);
+        } else {
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6*)current->ai_addr;
+            addr = &(ipv6->sin6_addr);
+        }
+
+        inet_ntop(current->ai_family, addr, ipbuffer, sizeof(ipbuffer));
+
+        if ((status = connect(sock, result->ai_addr, result->ai_addrlen)) < 0) {
+            if (current->ai_next)
+                fprintf(stderr, "failed to connect: %s:%s (trying next address in list)\n", host, ipbuffer);
+            else
+                fprintf(stderr, "failed to connect: %s:%s %s\n", host, ipbuffer, strerror(errno));
+            failed = true;
+        } else {
+            result = current;
+            failed = false;
+            break;
+        }
     }
+    if (failed)
+        goto sock_get_error;
 
     freeaddrinfo(result);
     //
