@@ -24,11 +24,33 @@ static bool signal_shutdown(bool shutdown) {
     return !stage;
 }
 
+static void signal_deamonize(void) {
+    pid_t pid;
+    pid_t sid;
+
+    pid = fork();
+    if (pid < 0)
+        exit(EXIT_FAILURE);
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
+    umask(0);
+
+    if ((sid = setsid() < 0))
+        exit(EXIT_FAILURE);
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+}
+
 static void signal_handle(int signal) {
     if (signal == SIGTERM || signal == SIGINT)
         printf("Recieved shutdown signal\n");
     else if (signal == SIGUSR1)
         printf("Recieved internal error\n");
+    else if (signal == SIGHUP)
+        return signal_deamonize();
     else
         return;
 
@@ -41,14 +63,13 @@ static void signal_install(void) {
     signal(SIGUSR1, &signal_handle);
     signal(SIGTERM, &signal_handle);
     signal(SIGINT,  &signal_handle);
+    signal(SIGHUP,  &signal_handle);
 }
 
 int main(int argc, char **argv) {
     argc--;
     argv++;
 
-    pid_t          pid;
-    pid_t          sid;
     irc_manager_t *manager;
 
     signal_install();
@@ -62,17 +83,7 @@ int main(int argc, char **argv) {
                 break;
 
             case 'd': // daemonize
-                pid = fork();
-                if (pid < 0)
-                    exit(EXIT_FAILURE);
-                if (pid > 0)
-                    exit(EXIT_SUCCESS);
-                umask(0);
-                if ((sid = setsid() < 0))
-                    exit(EXIT_FAILURE);
-                close(STDIN_FILENO);
-                close(STDOUT_FILENO);
-                close(STDERR_FILENO);
+                raise(SIGHUP);
                 break;
         }
     }
