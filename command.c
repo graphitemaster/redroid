@@ -227,7 +227,7 @@ bool cmd_channel_begin(cmd_channel_t *channel) {
     signal(SIGSEGV, &cmd_channel_signalhandle);
 
     if (pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel) == 0) {
-        printf("    queue   => running\n");
+        printf("    queue   => %s\n", (channel->ready) ? "restarted" : "running");
         return channel->ready = true;
     }
 
