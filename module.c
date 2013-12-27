@@ -295,46 +295,52 @@ void module_mem_mutex_unlock(module_t *module) {
 // module API wrappers around things which allocate memory.
 // these register allocations with the garbage collector.
 //
-#define MODULE_ALLOC(MOD, ITEM, FREE)                                \
-    do {                                                             \
-        module_mem_mutex_lock(MOD);                                  \
-        module_mem_push((MOD)->memory, ITEM, (void(*)(void*))&FREE); \
-        module_mem_mutex_unlock(MOD);                                \
-    } while (0);
 
 void *module_malloc(module_t *module, size_t bytes) {
+    module_mem_mutex_lock(module);
     void *p = malloc(bytes);
-    MODULE_ALLOC(module, p, free);
+    module_mem_push(module->memory, p, &free);
+    module_mem_mutex_unlock(module);
     return p;
 }
 
 string_t *module_string_create(module_t *module, const char *input) {
+    module_mem_mutex_lock(module);
     string_t *string = string_create(input);
-    MODULE_ALLOC(module, string, string_destroy);
+    module_mem_push(module->memory, string, (void (*)(void *))&string_destroy);
+    module_mem_mutex_unlock(module);
     return string;
 }
 
 string_t *module_string_construct(module_t *module) {
+    module_mem_mutex_lock(module);
     string_t *string = string_construct();
-    MODULE_ALLOC(module, string, string_destroy);
+    module_mem_push(module->memory, string, (void (*)(void *))&string_destroy);
+    module_mem_mutex_unlock(module);
     return string;
 }
 
 list_iterator_t *module_list_iterator_create(module_t *module, list_t *list) {
+    module_mem_mutex_lock(module);
     list_iterator_t *it = list_iterator_create(list);
-    MODULE_ALLOC(module, it, list_iterator_destroy);
+    module_mem_push(module->memory, it, (void (*)(void*))&list_iterator_destroy);
+    module_mem_mutex_unlock(module);
     return it;
 }
 
 list_t *module_list_create(module_t *module) {
+    module_mem_mutex_lock(module);
     list_t *list = list_create();
-    MODULE_ALLOC(module, list, list_destroy);
+    module_mem_push(module->memory, list, (void (*)(void*))&list_destroy);
+    module_mem_mutex_unlock(module);
     return list;
 }
 
 int module_getaddrinfo(module_t *module, const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
+    module_mem_mutex_lock(module);
     int value = getaddrinfo(mode, service, hints, result);
     if (value == 0)
-        MODULE_ALLOC(module, *result, freeaddrinfo);
+        module_mem_push(module->memory, *result, (void (*)(void*))&freeaddrinfo);
+    module_mem_mutex_unlock(module);
     return value;
 }
