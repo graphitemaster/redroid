@@ -43,15 +43,16 @@ static void config_entry_destroy(config_t *entry) {
 }
 
 static config_t *config_entry_find(list_t *list, const char *name) {
-    config_t        *entry = NULL;
-    list_iterator_t *it    = list_iterator_create(list);
+    list_iterator_t *it = list_iterator_create(list);
     for (; !list_iterator_end(it); ) {
-        entry = list_iterator_next(it);
-        if (!strcmp(entry->name, name))
-            break;
+        config_t *entry = list_iterator_next(it);
+        if (!strcmp(entry->name, name)) {
+            list_iterator_destroy(it);
+            return entry;
+        }
     }
     list_iterator_destroy(it);
-    return entry;
+    return NULL;
 }
 
 static bool config_entry_handler(void *user, const char *section, const char *name, const char *value) {
@@ -63,6 +64,8 @@ static bool config_entry_handler(void *user, const char *section, const char *na
         exists->name = strdup(section);
 
         list_push(config, exists);
+        printf("config instance: %s\n", section);
+        return config_entry_handler(config, section, name, value);
     }
 
     if      (!strcmp(name, "nick"))      exists->nick    = strdup(value);
