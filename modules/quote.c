@@ -8,6 +8,7 @@ MODULE_DEFAULT(quote);
 
 static sqlite3 *database = NULL;
 
+
 //
 // The following function will clever handle all sorts of common methods
 // IRC clients impose on nick | message, in line copies.
@@ -31,12 +32,13 @@ static sqlite3 *database = NULL;
 //
 static bool quote_split(module_t *module, const char *string, string_t **nick, string_t **message) {
     char *terminate = NULL;
-    for (const char *find = ">| "; *find; find++)
-        if ((terminate = strchr(string, *find)))
-            if (*terminate != '|')
-                break;
-            else if (terminate[1] == ' ')
-                break;
+    for (const char *find = ">| "; *find; find++) {
+        if ((terminate = strchr(string, *find))) {
+            if (*find == '|' && terminate[1] != ' ')
+                continue;
+            break;
+        }
+    }
 
     if (!terminate)
         return false;

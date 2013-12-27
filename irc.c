@@ -12,6 +12,8 @@
 
 static int irc_write_raw(irc_t *irc, const char *channel, const char *message);
 static int irc_action_raw(irc_t *irc, const char *channel, const char *message);
+static int irc_quit_raw(irc_t *irc, const char *channel, const char *message);
+static int irc_join_raw(irc_t *irc, const char *channel, const char *message);
 
 typedef struct {
     char  *channel;
@@ -25,7 +27,7 @@ void irc_queue_enqueue(irc_t *irc, int (*raw)(irc_t *irc, const char *, const ch
         memcpy(
             malloc(sizeof(irc_queue_entry_t)),
             &(irc_queue_entry_t) {
-                .channel = strdup(channel),
+                .channel = (channel) ? strdup(channel) : NULL, // may not come from a channel (e.g /quit /join)
                 .message = message,
                 .raw     = raw
             },
@@ -35,8 +37,11 @@ void irc_queue_enqueue(irc_t *irc, int (*raw)(irc_t *irc, const char *, const ch
 }
 
 void irc_queue_entry_destroy(irc_queue_entry_t *entry) {
-    free(entry->channel); // allocated from irc_queue_enqueue
-    free(entry->message); // allocated from irc_write, irc_action
+    // not all commands will come from a channel
+    if (entry->channel)
+        free(entry->channel);
+
+    free(entry->message); // allocated from irc_write, irc_action, etc
     free(entry);
 }
 
@@ -82,12 +87,14 @@ static int irc_register(irc_t *irc) {
     return accumulate;
 }
 
-static int irc_quit(irc_t *irc, const char *message) {
+static int irc_quit_raw(irc_t *irc, const char *channel, const char *message) {
+    (void)channel;
     return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
 }
 
-static int irc_join(irc_t *irc, const char *channel) {
-    return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
+static int irc_join_raw(irc_t *irc, const char *channel, const char *message) {
+    (void)channel;
+    return sock_sendf(irc->sock, "JOIN %s\r\n", message);
 }
 
 static int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
@@ -96,6 +103,16 @@ static int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
 
 static int irc_action_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, data);
+}
+
+static int irc_quit(irc_t *irc, const char *message) {
+    irc_queue_enqueue(irc, &irc_quit_raw, NULL, strdup(message)); // freed in irc_queue_dequeue
+    return 1;
+}
+
+static int irc_join(irc_t *irc, const char *channel) {
+    irc_queue_enqueue(irc, &irc_join_raw, NULL, strdup(channel)); // freed in irc_queue_dequeue
+    return 1;
 }
 
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {

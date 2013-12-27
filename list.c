@@ -108,10 +108,13 @@ void *list_pop(list_t *list) {
 
     void *element = list->tail->element;
     list->tail = list->tail->prev;
-    if (list->tail)
+    if (list->tail) {
+        list_node_destroy(list->tail->next);
         list->tail->next = NULL;
-    else
+    } else {
+        list_node_destroy(list->head);
         list->head = NULL;
+    }
     list->length--;
     return element;
 }
