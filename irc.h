@@ -1,6 +1,7 @@
 #ifndef REDROID_IRC_HDR
 #define REDROID_IRC_HDR
 #include "list.h"
+#include "database.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -21,9 +22,10 @@ struct irc_s {
     list_t *modules;     // list of modules for this instance
     list_t *channels;    // list of channels for this instance
     list_t *queue;       // queue of IRC messages
+    database_t *database;
 };
 
-irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern);
+irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern, const char *database);
 void  irc_destroy(irc_t *irc);
 int irc_process(irc_t *irc, void *data);
 const char *irc_name(irc_t *irc);

@@ -80,12 +80,12 @@ static module_t *module_load(module_t *module) {
     }
 
     if (!(module->match = dlsym(module->handle, "module_match"))) {
-        fprintf(stderr, "   module  => missing command match rule %s [%s]\n", module->name, module->file);
+        fprintf(stderr, "   module   => missing command match rule %s [%s]\n", module->name, module->file);
         return NULL;
     }
 
     if (!(module->enter = dlsym(module->handle, "module_enter"))) {
-        fprintf(stderr, "   module  => missing command handler %s [%s]\n", module->name, module->file);
+        fprintf(stderr, "   module   => missing command handler %s [%s]\n", module->name, module->file);
         return NULL;
     }
 
@@ -108,7 +108,7 @@ static module_t *module_load(module_t *module) {
 #endif
 
 static bool module_allow_symbol(const char *name) {
-    if (!name || !*name || !strncmp(name, "module_", 7))
+    if (!name || !*name || !strncmp(name, "module_", 7) || !strncmp(name, "database_", 9))
         return true;
 
     static const char *list[] = {
@@ -153,6 +153,8 @@ static bool module_allow_symbol(const char *name) {
         // list.h
         "list_iterator_next",
         "list_iterator_end",
+        "list_pop",
+        "list_length",
 
         // string.h
         "string_contents",
@@ -291,11 +293,7 @@ void module_mem_mutex_unlock(module_t *module) {
     pthread_mutex_unlock(&module->memory->mutex);
 }
 
-//
-// module API wrappers around things which allocate memory.
-// these register allocations with the garbage collector.
-//
-
+// memory pinners for module garbage collection
 void *module_malloc(module_t *module, size_t bytes) {
     module_mem_mutex_lock(module);
     void *p = malloc(bytes);
@@ -343,4 +341,28 @@ int module_getaddrinfo(module_t *module, const char *mode, const char *service, 
         module_mem_push(module->memory, *result, (void (*)(void*))&freeaddrinfo);
     module_mem_mutex_unlock(module);
     return value;
+}
+
+database_statement_t *module_database_statement_create(module_t *module, const char *string) {
+    module_mem_mutex_lock(module);
+    database_statement_t *statement = database_statement_create(module->instance->database, string);
+    module_mem_push(module->memory, statement, (void(*)(void*))&database_statement_destroy);
+    module_mem_mutex_unlock(module);
+    return statement;
+}
+
+database_row_t *module_database_row_extract(module_t *module, database_statement_t *statement, const char *fields) {
+    module_mem_mutex_lock(module);
+    database_row_t *row = database_row_extract(statement, fields);
+    module_mem_push(module->memory, row, (void(*)(void*))&database_row_destroy);
+    module_mem_mutex_unlock(module);
+    return row;
+}
+
+const char *module_database_row_pop_string(module_t *module, database_row_t *row) {
+    module_mem_mutex_lock(module);
+    const char *ret = database_row_pop_string(row);
+    module_mem_push(module->memory, (void *)ret, (void(*)(void*))&free);
+    module_mem_mutex_unlock(module);
+    return ret;
 }

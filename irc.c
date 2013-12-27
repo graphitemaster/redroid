@@ -136,7 +136,7 @@ int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
 }
 
 // Instance management
-irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern) {
+irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern, const char *database) {
     irc_t *irc = malloc(sizeof(irc_t));
 
     if (!irc)
@@ -162,8 +162,10 @@ irc_t *irc_create(const char *name, const char *nick, const char *auth, const ch
     irc->modules    = list_create();
     irc->channels   = list_create();
     irc->queue      = list_create();
+    irc->database   = database_create("quote.db");
 
     printf("instance: %s\n", name);
+
     return irc;
 
 error:
@@ -193,22 +195,22 @@ bool irc_modules_add(irc_t *irc, const char *name) {
 
     // prevent loading module twice
     if ((module = irc_modules_find(irc, name))) {
-        printf("    module  => %s [%s] already loaded\n", module->name, name);
+        printf("    module   => %s [%s] already loaded\n", module->name, name);
         return false;
     }
 
     // load the module
     if ((module = module_open(name, irc, &error))) {
         list_push(irc->modules, module);
-        printf("    module  => %s [%s] loaded\n", module->name, module->file);
+        printf("    module   => %s [%s] loaded\n", module->name, module->file);
         return true;
     }
 
     if (error) {
-        printf("    module  => %s loading failed (%s)\n", name, string_contents(error));
+        printf("    module   => %s loading failed (%s)\n", name, string_contents(error));
         string_destroy(error);
     } else {
-        printf("    module  => %s loading failed\n", name);
+        printf("    module   => %s loading failed\n", name);
     }
 
     return false;
@@ -233,13 +235,13 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
     while (!list_iterator_end(it)) {
         if (!strcmp(list_iterator_next(it), channel)) {
             list_iterator_destroy(it);
-            printf("    channel => %s already exists\n", channel);
+            printf("    channel  => %s already exists\n", channel);
             return false;
         }
     }
     list_iterator_destroy(it);
     list_push(irc->channels, strdup(channel));
-    printf("    channel => %s added\n", channel);
+    printf("    channel  => %s added\n", channel);
     return true;
 }
 
@@ -252,6 +254,8 @@ void irc_destroy(irc_t *irc) {
     // on.
     //
     irc_queue_destroy(irc);
+
+    database_destroy(irc->database);
 
     // destory modules
     list_iterator_t *it = NULL;

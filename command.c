@@ -196,7 +196,7 @@ static void *cmd_channel_threader(void *data) {
 
     while (cmd_channel_pop(channel, &entry)) {
         if (entry->instance->enter) {
-            channel->cmd_time = time(NULL);
+            channel->cmd_time  = time(NULL);
             channel->cmd_entry = entry;
             entry->instance->memory = module_mem_create(entry->instance);
             entry->instance->enter(
@@ -227,7 +227,7 @@ bool cmd_channel_begin(cmd_channel_t *channel) {
     signal(SIGSEGV, &cmd_channel_signalhandle);
 
     if (pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel) == 0) {
-        printf("    queue   => %s\n", (channel->ready) ? "restarted" : "running");
+        printf("    queue    => %s\n", (channel->ready) ? "restarted" : "running");
         return channel->ready = true;
     }
 
@@ -245,6 +245,7 @@ bool cmd_channel_timeout(cmd_channel_t *channel) {
     // a command timed out:
     pthread_mutex_lock(&channel->cmd_mutex);
     instance = channel->cmd_entry->instance;
+    module_mem_mutex_lock(instance);
     // it's possible the thread locked the mutex first, which means the command
     // took _exactly_ as much time as allowed, so we need to recheck
     // for whether the command actually did time out:
@@ -255,7 +256,7 @@ bool cmd_channel_timeout(cmd_channel_t *channel) {
         return false;
     }
     // now we send the kill signal
-    module_mem_mutex_lock(instance);
+
     pthread_kill(channel->thread, SIGUSR2);
     pthread_join(channel->thread, NULL);
     pthread_mutex_unlock(&channel->cmd_mutex);
