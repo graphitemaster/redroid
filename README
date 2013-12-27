@@ -3,10 +3,10 @@ A modular rewrite of the popular mIRC redroid IRC bot:
 Features:
     - Multiple channels
     - Multiple networks
-    - Modules
+    - Flood protection
+    - Sanboxed modules
 
 Prerequisites:
-    - Linux 2.6+
     - GNU make
     - C99 compiler
     - pthreads
@@ -47,23 +47,26 @@ Modules:
     with a choice of being a default module or an always module. An example
     is provided below:
 
-    #include <module>
+    #include <module.h>
     MODULE_DEFAULT(echo);
 
-    void module_entry(irc_t *irc, const char *channel, const char *user, const char *message) {
+    void module_entry(module_t *module, const char *channel, const char *user, const char *message) {
         if (!message)
             return;
 
-        irc_write(irc, channel, "%s: %s", user, message);
+        irc_write(module->instance, channel, "%s: %s", user, message);
     }
 
-    Modules may need to free resources allocated globally. If a module
-    contains a module_exit(irc_t *) function it will be invoked when the
-    module is unloaded or the IRC bot is closed.
-
-    Modules are queued up by a threaded task. This prevents modules which block
-    from timing out the IRC bot. It also helps prevent from modules which crash
-    from taking down the IRC bot.
+    Modules which need to perform a task when the module is unloaded, reloaded, or
+    interrupted, can do so with a module_leave function. Modules can allocate resources
+    with malloc / strdup, etc; provided that the first argument to each function is
+    the module handle itself. This is because module.h defines them to wrap different
+    module-specific API functions that deal with garbage collection. From this design
+    it's impossible to use functions from the standard library which allocate resources.
+    Modules which attempt to use libc functions which allocate resources will fail to
+    load, since the functions which do so are blacklisted, or more accurately put, not
+    part of the whitelist of allowed functions. The whitelist of allowed functions
+    a module can use is provided in module.c.
 
 List of implemented modules:
     cookie      - crumble someone up into cookies
