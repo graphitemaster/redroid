@@ -80,7 +80,8 @@ the appropriate callback functions (with the associated data passed in) are
 called. This effectively solves the issue with managing resources in modules.
 Due to the nature of how modules are shortly-lived to begin with and this
 garbage collection mechanism, there is no requirement to explicitly free
-resources in modules either, leading to simplier more managable modules.
+resources in modules either, leading to simplier, smaller, more managable and
+maintainable modules overall.
 
 Modules
 -------
