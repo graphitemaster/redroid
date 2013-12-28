@@ -87,6 +87,8 @@ static void quote_entry_random(module_t *module, const char *channel, const char
     if (!database_statement_complete(statement))
         return;
 
+    database_request(module->instance->database, "QUOTES");
+
     irc_write(module->instance, channel, "%s: <%s> %s", user, nick, message);
 }
 
@@ -110,12 +112,16 @@ static void quote_entry(module_t *module, const char *channel, const char *user,
     if (!database_statement_complete(statement))
         return;
 
+    database_request(module->instance->database, "QUOTES");
+
     irc_write(module->instance, channel, "%s: <%s> %s", user, quotenick, quotemessage);
 }
 
 static void quote_stats(module_t *module, const char *channel, const char *user) {
-    size_t count = quote_length(module);
-    irc_write(module->instance, channel, "%s: quote stats -> %zu quotes -> requested ? times", user, count);
+    int count   = quote_length(module);
+    int request = database_request_count(module->instance->database, "QUOTES");
+
+    irc_write(module->instance, channel, "%s: quote stats -> %d quotes -> requested %d times", user, count, request);
 }
 
 static void quote_add(module_t *module, const char *channel, const char *user, const char *message) {
@@ -148,7 +154,36 @@ static void quote_add(module_t *module, const char *channel, const char *user, c
 }
 
 static void quote_forget(module_t *module, const char *channel, const char *user, const char *message) {
+    string_t *quotenick    = NULL;
+    string_t *quotemessage = NULL;
 
+    if (!quote_split(module, message, &quotenick, &quotemessage))
+        return;
+
+    if (!quote_find(module, string_contents(quotenick), string_contents(quotemessage))) {
+        irc_write(module->instance, channel, "%s: Sorry, could not find any quotes like \"%s %s\"",
+            user,
+            string_contents(quotenick),
+            string_contents(quotemessage)
+        );
+        return;
+    }
+
+    database_statement_t *statement = database_statement_create(module, "DELETE FROM QUOTES WHERE NAME = ? AND CONTENT = ?");
+    if (!statement)
+        return;
+
+    if (!database_statement_bind(statement, "ss", string_contents(quotenick), string_contents(quotemessage)))
+        return;
+
+    if (!database_statement_complete(statement))
+        return;
+
+    irc_write(module->instance, channel, "%s: Ok, removed - \"%s %s..\" - from the quote db",
+        user,
+        string_contents(quotenick),
+        string_contents(quotemessage)
+    );
 }
 
 void module_enter(module_t *module, const char *channel, const char *user, const char *message) {

@@ -1,6 +1,7 @@
 #ifndef REDROID_DATABASE_HDR
 #define REDROID_DATABASE_HDR
 #include <stdbool.h>
+#include <stddef.h>
 
 struct database_statement_s;
 struct database_row_s;
@@ -23,5 +24,8 @@ int                   database_row_pop_integer(database_row_t *row);
 
 database_t           *database_create(const char *file);
 void                  database_destroy(database_t *database);
+
+bool                  database_request(database_t *database, const char *table);
+int                   database_request_count(database_t *database, const char *table);
 
 #endif

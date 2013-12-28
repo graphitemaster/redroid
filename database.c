@@ -4,6 +4,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+
 #include <sqlite3.h>
 
 struct database_row_data_s;
@@ -154,4 +156,60 @@ database_t *database_create(const char *file) {
 
 void database_destroy(database_t *database) {
     sqlite3_close((sqlite3*)database);
+}
+
+// table request count management
+int database_request_count(database_t *database, const char *table) {
+    database_statement_t *statement = database_statement_create(database, "SELECT COUNT FROM REQUESTS WHERE NAME=?");
+    if (!statement)
+        return -1;
+
+    if (!database_statement_bind(statement, "s", table))
+        goto error;
+
+    database_row_t *row = database_row_extract(statement, "i");
+    if (!row)
+        goto error;
+
+    int count = database_row_pop_integer(row);
+
+    if (!database_statement_complete(statement)) {
+        database_row_destroy(row);
+        goto error;
+    }
+
+    database_row_destroy(row);
+    database_statement_destroy(statement);
+
+    return count;
+
+error:
+    database_statement_destroy(statement);
+    return -1;
+}
+
+bool database_request(database_t *database, const char *table) {
+    int oldcount = database_request_count(database, table);
+    if (oldcount == -1)
+        return false;
+
+    database_statement_t *statement = database_statement_create(database, "UPDATE REQUESTS SET COUNT=? WHERE NAME=?");
+
+    if (!statement)
+        return false;
+
+    oldcount++;
+
+    if (!database_statement_bind(statement, "is", oldcount, table))
+        goto error;
+
+    if (!database_statement_complete(statement))
+        goto error;
+
+    database_statement_destroy(statement);
+    return true;
+
+error:
+    database_statement_destroy(statement);
+    return false;
 }
