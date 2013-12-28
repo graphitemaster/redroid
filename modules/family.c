@@ -81,7 +81,7 @@ static void family_stats(module_t *module, const char *channel, const char *user
     irc_write(module->instance, channel, "%s: family stats -> %d members -> requested %d times", user, count, request);
 }
 
-static void family_add(module_t *module, const char *channel, const char *user, const char *message) {
+static void family_add_replace(module_t *module, const char *channel, const char *user, const char *message, bool replace) {
     string_t *member = NULL;
     string_t *status = NULL;
 
@@ -89,7 +89,7 @@ static void family_add(module_t *module, const char *channel, const char *user, 
         return family_help(module->instance, channel, user);
 
     const char *exists = family_get(module, string_contents(member));
-    if (exists) {
+    if (exists && !replace) {
         irc_write(
             module->instance,
             channel,
@@ -101,21 +101,57 @@ static void family_add(module_t *module, const char *channel, const char *user, 
         return;
     }
 
-    database_statement_t *statement = database_statement_create(module, "INSERT INTO FAMILY (NAME, CONTENT) VALUES ( ?, ? )");
+    database_statement_t *statement = (replace) ? database_statement_create(module, "UPDATE FAMILY SET CONTENT=? WHERE NAME=?")
+                                                : database_statement_create(module, "INSERT INTO FAMILY (NAME, CONTENT) VALUES ( ?, ? )");
     if (!statement)
         return;
 
-    if (!database_statement_bind(statement, "ss", string_contents(member), string_contents(status)))
+    if (replace && !database_statement_bind(statement, "ss", string_contents(member), string_contents(status)))
+        return;
+    else if (!database_statement_bind(statement, "ss", string_contents(status), string_contents(member)))
         return;
 
     if (!database_statement_complete(statement))
         return;
 
-    irc_write(module->instance, channel, "%s: Ok, added family member: %s is the \"%s\"",
+    irc_write(module->instance, channel, "%s: Ok, %s family member: %s is the \"%s\"",
         user,
+        (replace) ? "replaced" : "added",
         string_contents(member),
         string_contents(status)
     );
+}
+
+static void family_concat(module_t *module, const char *channel, const char *user, const char *message) {
+    string_t *member = NULL;
+    string_t *status = NULL;
+
+    if (!family_split(module, message, &member, &status))
+        return family_help(module->instance, channel, user);
+
+    const char *get = family_get(module, string_contents(member));
+    if (!get) {
+        irc_write(module->instance, user, "Sorry, couldn't find family member \"%s\"", string_contents(member));
+        return;
+    }
+
+    database_statement_t *statement = database_statement_create(module, "UPDATE FAMILY SET CONTENT=? WHERE NAME=?");
+    string_t             *content   = string_create(module, get);
+
+    string_catf(content, " %s", string_contents(status));
+
+    if (!database_statement_bind(statement, "ss", string_contents(member), string_contents(content)))
+        return;
+
+    if (!database_statement_complete(statement))
+        return;
+
+    irc_write(module->instance, channel, "%s: Ok, family member: %s is the \"%s\"",
+        user,
+        string_contents(member),
+        string_contents(content)
+    );
+
 }
 
 static void family_forget(module_t *module, const char *channel, const char *user, const char *message) {
@@ -145,7 +181,11 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     if (strstr(message, "-help") == &message[0])
         return family_help(module->instance, channel, user);
     else if (strstr(message, "-add") == &message[0])
-        return family_add(module, channel, user, &message[5]);
+        return family_add_replace(module, channel, user, &message[5], false);
+    else if (strstr(message, "-replace"))
+        return family_add_replace(module, channel, user, &message[9], true);
+    else if (strstr(message, "-concat"))
+        return family_concat(module, channel, user, &message[8]);
     else if (strstr(message, "-forget") == &message[0])
         return family_forget(module, channel, user, &message[8]);
     else if (strstr(message, "-stats") == &message[0])
