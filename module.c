@@ -361,7 +361,8 @@ database_statement_t *module_database_statement_create(module_t *module, const c
 database_row_t *module_database_row_extract(module_t *module, database_statement_t *statement, const char *fields) {
     module_mem_mutex_lock(module);
     database_row_t *row = database_row_extract(statement, fields);
-    module_mem_push(module->memory, row, (void(*)(void*))&database_row_destroy);
+    if (row)
+        module_mem_push(module->memory, row, (void(*)(void*))&database_row_destroy);
     module_mem_mutex_unlock(module);
     return row;
 }
