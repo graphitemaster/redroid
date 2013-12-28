@@ -238,6 +238,7 @@ static bool module_allow(const char *path, char **function) {
 
 module_t *module_open(const char *file, irc_t *instance, string_t **error) {
     char *function = NULL;
+
     if (!module_allow(file, &function)) {
         *error = string_construct();
         string_catf(*error, "%s is blacklisted", function);

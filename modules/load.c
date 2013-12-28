@@ -22,6 +22,6 @@ void module_enter(module_t *module, const char *channel, const char *user, const
         string_t *string = string_create(module, "modules/");
         string_catf(string, "%s.so", message);
         if ((irc_modules_add(irc, string_contents(string))))
-            irc_write(irc, channel, "loaded module %s", message);
+            irc_write(irc, channel, "%s: loaded module %s", message, user);
     }
 }

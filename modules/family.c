@@ -55,8 +55,8 @@ static const char *family_get(module_t *module, const char *nick) {
 
     const char *status = database_row_pop_string(module, row);
 
-    if (!database_statement_complete(statement))
-        return NULL;
+    //if (!database_statement_complete(statement))
+    //    return NULL;
 
     return status;
 }
@@ -106,10 +106,13 @@ static void family_add_replace(module_t *module, const char *channel, const char
     if (!statement)
         return;
 
-    if (replace && !database_statement_bind(statement, "ss", string_contents(member), string_contents(status)))
-        return;
-    else if (!database_statement_bind(statement, "ss", string_contents(status), string_contents(member)))
-        return;
+    if (replace) {
+        if (!database_statement_bind(statement, "ss", string_contents(status), string_contents(member)))
+            return;
+    } else {
+        if (!database_statement_bind(statement, "ss", string_contents(member), string_contents(status)))
+            return;
+    }
 
     if (!database_statement_complete(statement))
         return;
@@ -131,7 +134,7 @@ static void family_concat(module_t *module, const char *channel, const char *use
 
     const char *get = family_get(module, string_contents(member));
     if (!get) {
-        irc_write(module->instance, user, "Sorry, couldn't find family member \"%s\"", string_contents(member));
+        irc_write(module->instance, channel, "Sorry, couldn't find family member \"%s\"", string_contents(member));
         return;
     }
 

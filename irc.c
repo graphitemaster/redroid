@@ -204,6 +204,9 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     string_t *error  = NULL;
     module_t *module = NULL;
 
+    if (strstr(name, "//") || strstr(name, "./"))
+        return false;
+
     // prevent loading module twice
     if ((module = irc_modules_find(irc, name))) {
         printf("    module   => %s [%s] already loaded\n", module->name, name);
