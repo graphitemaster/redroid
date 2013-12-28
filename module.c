@@ -99,12 +99,18 @@ static module_t *module_load(module_t *module) {
 //
 #include <elf.h>
 #include <stdint.h>
-#if __x86_64__
-#   define ELF(X) Elf64_##X
-#   define FUN(X) ELF64_ST_TYPE(X)
-#else
-#   define ELF(X) Elf32_##X
+#if ULONG_MAX == 0xffffffff
+    typedef Elf32_Ehdr Elf_Ehdr;
+    typedef Elf32_Phdr Elf_Phdr;
+    typedef Elf32_Shdr Elf_Shdr;
+    typedef Elf32_Sym  Elf_Sym;
 #   define FUN(X) ELF32_ST_TYPE(X)
+#else
+    typedef Elf64_Ehdr Elf_Ehdr;
+    typedef Elf64_Phdr Elf_Phdr;
+    typedef Elf64_Shdr Elf_Shdr;
+    typedef Elf64_Sym  Elf_Sym;
+#   define FUN(X) ELF64_ST_TYPE(X)
 #endif
 
 static bool module_allow_symbol(const char *name) {
@@ -186,14 +192,14 @@ static bool module_allow_symbol(const char *name) {
 }
 
 static bool module_allow(const char *path, char **function) {
-    void      *base;
-    size_t     size;
-    ELF(Ehdr) *ehdr;
-    ELF(Shdr) *shdr;
-    ELF(Sym)  *dsymtab;
-    ELF(Sym)  *dsymtab_end;
-    char      *dstrtab;
-    FILE      *file = fopen(path, "r");
+    void     *base;
+    size_t    size;
+    Elf_Ehdr *ehdr;
+    Elf_Shdr *shdr;
+    Elf_Sym  *dsymtab;
+    Elf_Sym  *dsymtab_end;
+    char     *dstrtab;
+    FILE     *file = fopen(path, "r");
 
     fseek(file, 0, SEEK_END);
     size = ftell(file);
@@ -203,11 +209,11 @@ static bool module_allow(const char *path, char **function) {
     fclose(file);
 
     ehdr = base;
-    shdr = (ELF(Shdr)*)(base + ehdr->e_shoff);
+    shdr = (Elf_Shdr*)(base + ehdr->e_shoff);
     for (size_t i = 0; i < ehdr->e_shnum; i++) {
         if (shdr[i].sh_type == SHT_DYNSYM) {
-            dsymtab     = (ELF(Sym)*)(base + shdr[i].sh_offset);
-            dsymtab_end = (ELF(Sym)*)((char *)dsymtab + shdr[i].sh_size);
+            dsymtab     = (Elf_Sym*)(base + shdr[i].sh_offset);
+            dsymtab_end = (Elf_Sym*)((char *)dsymtab + shdr[i].sh_size);
             dstrtab     = (char *)(base + shdr[shdr[i].sh_link].sh_offset);
         }
     }
