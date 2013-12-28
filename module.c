@@ -108,7 +108,7 @@ static module_t *module_load(module_t *module) {
 #endif
 
 static bool module_allow_symbol(const char *name) {
-    if (!name || !*name || !strncmp(name, "module_", 7) || !strncmp(name, "database_", 9))
+    if (!name || !*name || !strncmp(name, "module_", 7))
         return true;
 
     static const char *list[] = {
@@ -166,15 +166,16 @@ static bool module_allow_symbol(const char *name) {
         "irc_action",
         "irc_write",
 
+        // database.h
+        "database_statement_complete",
+        "database_statement_bind",
+        "database_request",
+        "database_request_count",
+        "database_row_pop_integer",
+
         // misc
         "inet_ntop",
-
-        // to be removed:
-        "raise",
-        "sqlite3_exec", "sqlite3_open", "sqlite3_prepare_v2",
-        "sqlite3_column_text", "sqlite3_column_int", "sqlite3_errmsg",
-        "sqlite3_step", "sqlite3_close", "sqlite3_bind_text",
-        "sqlite3_finalize", "sqlite3_free"
+        "raise"
     };
 
     for (size_t i = 0; i < sizeof(list) / sizeof(*list); i++)

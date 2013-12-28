@@ -89,7 +89,7 @@ behind the scene malloc is actually pinned to the garbage collector (with the
 appropriate destroy function, in this case free). This would normally be fine
 except that people will mistakingly use malloc, or another resource allocating
 function. Which brings us to the first part of modules, mainly disallowing
-those functions form being used.
+those functions from being used.
 
 White/Black listing functions: Since a module is just a shared object file
 by definition it is quite trivial to parse the list of external symbols it
