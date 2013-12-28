@@ -135,6 +135,10 @@ int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
     return 1;
 }
 
+int irc_nick(irc_t *irc, const char *nick) {
+    return sock_sendf(irc->sock, "NICK %s\r\n", nick);
+}
+
 // Instance management
 irc_t *irc_create(config_t *entry) {
     irc_t *irc = malloc(sizeof(irc_t));

@@ -35,5 +35,6 @@ bool irc_channels_add(irc_t *irc, const char *channel);
 
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
+int irc_nick(irc_t *irc, const char *nick);
 
 #endif

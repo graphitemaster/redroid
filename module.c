@@ -65,7 +65,7 @@ void module_mem_destroy(module_mem_t *mem) {
     free(mem);
 }
 
-static module_t *module_load(module_t *module) {
+static bool module_load(module_t *module) {
     //
     // POSIX.1-2003 (Technical Corrigendum 1) see Rational for how this
     // is legal despite it being 'illegal' in C99, which leaves casting
@@ -75,21 +75,21 @@ static module_t *module_load(module_t *module) {
     *(void **)(&module->close) = dlsym(module->handle, "module_close");
 
     if (!(module->name = (const char *)dlsym(module->handle, "module_name"))) {
-        fprintf(stderr, "missing module name in `%s`\n", module->file);
-        return NULL;
+        fprintf(stderr, "    module   => missing module name in `%s`\n", module->file);
+        return false;
     }
 
     if (!(module->match = dlsym(module->handle, "module_match"))) {
-        fprintf(stderr, "   module   => missing command match rule %s [%s]\n", module->name, module->file);
-        return NULL;
+        fprintf(stderr, "    module   => missing command match rule %s [%s]\n", module->name, module->file);
+        return false;
     }
 
     if (!(module->enter = dlsym(module->handle, "module_enter"))) {
-        fprintf(stderr, "   module   => missing command handler %s [%s]\n", module->name, module->file);
-        return NULL;
+        fprintf(stderr, "    module   => missing command handler %s [%s]\n", module->name, module->file);
+        return false;
     }
 
-    return module;
+    return true;
 }
 
 //
@@ -171,6 +171,7 @@ static bool module_allow_symbol(const char *name) {
         "irc_modules_add",
         "irc_action",
         "irc_write",
+        "irc_nick",
 
         // database.h
         "database_statement_complete",
@@ -255,9 +256,13 @@ module_t *module_open(const char *file, irc_t *instance, string_t **error) {
     module->file     = strdup(file);
     module->instance = instance;
 
-    if (!(module = module_load(module))) {
+    if (!module_load(module)) {
+        if (!module)
+            return NULL;
+
         if (module->handle)
             dlclose(module->handle);
+
         free(module->file);
         free(module);
         return NULL;
