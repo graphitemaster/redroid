@@ -26,7 +26,7 @@ Algorithmically it's just:
         irc_non_blocking_process(instance);
 ```
 
-The IRC manager is also responsible for managing the command processor,
+The IRC manager is also responsible for managing the command processor
 and message channel.
 
 IRC process
@@ -63,7 +63,7 @@ determine if a module has been running for too long, when that is determined
 the message is thrown away and the thread is restarted. This roboust design
 leads to some troubling issues regarding resource management. If a module
 times out, there is no way to know what has been allocated and hasn't be
-freed. Leading to a huge potential for memory leaks. To comabd this the
+freed; leading to a huge potential for memory leaks. To comat this the
 command processor contains a linear-list-garbage collector.
 
 Module garbage collector
