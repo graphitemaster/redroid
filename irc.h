@@ -2,10 +2,7 @@
 #define REDROID_IRC_HDR
 #include "list.h"
 #include "database.h"
-
-#include <stdbool.h>
-#include <stddef.h>
-#include <time.h>
+#include "config.h"
 
 typedef struct irc_s irc_t;
 
@@ -25,7 +22,7 @@ struct irc_s {
     database_t *database;
 };
 
-irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern, const char *database);
+irc_t *irc_create(config_t *config);
 void  irc_destroy(irc_t *irc);
 int irc_process(irc_t *irc, void *data);
 const char *irc_name(irc_t *irc);

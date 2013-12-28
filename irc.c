@@ -136,21 +136,21 @@ int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
 }
 
 // Instance management
-irc_t *irc_create(const char *name, const char *nick, const char *auth, const char *pattern, const char *database) {
+irc_t *irc_create(config_t *entry) {
     irc_t *irc = malloc(sizeof(irc_t));
 
     if (!irc)
         return NULL;
 
-    if (!(irc->name = strdup(name)))
+    if (!(irc->name = strdup(entry->name)))
         goto error;
-    if (!(irc->nick = strdup(nick)))
+    if (!(irc->nick = strdup(entry->nick)))
         goto error;
-    if (!(irc->pattern = strdup(pattern)))
+    if (!(irc->pattern = strdup(entry->pattern)))
         goto error;
 
-    if (auth) {
-        if (!(irc->auth = strdup(auth)))
+    if (entry->auth) {
+        if (!(irc->auth = strdup(entry->auth)))
             goto error;
     } else {
         irc->auth = NULL;
@@ -162,9 +162,15 @@ irc_t *irc_create(const char *name, const char *nick, const char *auth, const ch
     irc->modules    = list_create();
     irc->channels   = list_create();
     irc->queue      = list_create();
-    irc->database   = database_create("quote.db");
+    irc->database   = database_create(entry->database);
 
-    printf("instance: %s\n", name);
+    printf("instance: %s\n", irc->name);
+    printf("    nick     => %s\n", irc->nick);
+    printf("    pattern  => %s\n", irc->pattern);
+    printf("    auth     => %s\n", (irc->auth) ? irc->auth : "(None)");
+    printf("    database => %s\n", entry->database);
+    printf("    host     => %s\n", entry->host);
+    printf("    port     => %s\n", entry->port);
 
     return irc;
 

@@ -68,11 +68,12 @@ static bool config_entry_handler(void *user, const char *section, const char *na
         return config_entry_handler(config, section, name, value);
     }
 
-    if      (!strcmp(name, "nick"))      exists->nick    = strdup(value);
-    else if (!strcmp(name, "pattern"))   exists->pattern = strdup(value);
-    else if (!strcmp(name, "host"))      exists->host    = strdup(value);
-    else if (!strcmp(name, "port"))      exists->port    = strdup(value);
-    else if (!strcmp(name, "auth"))      exists->auth    = strdup(value);
+    if      (!strcmp(name, "nick"))      exists->nick     = strdup(value);
+    else if (!strcmp(name, "pattern"))   exists->pattern  = strdup(value);
+    else if (!strcmp(name, "host"))      exists->host     = strdup(value);
+    else if (!strcmp(name, "port"))      exists->port     = strdup(value);
+    else if (!strcmp(name, "auth"))      exists->auth     = strdup(value);
+    else if (!strcmp(name, "database"))  exists->database = strdup(value);
     else if (!strcmp(name, "modules")) {
         if (*value == '*') {
             // load all modules

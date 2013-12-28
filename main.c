@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     list_iterator_t *it = list_iterator_create(list);
     while (!list_iterator_end(it)) {
         config_t *entry = list_iterator_next(it);
-        irc_t    *irc   = irc_create(entry->name, entry->nick, entry->auth, entry->pattern, "quote.db");
+        irc_t    *irc   = irc_create(entry);
 
         // add all modules
         list_iterator_t *jt = list_iterator_create(entry->modules);
