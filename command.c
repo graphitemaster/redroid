@@ -186,8 +186,9 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
 }
 
 static void cmd_channel_signalhandle(int sig) {
-    (void)sig;
     pthread_exit(NULL);
+    if (sig == SIGSEGV)
+        printf("CRASH\n");
 }
 
 static void *cmd_channel_threader(void *data) {

@@ -15,10 +15,8 @@ static bool quote_split(module_t *module, const char *string, string_t **nick, s
             break;
         }
     }
-
     if (!terminate)
         return false;
-
     *nick = string_construct(module);
     for (; string != terminate; string++) {
         for (const char *strip = "< "; *strip; strip++)
@@ -27,12 +25,10 @@ static bool quote_split(module_t *module, const char *string, string_t **nick, s
         string_catf(*nick, "%c", *string);
         next: ;
     }
-
     while (*string && (*string == '>' || *string == '|' || *string == ' '))
         string++;
     if (!*string)
         return false;
-
     *message = string_create(module, string);
     return true;
 }
