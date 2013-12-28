@@ -1,6 +1,7 @@
 The architecture of redroid:
 
-1. Configuration:
+Configuration
+-------------
 
 Redroid IRC instances are specified by a configuration file in the form
 of an INI file currently. There are future prospects of using an SQLITE
@@ -12,21 +13,24 @@ should use on that network, etc. You can define multiple IRC instances
 within the configuration file, all of which will be created and managed
 by the IRC manager once succesfully loaded.
 
-2. IRC manager:
+IRC manager
+-----------
 
 The IRC manager is a small round-robin scheduler that currently runs on
 a single thread. Its primary job is to invoke the appropriate non-blocking
 IRC process for all IRC instances it contains. To acomplish this a simple
 list of IRC instances and a cached iterator are used (for reentrancy).
 Algorithmically it's just:
-
+```
     for (instance = cached_iterator->data; instance; cached_iterator = instance->next)
         irc_non_blocking_process(instance);
+```
 
 The IRC manager is also responsible for managing the command processor,
 and message channel.
 
-3. IRC process:
+IRC process
+-----------
 
 The IRC process is a single IRC instance which is run by the IRC manager's
 scheduler. Due to the nature of the IRC manager the IRC process needs to
@@ -43,7 +47,8 @@ messages (actions and private messages). Modules are capable of writing
 out to channels/users etc and to ensure that modules don't flood the network
 a queue is used to do flood protection, amongst other things.
 
-4. Command processor:
+Command processor
+-----------------
 
 The Command processor is the core of managing the messages recieved from
 the IRC process and running the appropriate module associated with that
@@ -61,7 +66,8 @@ times out, there is no way to know what has been allocated and hasn't be
 freed. Leading to a huge potential for memory leaks. To comabd this the
 command processor contains a linear-list-garbage collector.
 
-5. Module garbage collector:
+Module garbage collector
+------------------------
 
 The garbage collector isn't necessarily a garbage collector in the traditional
 sense, but rather a list of pointers of allocated resources from a module and
@@ -76,7 +82,8 @@ Due to the nature of how modules are shortly-lived to begin with and this
 garbage collection mechanism, there is no requirement to explicitly free
 resources in modules either, leading to simplier more managable modules.
 
-6. Modules
+Modules
+-------
 
 As already described, modules shouldn't try to free resources because there
 is a garbage collector. However there is a requirement that the appropriate
@@ -119,14 +126,15 @@ the ability to load, reload and unload modules is possible. This makes it
 quite trivial to roll out module changes into the wild without having to
 restart the IRC instance that is in use, or the whole bot.
 
-7. Database
+Database
+--------
 
 Redroid also contains a small wrapper database around SQLITE useful for
 modules to use, since it's properly garbage collected and easy to use.
 An example of a module which uses it (~quote) is provided. In the future
 a lot more things will use it (~family, ~oracle, ~obit). At the basic form
 the database is intended to be used as such:
-
+```
     database_statement_t *statement = database_statement_create(module, "PREPARED_STATEMENT");
     if (!statement) return;
 
@@ -156,3 +164,4 @@ the database is intended to be used as such:
 
     if (!(database_statement_complete(statement))
         ; // not sucessfull
+```
