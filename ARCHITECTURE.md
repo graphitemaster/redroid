@@ -109,31 +109,32 @@ indicate why.
 The final stage to module loading is the appropriate loading of the module,
 mainly searching for the entry/exit symbols with dlsym, and for the ruleset
 of what command to match. Modules define their intent with a macro provided
-to them by <module.h> which has to be included for a module to even load.
-This header has two macros: MODULE_DEFAULT, and MODULE_ALWAYS. Depending
-on the module attempt, using MODULE_ALWAYS(module_name) will ensure that
+to them by `<module.h>` which has to be included for a module to even load.
+This header has two macros: `MODULE_DEFAULT`, and `MODULE_ALWAYS`. Depending
+on the module attempt, using `MODULE_ALWAYS(module_name)` will ensure that
 the modules entry function is entered always for any message on any channel.
 This is useful for writing a module that needs to check if someone posted
-a link to a webpage for instance. Where as MODULE_DEFAULT(module_name) is
+a link to a webpage for instance. Where as `MODULE_DEFAULT(module_name)` is
 used to indicate a command-like module whos entry function is only called
-when a user types [bot_pattern][module_name]. For instance ~module_name
+when a user types `[bot_pattern][module_name]`. For instance `~module_name`
 in the case of the default bot pattern.
 
 Since modules are just shared objects they can be reloaded, or loaded into
-an IRC instance on the fly. The modules ~load and ~reload are examples of
-modules which implement load/reload of modules. Yes a module which implements
-the ability to load, reload and unload modules is possible. This makes it
+an IRC instance on the fly. The modules `~load` and `~reload` are examples of
+modules which implement load/reload of modules. A module which implements
+the ability to load, reload and unload modules is as already observed
+possible do to the nature of how modules are self-contained. This makes it
 quite trivial to roll out module changes into the wild without having to
-restart the IRC instance that is in use, or the whole bot.
+restart the IRC instance that is in use or the whole bot.
 
 Database
 --------
 
 Redroid also contains a small wrapper database around SQLITE useful for
 modules to use, since it's properly garbage collected and easy to use.
-An example of a module which uses it (~quote) is provided. In the future
-a lot more things will use it (~family, ~oracle, ~obit). At the basic form
-the database is intended to be used as such:
+An example of a module which uses it is provided. The database API is
+open for any module to use. An example of how the database is intended
+to be used is provided:
 ```
     database_statement_t *statement = database_statement_create(module, "PREPARED_STATEMENT");
     if (!statement) return;
