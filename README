@@ -1,84 +1,58 @@
 A modular rewrite of the popular mIRC redroid IRC bot:
 
-Features:
-    - Multiple channels
+Features
+    - Configuration
+        - Instances
+
+    - Multithreaded
+
     - Multiple networks
+        - Multiple channels
+
     - Flood protection
-    - Sanboxed modules
+        - Queued
 
-Prerequisites:
+    - Modules
+        - Garbage collected
+        - Sandboxed
+        - Configurable
+        - Module API
+            - IRC
+            - Database
+            - Sockets
+
+Prerequisites
     - GNU make
-    - C99 compiler
-    - pthreads
+    - Linux 2.6+/BSD
+    - SQLite3 (-lsqlite3)
+    - POSIX Threads (-lpthread)
 
-Configuration:
-    By default redroid searches the current running directory for a
-    config.ini file containing irc instances. For example an ini file
-    may looks like:
+Building
+    # make
 
-    [freenode]
-        server = irc.freenode.org
-        port = 6667
-        nick = foo
-        auth = nick_serv_password
-        channel = #channel
-        modules = load, modules ; using * loads all modules
+Running
+    Setup the appropriate instance(s) inside config.ini then invoke
+    the bot directly with
 
-    ; [quakenet]
-    ;   ...
+    # ./redroid
 
-    // these are also comments
-    # as are these
-    ; and these
+    You can use CTRL+C at anytime to send a shutdown signal, which will
+    safely shut down the process.
 
-    If no ini file is present the bot won't run.
+    Optionally you can run it quietly
 
-Modules:
-    Modules are commands. Currently there is two types of
-    modules:
-        - default
-        - always
+    # ./redroid -q
 
-    Default modules will only have their entry function invoked if the
-    command matches the module name. Always modules will always be entered
-    for any text.
+    CTRL+C is also valid to send the shutdown signal when running with
+    the quiet switch.
 
-    To make a module create the appropriate module_name.c file in modules/
-    with a choice of being a default module or an always module. An example
-    is provided below:
+    Or you can run it as a daemon.
 
-    #include <module.h>
-    MODULE_DEFAULT(echo);
+    # ./redroid -d
 
-    void module_entry(module_t *module, const char *channel, const char *user, const char *message) {
-        if (!message)
-            return;
+    In daemon mode there is no safe way to shut down the bot other than
+    to send a SIGINT with kill, for that you'll need the PID. Optionally
+    you can killall -3 redroid.
 
-        irc_write(module->instance, channel, "%s: %s", user, message);
-    }
-
-    Modules which need to perform a task when the module is unloaded, reloaded, or
-    interrupted, can do so with a module_leave function. Modules can allocate resources
-    with malloc / strdup, etc; provided that the first argument to each function is
-    the module handle itself. This is because module.h defines them to wrap different
-    module-specific API functions that deal with garbage collection. From this design
-    it's impossible to use functions from the standard library which allocate resources.
-    Modules which attempt to use libc functions which allocate resources will fail to
-    load, since the functions which do so are blacklisted, or more accurately put, not
-    part of the whitelist of allowed functions. The whitelist of allowed functions
-    a module can use is provided in module.c.
-
-List of implemented modules:
-    cookie      - crumble someone up into cookies
-    dance       - give someone a dance
-    dns         - resolve domain name and get ipv4/ipv6 addresses
-    dur         - convert seconds into week:days:hours:seconds
-    fail        - determine if someone fails
-    gibberish   - generate gibberish
-    lava        - burn yourself or someone in lava
-    load        - load a module
-    modules     - get list of loaded modules
-    penish      - famous quinbot penish
-    phail       - author always fail
-    quit        - bring down the IRC bot
-    reload      - reload a module or all modules
+    If you invoke redroid in a terminal in normal/quiet mode. Closing the
+    terminal will force daemonization of the redroid process (SIGHUP).
