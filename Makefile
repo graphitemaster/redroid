@@ -6,7 +6,7 @@ OBJECTS = $(SOURCES:.c=.o)
 REDROID = redroid
 
 MODULE_CFLAGS  = -fPIC -std=gnu99 -Imodules/ -D_GNU_SOURCE -ggdb3
-MODULE_LDFLAGS = -shared -rdynamic -lm -lsqlite3
+MODULE_LDFLAGS = -shared -rdynamic -lm
 MODULE_SOURCES = $(shell echo modules/*.c)
 MODULE_OBJECTS = $(MODULE_SOURCES:.c=.so)
 
