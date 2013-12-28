@@ -23,6 +23,7 @@ static void config_entry_destroy(config_t *entry) {
     free(entry->pattern);
     free(entry->host);
     free(entry->port);
+    free(entry->database);
 
     if (entry->auth)
         free(entry->auth);

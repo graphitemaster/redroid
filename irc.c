@@ -179,10 +179,11 @@ irc_t *irc_create(config_t *entry) {
     return irc;
 
 error:
-    if (irc->name)    free(irc->name);
-    if (irc->nick)    free(irc->nick);
-    if (irc->pattern) free(irc->pattern);
-    if (irc->auth)    free(irc->auth);
+    if (irc->name)     free(irc->name);
+    if (irc->nick)     free(irc->nick);
+    if (irc->pattern)  free(irc->pattern);
+    if (irc->auth)     free(irc->auth);
+    if (irc->database) database_destroy(irc->database);
     return NULL;
 }
 
