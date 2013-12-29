@@ -136,7 +136,7 @@ static void quote_add(irc_t *irc, const char *channel, const char *user, const c
     if (!statement)
         return;
 
-    if (!database_statement_bind(statement, "ss", string_contents(quotenick), string_contents(quotemessage)))
+    if (!database_statement_bind(statement, "SS", quotenick, quotemessage))
         return;
 
     if (!database_statement_complete(statement))

@@ -107,10 +107,10 @@ static void family_add_replace(irc_t *irc, const char *channel, const char *user
         return;
 
     if (replace) {
-        if (!database_statement_bind(statement, "ss", string_contents(status), string_contents(member)))
+        if (!database_statement_bind(statement, "SS", status, member))
             return;
     } else {
-        if (!database_statement_bind(statement, "ss", string_contents(member), string_contents(status)))
+        if (!database_statement_bind(statement, "SS", member, status))
             return;
     }
 
@@ -143,7 +143,7 @@ static void family_concat(irc_t *irc, const char *channel, const char *user, con
 
     string_catf(content, " %s", string_contents(status));
 
-    if (!database_statement_bind(statement, "ss", string_contents(member), string_contents(content)))
+    if (!database_statement_bind(statement, "SS", member, content))
         return;
 
     if (!database_statement_complete(statement))

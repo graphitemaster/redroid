@@ -1,4 +1,5 @@
 #include "database.h"
+#include "string.h"
 #include "irc.h"
 
 #include <stddef.h>
@@ -87,6 +88,11 @@ bool database_statement_bind(database_statement_t *statement, const char *mappin
         switch (*entry) {
             case 's':
                 if (sqlite3_bind_text((sqlite3_stmt*)statement, index, va_arg(va, char *), -1, NULL) != SQLITE_OK)
+                    goto error;
+                break;
+
+            case 'S':
+                if (sqlite3_bind_text((sqlite3_stmt*)statement, index, string_contents((string_t*)va_arg(va, void *)), -1, NULL) != SQLITE_OK)
                     goto error;
                 break;
 
