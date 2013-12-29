@@ -33,9 +33,7 @@ static bool gibber(string_t *string, size_t max) {
     return b > 1;
 }
 
-void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
-    irc_t *irc = module->instance;
-
+void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     if (!message)
         message = user;
 
@@ -49,7 +47,7 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     while (*digit && isdigit(*digit)) digit++;
     while (*digit && isspace(*digit)) digit++;
 
-    string_t *string = string_construct(module);
+    string_t *string = string_construct();
     while (x >= y+1) {
         if (gibber(string, (isdigit(*digit) ? atoi(digit) + 1 : 16)) && y+1 != x)
             string_catf(string, " ");

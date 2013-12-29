@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <dirent.h>
 
-#define MODULE_DIR "modules"
-
 static config_t *config_entry_create(void) {
     config_t *config = malloc(sizeof(*config));
     memset(config, 0, sizeof(*config));
@@ -80,29 +78,26 @@ static bool config_entry_handler(void *user, const char *section, const char *na
             // load all modules
             DIR           *dir;
             struct dirent *ent;
-            if ((dir = opendir(MODULE_DIR))) {
+            if ((dir = opendir("modules"))) {
                 while ((ent = readdir(dir))) {
                     if (strstr(ent->d_name, ".so")) { // found module
-                        char *format = NULL;
-                        asprintf(&format, "%s/%s", MODULE_DIR, ent->d_name);
-                        list_push(exists->modules, format);
+                        char *copy = strdup(ent->d_name);
+                        *strstr(copy, ".so")='\0';
+                        list_push(exists->modules, copy);
                     }
                 }
                 closedir(dir);
             } else {
-                fprintf(stderr, "failed to open modules directory: %s\n", MODULE_DIR);
+                fprintf(stderr, "failed to open modules directory\n");
                 return false;
             }
         } else {
             // individually
             char *tok = strtok((char *)value, ", ");
             while (tok) {
-                char *format = NULL;
-                if (!strstr(tok, ".so")) // no .so add it
-                    asprintf(&format, "%s/%s.so", MODULE_DIR, tok);
-                else
-                    asprintf(&format, "%s/%s", MODULE_DIR, tok);
-
+                char *format = strdup(tok);
+                if (strstr(format, ".so"))
+                    *strstr(format, ".so")='\0'; // strip extension
                 list_push(exists->modules, format);
                 tok = strtok(NULL, ", ");
             }

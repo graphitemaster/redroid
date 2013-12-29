@@ -29,12 +29,10 @@ const char *irc_name(irc_t *irc);
 
 int irc_connect(irc_t *irc, const char *host, const char *port);
 
+list_t *irc_modules_list(irc_t *irc);
 bool irc_modules_add(irc_t *irc, const char *file);
 bool irc_channels_add(irc_t *irc, const char *channel);
-
-
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
-int irc_nick(irc_t *irc, const char *nick);
 
 #endif

@@ -135,8 +135,12 @@ int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
     return 1;
 }
 
-int irc_nick(irc_t *irc, const char *nick) {
-    return sock_sendf(irc->sock, "NICK %s\r\n", nick);
+const char *irc_nick(irc_t *irc) {
+    return irc->nick;
+}
+
+list_t *irc_modules(irc_t *irc) {
+    return irc->modules;
 }
 
 // Instance management
@@ -200,6 +204,25 @@ module_t *irc_modules_find(irc_t *irc, const char *file) {
     return NULL;
 }
 
+bool irc_modules_reload(irc_t *irc, const char *name) {
+    if (strstr(name, "//") || strstr(name, "./"))
+        return false;
+
+    string_t *file = string_create("modules/");
+    string_catf(file, "%s.so", name);
+
+    module_t *module;
+    if (!(module = irc_modules_find(irc, string_contents(file)))) {
+        string_destroy(file);
+        return false;
+    }
+
+    module_reload(module);
+    string_destroy(file);
+
+    return true;
+}
+
 bool irc_modules_add(irc_t *irc, const char *name) {
     string_t *error  = NULL;
     module_t *module = NULL;
@@ -207,16 +230,21 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     if (strstr(name, "//") || strstr(name, "./"))
         return false;
 
+    string_t *file = string_create("modules/");
+    string_catf(file, "%s.so", name);
+
     // prevent loading module twice
-    if ((module = irc_modules_find(irc, name))) {
+    if ((module = irc_modules_find(irc, string_contents(file)))) {
         printf("    module   => %s [%s] already loaded\n", module->name, name);
+        string_destroy(file);
         return false;
     }
 
     // load the module
-    if ((module = module_open(name, irc, &error))) {
+    if ((module = module_open(string_contents(file), irc, &error))) {
         list_push(irc->modules, module);
         printf("    module   => %s [%s] loaded\n", module->name, module->file);
+        string_destroy(file);
         return true;
     }
 
@@ -227,6 +255,7 @@ bool irc_modules_add(irc_t *irc, const char *name) {
         printf("    module   => %s loading failed\n", name);
     }
 
+    string_destroy(file);
     return false;
 }
 
@@ -241,6 +270,17 @@ static module_t *irc_modules_command(irc_t *irc, const char *command) {
     }
     list_iterator_destroy(it);
     return NULL;
+}
+
+list_t *irc_modules_list(irc_t *irc) {
+    list_t          *list = list_create();
+    list_iterator_t *it   = list_iterator_create(irc->modules);
+    while (!list_iterator_end(it)) {
+        module_t *entry = list_iterator_next(it);
+        list_push(list, (void *)entry->name);
+    }
+    list_iterator_destroy(it);
+    return list;
 }
 
 bool irc_channels_add(irc_t *irc, const char *channel) {

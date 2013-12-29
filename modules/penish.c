@@ -16,13 +16,11 @@ static const signed char quinbot_table[] = {
 // TODO: bot level stuff
 static const size_t botlevel = 0;
 
-void module_enter(module_t *module, const char *channel, const char *who, const char *string) {
-    irc_t *irc = module->instance;
-
+void module_enter(irc_t *irc, const char *channel, const char *who, const char *string) {
     if (!string)
         string = who;
 
-    string_t *str = string_construct(module);
+    string_t *str = string_construct();
     string_catf(str, "%s: ((", who);
 
     size_t index  = 0;

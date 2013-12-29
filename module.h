@@ -18,8 +18,8 @@ struct module_s {
     const char   *name;
     const char   *match;
     char         *file;
-    void        (*enter)(module_t *module, const char *channel, const char *user, const char *message);
-    void        (*close)(module_t *module);
+    void        (*enter)(irc_t *irc, const char *channel, const char *user, const char *message);
+    void        (*close)(irc_t *irc);
     irc_t        *instance;
     module_mem_t *memory;
 };
@@ -28,6 +28,7 @@ module_t *module_open(const char *file, irc_t *instance, string_t **error);
 void module_destroy(module_t *module);
 bool module_reload(module_t *module);
 
+module_t **module_get(void);
 module_mem_t *module_mem_create(module_t *instance);
 void module_mem_destroy(module_mem_t *mem);
 void module_mem_push(module_mem_t *mem, void *data, void (*cleanup)(void *));

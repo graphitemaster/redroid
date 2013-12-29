@@ -3,8 +3,7 @@
 
 MODULE_DEFAULT(dance);
 
-void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
-    irc_t *irc = module->instance;
+void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     if (!message)
         irc_action(irc, channel, "dances like a jolly idiot");
     else

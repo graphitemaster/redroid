@@ -1,11 +1,10 @@
 #include <module.h>
 #include <arpa/inet.h>
+#include <stddef.h>
 
 MODULE_DEFAULT(dns);
 
-void module_enter(module_t *module, const char *channel, const char *user, const char *message) {
-    irc_t *irc = module->instance;
-
+void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     if (!message)
         return;
 
@@ -18,7 +17,7 @@ void module_enter(module_t *module, const char *channel, const char *user, const
     };
 
     int status;
-    if ((status = module_getaddrinfo(module, message, NULL, &hints, &res)) != 0) {
+    if ((status = getaddrinfo(message, NULL, &hints, &res)) != 0) {
         irc_write(irc, channel, "%s: domain name resolution failed", message);
         return;
     }

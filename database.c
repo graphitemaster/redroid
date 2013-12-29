@@ -1,4 +1,5 @@
 #include "database.h"
+#include "irc.h"
 
 #include <stddef.h>
 #include <stdarg.h>
@@ -159,8 +160,8 @@ void database_destroy(database_t *database) {
 }
 
 // table request count management
-int database_request_count(database_t *database, const char *table) {
-    database_statement_t *statement = database_statement_create(database, "SELECT COUNT FROM REQUESTS WHERE NAME=?");
+int database_request_count(irc_t *instance, const char *table) {
+    database_statement_t *statement = database_statement_create(instance->database, "SELECT COUNT FROM REQUESTS WHERE NAME=?");
     if (!statement)
         return -1;
 
@@ -188,12 +189,12 @@ error:
     return -1;
 }
 
-bool database_request(database_t *database, const char *table) {
-    int oldcount = database_request_count(database, table);
+bool database_request(irc_t *instance, const char *table) {
+    int oldcount = database_request_count(instance, table);
     if (oldcount == -1)
         return false;
 
-    database_statement_t *statement = database_statement_create(database, "UPDATE REQUESTS SET COUNT=? WHERE NAME=?");
+    database_statement_t *statement = database_statement_create(instance->database, "UPDATE REQUESTS SET COUNT=? WHERE NAME=?");
 
     if (!statement)
         return false;
