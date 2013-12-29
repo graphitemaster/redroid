@@ -1,6 +1,7 @@
 #include <module.h>
 #include <arpa/inet.h>
 #include <stddef.h>
+#include <netinet/in.h>
 
 MODULE_DEFAULT(dns);
 
