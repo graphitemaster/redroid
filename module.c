@@ -319,7 +319,7 @@ module_t **module_get(void) {
 void *module_malloc(size_t bytes) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
-    void *p = malloc(bytes);
+    void *p = memset(malloc(bytes), 0, bytes);
     module_mem_push(module->memory, p, &free);
     module_mem_mutex_unlock(module);
     return p;
