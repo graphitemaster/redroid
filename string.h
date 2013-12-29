@@ -20,6 +20,6 @@ string_t *string_create(const char *contents);
 void string_destroy(string_t *string);
 size_t string_length(string_t *string);
 bool string_empty(string_t *string);
-const char *const string_contents(string_t *string);
+char *const string_contents(string_t *string);
 
 #endif

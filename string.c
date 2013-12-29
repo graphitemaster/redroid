@@ -71,7 +71,7 @@ void string_destroy(string_t *string) {
     free(string);
 }
 
-const char *const string_contents(string_t *string) {
+char *const string_contents(string_t *string) {
     return (string) ? string->buffer : NULL;
 }
 

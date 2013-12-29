@@ -407,3 +407,20 @@ list_t *module_irc_modules_list(irc_t *irc) {
     module_mem_mutex_unlock(module);
     return ret;
 }
+
+void module_list_push(list_t *list, void *element) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    list_push(list, element);
+    module_mem_mutex_unlock(module);
+}
+
+char *module_strdup(const char *str) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    char *dup = strdup(str);
+    if (dup)
+        module_mem_push(module->memory, dup, &free);
+    module_mem_mutex_unlock(module);
+    return dup;
+}
