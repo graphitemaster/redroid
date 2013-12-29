@@ -15,13 +15,13 @@ static void string_reallocate(string_t *string) {
     string->allocated = size;
 }
 
-void string_catf(string_t *string, const char *fmt, ...) {
+void string_vcatf(string_t *string, const char *fmt, va_list varg) {
     va_list va;
     for (;;) {
         size_t left = string->allocated - string->length;
         size_t write;
 
-        va_start(va, fmt);
+        va_copy(va, varg);
         write = vsnprintf(string->buffer + string->length, left, fmt, va);
         va_end(va);
 
@@ -33,6 +33,13 @@ void string_catf(string_t *string, const char *fmt, ...) {
         string->length += write;
         return;
     }
+}
+
+void string_catf(string_t *string, const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    string_vcatf(string, fmt, va);
+    va_end(va);
 }
 
 string_t *string_construct(void) {

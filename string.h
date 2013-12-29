@@ -2,6 +2,7 @@
 #define REDROID_STRING_HDR
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 struct string_s;
 typedef struct string_s string_t;
@@ -12,6 +13,7 @@ struct string_s {
     size_t  length;
 };
 
+void string_vcatf(string_t *string, const char *fmt, va_list varg);
 void string_catf(string_t *string, const char *fmt, ...);
 string_t *string_construct(void);
 string_t *string_create(const char *contents);

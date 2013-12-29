@@ -28,10 +28,11 @@ static void mod_list(irc_t *irc, const char *channel, const char *user) {
     list_iterator_t *it     = list_iterator_create(list);
 
     while (!list_iterator_end(it)) {
+        const char *next = list_iterator_next(it);
         if (!list_iterator_end(it))
-            string_catf(string, "%s, ", list_iterator_next(it));
+            string_catf(string, "%s, ", next);
         else
-            string_catf(string, "%s", list_iterator_next(it));
+            string_catf(string, "%s", next);
     }
 
     irc_write(irc, channel, "%s: modules loaded: %s", user, string_contents(string));

@@ -16,12 +16,12 @@ static int irc_quit_raw(irc_t *irc, const char *channel, const char *message);
 static int irc_join_raw(irc_t *irc, const char *channel, const char *message);
 
 typedef struct {
-    char  *channel;
-    char  *message;
+    char     *channel;
+    string_t *message;
     int  (*raw)(irc_t *irc, const char *channel, const char *message);
 } irc_queue_entry_t;
 
-void irc_queue_enqueue(irc_t *irc, int (*raw)(irc_t *irc, const char *, const char *), const char *channel, char *message) {
+void irc_queue_enqueue(irc_t *irc, int (*raw)(irc_t *irc, const char *, const char *), const char *channel, string_t *message) {
     list_push(
         irc->queue,
         memcpy(
@@ -41,7 +41,7 @@ void irc_queue_entry_destroy(irc_queue_entry_t *entry) {
     if (entry->channel)
         free(entry->channel);
 
-    free(entry->message); // allocated from irc_write, irc_action, etc
+    string_destroy(entry->message);
     free(entry);
 }
 
@@ -50,7 +50,7 @@ static bool irc_queue_dequeue(irc_t *irc) {
     if (!entry)
         return false;
 
-    entry->raw(irc, entry->channel, entry->message);
+    entry->raw(irc, entry->channel, string_contents(entry->message));
     irc_queue_entry_destroy(entry);
 
     return true;
@@ -106,32 +106,32 @@ static int irc_action_raw(irc_t *irc, const char *channel, const char *data) {
 }
 
 static int irc_quit(irc_t *irc, const char *message) {
-    irc_queue_enqueue(irc, &irc_quit_raw, NULL, strdup(message)); // freed in irc_queue_dequeue
+    irc_queue_enqueue(irc, &irc_quit_raw, NULL, string_create(message)); // freed in irc_queue_dequeue
     return 1;
 }
 
 static int irc_join(irc_t *irc, const char *channel) {
-    irc_queue_enqueue(irc, &irc_join_raw, NULL, strdup(channel)); // freed in irc_queue_dequeue
+    irc_queue_enqueue(irc, &irc_join_raw, NULL, string_create(channel)); // freed in irc_queue_dequeue
     return 1;
 }
 
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
-    char *buffer = NULL;
+    string_t *string = string_construct();
     va_list va;
     va_start(va, fmt);
-    vasprintf(&buffer, fmt, va); // buffer freed in queue
+    string_vcatf(string, fmt, va);
     va_end(va);
-    irc_queue_enqueue(irc, &irc_action_raw, channel, buffer);
+    irc_queue_enqueue(irc, &irc_action_raw, channel, string);
     return 1;
 }
 
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
-    char *buffer = NULL;
+    string_t *string = string_construct();
     va_list  va;
     va_start(va, fmt);
-    vasprintf(&buffer, fmt, va); // buffer freed in queue
+    string_vcatf(string, fmt, va);
     va_end(va);
-    irc_queue_enqueue(irc, &irc_write_raw, channel, buffer);
+    irc_queue_enqueue(irc, &irc_write_raw, channel, string);
     return 1;
 }
 

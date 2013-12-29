@@ -1,11 +1,11 @@
 CC     ?= clang
-CFLAGS  = -std=gnu99 -Wall -ggdb3 -D_GNU_SOURCE
+CFLAGS  = -std=gnu99 -Wall -ggdb3
 LDFLAGS = -ldl -lpthread -lsqlite3 -Wl,--export-dynamic
 SOURCES = irc.c ircman.c list.c main.c module.c sock.c ini.c config.c string.c command.c database.c
 OBJECTS = $(SOURCES:.c=.o)
 REDROID = redroid
 
-MODULE_CFLAGS  = -fPIC -std=gnu99 -Imodules/ -D_GNU_SOURCE -ggdb3
+MODULE_CFLAGS  = -fPIC -std=gnu99 -Imodules/ -ggdb3
 MODULE_LDFLAGS = -shared -rdynamic -lm
 MODULE_SOURCES = $(shell echo modules/*.c)
 MODULE_OBJECTS = $(MODULE_SOURCES:.c=.so)
