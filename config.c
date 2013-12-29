@@ -63,7 +63,6 @@ static bool config_entry_handler(void *user, const char *section, const char *na
         exists->name = strdup(section);
 
         list_push(config, exists);
-        printf("config instance: %s\n", section);
         return config_entry_handler(config, section, name, value);
     }
 
