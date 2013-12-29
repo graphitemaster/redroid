@@ -60,7 +60,7 @@ void string_catf(string_t *string, const char *fmt, ...);
 void string_destroy(string_t *string);
 size_t string_length(string_t *string);
 bool string_empty(string_t *string);
-const char *const string_contents(string_t *string);
+char *const string_contents(string_t *string);
 bool database_statement_complete(database_statement_t *statement);
 bool database_statement_bind(database_statement_t *statement, const char *mapping, ...);
 database_row_t *database_row_extract(database_statement_t *statement, const char *fields);
