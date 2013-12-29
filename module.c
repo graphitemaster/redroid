@@ -159,7 +159,6 @@ static bool module_allow_symbol(const char *name) {
         // list.h
         "list_iterator_next",
         "list_iterator_end",
-        "list_push",
         "list_pop",
         "list_length",
 

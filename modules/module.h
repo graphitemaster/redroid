@@ -50,6 +50,8 @@ char *module_strdup(const char *str);
 #define database_row_extract       module_database_row_extract
 #define database_row_pop_string    module_database_row_pop_string
 #define irc_modules_list           module_irc_modules_list
+#define malloc                     module_malloc
+#define strdup                     module_strdup
 
 void list_iterator_reset(list_iterator_t *iterator);
 bool list_iterator_end(list_iterator_t *iterator);
