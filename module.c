@@ -445,8 +445,12 @@ list_t* module_strnsplit(char *str, char *delim, size_t count) {
     module_mem_mutex_lock(module);
     list_t *list = list_create();
     module_mem_push(module->memory, list, (void (*)(void*))&list_destroy);
-    if (count < 2)
-        list_push(list, str);
+    if (count < 2) {
+        while (*str && strchr(delim, *str))
+            ++str;
+        if (*str)
+            list_push(list, str);
+    }
     else {
         char *saveptr;
         char *tok = strtok_r(str, delim, &saveptr);
