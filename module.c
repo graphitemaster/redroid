@@ -439,3 +439,34 @@ list_t* module_strsplit(char *str, char *delim) {
     module_mem_mutex_unlock(module);
     return list;
 }
+
+list_t* module_strnsplit(char *str, char *delim, size_t count) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    list_t *list = list_create();
+    module_mem_push(module->memory, list, (void (*)(void*))&list_destroy);
+    if (count < 2) {
+        while (*str && strchr(delim, *str))
+            ++str;
+        if (*str)
+            list_push(list, str);
+    }
+    else {
+        char *saveptr;
+        char *tok = strtok_r(str, delim, &saveptr);
+        while (tok) {
+            list_push(list, tok);
+            if (!--count) {
+                tok += strlen(tok)+1;
+                while (*tok && strchr(delim, *tok))
+                    ++tok;
+                if (*tok)
+                    list_push(list, tok);
+                return list;
+            }
+            tok = strtok_r(NULL, delim, &saveptr);
+        }
+    }
+    module_mem_mutex_unlock(module);
+    return list;
+}
