@@ -1,4 +1,5 @@
 #include "module.h"
+#include "database.h"
 #include "irc.h"
 
 #include <dlfcn.h>
@@ -114,87 +115,40 @@ static bool module_load(module_t *module) {
 #   define FUN(X) ELF64_ST_TYPE(X)
 #endif
 
-static bool module_allow_symbol(const char *name) {
-    if (!name || !*name || !strncmp(name, "module_", 7))
+static bool module_allow_symbol(const char *name, database_t *database, bool *libc) {
+    if (!name || !*name || *name == '_' || !strncmp(name, "module_", 7))
         return true;
 
-    static const char *list[] = {
-        // ctype.h
-        "isalnum",    "isalpha",  "islower",   "isupper",    "isdigit",
-        "isxdigit",   "iscntrl",  "isgraph",   "isspace",    "isblank",
-        "isprint",    "ispunct",  "tolower",   "toupper",
-        // math.h
-        "abs",        "labs",     "llabs",     "fabs",       "div",
-        "ldiv",       "lldiv",    "fmod",      "remainder",  "remquo",
-        "fma",        "fmax",     "fmin",      "fdim",       "nan",
-        "nan",        "nanl",     "exp",       "exp2",       "expm1",
-        "log",        "log2",     "log10",     "log1p",      "ilogb",
-        "logb",       "sqrt",     "cbrt",      "hypot",      "pow",
-        "sin",        "cos",      "tan",       "asin",       "acos",
-        "atan",       "atan2",    "sinh",      "cosh",       "tanh",
-        "asinh",      "acosh",    "atanh",     "erf",        "erfc",
-        "lgamma",     "tgamma",   "ceil",      "floor",      "trunc",
-        "round",      "lround",   "llround",   "nearbyint",  "rint",
-        "lrint",      "llrint",   "frexp",     "ldexp",      "modf",
-        "scalbn",     "scalbln",  "nextafter", "nexttoward", "copysign",
-        "fpclassify", "isfinite", "isinf",     "isnan",      "isnormal",
-        "signbit",
-        // stdio.h
-        "sscanf",     "vsscanf",  "sprintf",   "snprintf",   "vsprintf",
-        "vsnprintf",
-        // stdlib.h
-        "abs",        "atof",     "atoi",      "atol",       "atoll",
-        "div",        "getenv",   "labs",      "ldiv",       "llabs",
-        "lldiv",      "qsort",    "strtod",    "strtof",     "strtol",
-        "strtold",    "strtoll",  "strtoul",   "strtoull",   "rand",
-        // string.h
-        "strcpy",     "strncpy",  "strcat",    "strncat",    "strxfrm",
-        "strlen",     "strcmp",   "strncmp",   "strcoll",    "strchr",
-        "strrchr",    "strspn",   "strcspn",   "strpbrk",    "strstr",
-        "strtok_r",   "memset",   "memcpy",    "memmove",    "memcmp",
-        "memchr",
-        // time.h
-        "difftime",   "time",     "clock",     "asctime",    "ctime",
-        "strftime",   "gmtime",   "localtime", "mktime",
+    database_statement_t *statement = database_statement_create(database, "SELECT LIBC FROM WHITELIST WHERE NAME=?");
+    if (!statement)
+        return false;
 
-        // list.h
-        "list_iterator_next",
-        "list_iterator_end",
-        "list_pop",
-        "list_length",
+    if (!database_statement_bind(statement, "s", name)) {
+        database_statement_destroy(statement);
+        return false;
+    }
 
-        // string.h
-        "string_contents",
-        "string_length",
-        "string_catf",
+    database_row_t *row = database_row_extract(statement, "i");
+    if (!row) {
+        database_statement_destroy(statement);
+        return false;
+    }
 
-        // irc.h
-        "irc_modules_add",
-        "irc_modules_reload",
-        "irc_action",
-        "irc_write",
-        "irc_nick",
+    *libc = database_row_pop_integer(row);
 
-        // database.h
-        "database_statement_complete",
-        "database_statement_bind",
-        "database_request",
-        "database_request_count",
-        "database_row_pop_integer",
+    if (!database_statement_complete(statement)) {
+        database_statement_destroy(statement);
+        database_row_destroy(row);
+        return false;
+    }
 
-        // misc
-        "inet_ntop",
-        "raise"
-    };
+    database_row_destroy(row);
+    database_statement_destroy(statement);
 
-    for (size_t i = 0; i < sizeof(list) / sizeof(*list); i++)
-        if (!strcmp(list[i], name) || *name == '_')
-            return true;
-
-    return false;
+    return true;
 }
 
-static bool module_allow(const char *path, char **function) {
+static bool module_allow(const char *path, char **function, database_t *database, bool *libc) {
     void     *base;
     size_t    size;
     Elf_Ehdr *ehdr;
@@ -225,10 +179,8 @@ static bool module_allow(const char *path, char **function) {
     }
 
     while (dsymtab < dsymtab_end) {
-        if (FUN(dsymtab->st_info) == STT_FUNC ||
-            FUN(dsymtab->st_info) == STT_NOTYPE) // no type functions are hard
-        {
-            if (!module_allow_symbol(&dstrtab[dsymtab->st_name])) {
+        if (FUN(dsymtab->st_info) == STT_FUNC || FUN(dsymtab->st_info) == STT_NOTYPE) {
+            if (!module_allow_symbol(&dstrtab[dsymtab->st_name], database, libc)) {
                 *function = strdup(&dstrtab[dsymtab->st_name]);
                 free(base);
                 return false;
@@ -243,10 +195,14 @@ static bool module_allow(const char *path, char **function) {
 
 module_t *module_open(const char *file, irc_t *instance, string_t **error) {
     char *function = NULL;
+    bool  libc;
 
-    if (!module_allow(file, &function)) {
+    if (!module_allow(file, &function, instance->whitelist, &libc)) {
         *error = string_construct();
-        string_catf(*error, "%s is blacklisted", function);
+        if (libc)
+            string_catf(*error, "%s from libc is blacklisted", function);
+        else
+            string_catf(*error, "%s blacklisted", function);
         free(function);
         return NULL;
     }

@@ -12,7 +12,7 @@ MODULE_OBJECTS = $(MODULE_SOURCES:.c=.so)
 
 all: $(SOURCES) $(MODULE_OBJECTS) $(REDROID)
 
-$(REDROID): $(OBJECTS)
+$(REDROID): $(OBJECTS) whitelist
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
 .c.o:
@@ -21,11 +21,20 @@ $(REDROID): $(OBJECTS)
 modules/%.so: modules/%.c
 	$(CC) $(MODULE_CFLAGS) $(MODULE_LDFLAGS) $< -o $@
 
+whitelist: cleanwhitelist
+	@echo Creating module whitelist database
+	@$(CC) misc/whitelist.c -o misc/gen
+	@./misc/gen
+	@rm -f misc/gen
+
 modules: $(MODULE_OBJECTS)
 
 cleanmodules:
 	rm -f $(MODULE_OBJECTS)
 
-clean: cleanmodules
+cleanwhitelist:
+	rm -f whitelist.db
+
+clean: cleanmodules cleanwhitelist
 	rm -f $(OBJECTS)
 	rm -f $(REDROID)
