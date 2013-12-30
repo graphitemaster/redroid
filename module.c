@@ -39,7 +39,8 @@ module_mem_t *module_mem_create(module_t *instance) {
     return mem;
 }
 
-void module_mem_push(module_mem_t *mem, void *data, void (*cleanup)(void *)) {
+void module_mem_push(module_t *module, void *data, void (*cleanup)(void *)) {
+    module_mem_t *mem  = module->memory;
     mem->tail->next    = module_mem_node_create();
     mem->tail->data    = data;
     mem->tail->cleanup = cleanup;
@@ -315,12 +316,12 @@ module_t **module_get(void) {
     return &module;
 }
 
-// memory pinners for module garbage collection
+// memory pinners
 void *module_malloc(size_t bytes) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     void *p = memset(malloc(bytes), 0, bytes);
-    module_mem_push(module->memory, p, &free);
+    module_mem_push(module, p, &free);
     module_mem_mutex_unlock(module);
     return p;
 }
@@ -329,7 +330,7 @@ string_t *module_string_create(const char *input) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     string_t *string = string_create(input);
-    module_mem_push(module->memory, string, (void (*)(void *))&string_destroy);
+    module_mem_push(module, string, (void (*)(void *))&string_destroy);
     module_mem_mutex_unlock(module);
     return string;
 }
@@ -338,7 +339,7 @@ string_t *module_string_construct(void) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     string_t *string = string_construct();
-    module_mem_push(module->memory, string, (void (*)(void *))&string_destroy);
+    module_mem_push(module, string, (void (*)(void *))&string_destroy);
     module_mem_mutex_unlock(module);
     return string;
 }
@@ -347,7 +348,7 @@ list_iterator_t *module_list_iterator_create(list_t *list) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     list_iterator_t *it = list_iterator_create(list);
-    module_mem_push(module->memory, it, (void (*)(void*))&list_iterator_destroy);
+    module_mem_push(module, it, (void (*)(void*))&list_iterator_destroy);
     module_mem_mutex_unlock(module);
     return it;
 }
@@ -356,7 +357,7 @@ list_t *module_list_create(void) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     list_t *list = list_create();
-    module_mem_push(module->memory, list, (void (*)(void*))&list_destroy);
+    module_mem_push(module, list, (void (*)(void*))&list_destroy);
     module_mem_mutex_unlock(module);
     return list;
 }
@@ -366,7 +367,7 @@ int module_getaddrinfo(const char *mode, const char *service, const struct addri
     module_mem_mutex_lock(module);
     int value = getaddrinfo(mode, service, hints, result);
     if (value == 0)
-        module_mem_push(module->memory, *result, (void (*)(void*))&freeaddrinfo);
+        module_mem_push(module, *result, (void (*)(void*))&freeaddrinfo);
     module_mem_mutex_unlock(module);
     return value;
 }
@@ -375,7 +376,7 @@ database_statement_t *module_database_statement_create(const char *string) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     database_statement_t *statement = database_statement_create(module->instance->database, string);
-    module_mem_push(module->memory, statement, (void(*)(void*))&database_statement_destroy);
+    module_mem_push(module, statement, (void(*)(void*))&database_statement_destroy);
     module_mem_mutex_unlock(module);
     return statement;
 }
@@ -385,7 +386,7 @@ database_row_t *module_database_row_extract(database_statement_t *statement, con
     module_mem_mutex_lock(module);
     database_row_t *row = database_row_extract(statement, fields);
     if (row)
-        module_mem_push(module->memory, row, (void(*)(void*))&database_row_destroy);
+        module_mem_push(module, row, (void(*)(void*))&database_row_destroy);
     module_mem_mutex_unlock(module);
     return row;
 }
@@ -394,7 +395,7 @@ const char *module_database_row_pop_string(database_row_t *row) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     const char *ret = database_row_pop_string(row);
-    module_mem_push(module->memory, (void *)ret, (void(*)(void*))&free);
+    module_mem_push(module, (void *)ret, (void(*)(void*))&free);
     module_mem_mutex_unlock(module);
     return ret;
 }
@@ -403,7 +404,7 @@ list_t *module_irc_modules_list(irc_t *irc) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     list_t *ret = irc_modules_list(irc);
-    module_mem_push(module->memory, (void*)ret, (void(*)(void*))&list_destroy);
+    module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
     module_mem_mutex_unlock(module);
     return ret;
 }
@@ -420,7 +421,7 @@ char *module_strdup(const char *str) {
     module_mem_mutex_lock(module);
     char *dup = strdup(str);
     if (dup)
-        module_mem_push(module->memory, dup, &free);
+        module_mem_push(module, dup, &free);
     module_mem_mutex_unlock(module);
     return dup;
 }
@@ -429,7 +430,7 @@ list_t* module_strsplit(char *str, char *delim) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     list_t *list = list_create();
-    module_mem_push(module->memory, list, (void (*)(void*))&list_destroy);
+    module_mem_push(module, list, (void (*)(void*))&list_destroy);
     char *saveptr;
     char *tok = strtok_r(str, delim, &saveptr);
     while (tok) {
@@ -444,7 +445,7 @@ list_t* module_strnsplit(char *str, char *delim, size_t count) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     list_t *list = list_create();
-    module_mem_push(module->memory, list, (void (*)(void*))&list_destroy);
+    module_mem_push(module, list, (void (*)(void*))&list_destroy);
     if (count < 2) {
         while (*str && strchr(delim, *str))
             ++str;

@@ -1,4 +1,5 @@
 #include <module.h>
+#include <string.h>
 
 MODULE_DEFAULT(module);
 

@@ -1,9 +1,9 @@
-CC     ?= clang
-CFLAGS  = -std=gnu99 -Wall -ggdb3
-LDFLAGS = -ldl -lpthread -lsqlite3 -Wl,--export-dynamic
-SOURCES = $(shell echo *.c)
-OBJECTS = $(SOURCES:.c=.o)
-REDROID = redroid
+CC      ?= clang
+CFLAGS   = -std=gnu99 -Wall -ggdb3
+LDFLAGS  = -ldl -lpthread -lsqlite3 -Wl,--export-dynamic
+SOURCES  = $(shell echo *.c)
+OBJECTS  = $(SOURCES:.c=.o)
+REDROID  = redroid
 
 MODULE_CFLAGS  = -fPIC -std=gnu99 -Imodules/ -ggdb3
 MODULE_LDFLAGS = -shared -rdynamic -lm

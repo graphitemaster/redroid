@@ -1,7 +1,10 @@
 #include <module.h>
-#include <arpa/inet.h>
 #include <stddef.h>
-#include <netinet/in.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 MODULE_DEFAULT(dns);
 

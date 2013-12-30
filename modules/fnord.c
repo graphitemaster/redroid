@@ -1,4 +1,6 @@
 #include <module.h>
+#include <string.h>
+#include <stdlib.h>
 #include <ctype.h>
 
 MODULE_DEFAULT(fnord);
