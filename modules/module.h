@@ -39,6 +39,7 @@ database_statement_t *module_database_statement_create(const char *string);
 database_row_t *module_database_row_extract(database_statement_t *statement, const char *fields);
 const char *module_database_row_pop_string(database_row_t *row);
 char *module_strdup(const char *str);
+list_t* module_strsplit(char *str, char *delim);
 
 #define string_create              module_string_create
 #define string_construct           module_string_construct
@@ -52,6 +53,7 @@ char *module_strdup(const char *str);
 #define irc_modules_list           module_irc_modules_list
 #define malloc                     module_malloc
 #define strdup                     module_strdup
+#define strsplit                   module_strsplit
 
 void list_iterator_reset(list_iterator_t *iterator);
 bool list_iterator_end(list_iterator_t *iterator);
