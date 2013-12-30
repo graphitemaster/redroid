@@ -150,7 +150,7 @@ static bool module_allow_symbol(const char *name) {
         "strcpy",     "strncpy",  "strcat",    "strncat",    "strxfrm",
         "strlen",     "strcmp",   "strncmp",   "strcoll",    "strchr",
         "strrchr",    "strspn",   "strcspn",   "strpbrk",    "strstr",
-        "strtok",     "memset",   "memcpy",    "memmove",    "memcmp",
+        "strtok_r",   "memset",   "memcpy",    "memmove",    "memcmp",
         "memchr",
         // time.h
         "difftime",   "time",     "clock",     "asctime",    "ctime",
@@ -423,4 +423,18 @@ char *module_strdup(const char *str) {
         module_mem_push(module->memory, dup, &free);
     module_mem_mutex_unlock(module);
     return dup;
+}
+
+list_t* module_strsplit(char *str, char *delim) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    list_t *list = list_create();
+    char *saveptr;
+    char *tok = strtok_r(str, delim, &saveptr);
+    while (tok) {
+        list_push(list, tok);
+        tok = strtok_r(NULL, delim, &saveptr);
+    }
+    module_mem_mutex_unlock(module);
+    return list;
 }
