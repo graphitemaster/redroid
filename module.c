@@ -429,6 +429,7 @@ list_t* module_strsplit(char *str, char *delim) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
     list_t *list = list_create();
+    module_mem_push(module->memory, list, (void (*)(void*))&list_destroy);
     char *saveptr;
     char *tok = strtok_r(str, delim, &saveptr);
     while (tok) {
