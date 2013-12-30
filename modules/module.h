@@ -36,7 +36,7 @@ typedef struct string_s                 string_t;
  */
 #define MODULE_GC_CALL(NAME)               \
     extern __typeof__(NAME) module_##NAME; \
-    module_##NAME
+    return module_##NAME
 
 /*
  * Function: irc_modules_list
