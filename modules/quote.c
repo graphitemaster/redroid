@@ -137,7 +137,7 @@ static void quote_stats(irc_t *irc, const char *channel, const char *user, const
     if (!quote_count(who, &count))
         return;
 
-    irc_write(irc, channel, "%s: %s has %d quotes", user, who, count);
+    irc_write(irc, channel, "%s: %s has %d %s", user, who, count, count > 1 ? "quotes" : "quote");
 }
 
 static void quote_add(irc_t *irc, const char *channel, const char *user, const char *message) {
@@ -231,10 +231,7 @@ static void quote_reauthor(irc_t *irc, const char *channel, const char *user, co
     if (!database_statement_complete(statement))
         return;
 
-    if (count == 1)
-        irc_write(irc, channel, "%s: Ok, reauthored 1 quote from %s to %s", user, from, to);
-    else
-        irc_write(irc, channel, "%s: Ok, reauthored %d quotes from %s to %s", user, count, from, to);
+    irc_write(irc, channel, "%s: Ok, reauthored %d %s from %s to %s", user, count, count > 1 ? "quotes" : "quote", from, to);
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
