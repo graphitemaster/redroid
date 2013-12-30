@@ -17,7 +17,12 @@ static bool family_split(const char *string, string_t **nick, string_t **message
     for (const char *from = string; from != space; from++)
         string_catf(*nick, "%c", *from);
 
-    *message = string_create(&space[1]);
+    space++;
+    while (isspace(*space))
+        space++;
+
+    *message = string_create(space);
+
     return true;
 }
 
@@ -62,6 +67,9 @@ static const char *family_get(const char *nick) {
 }
 
 static void family_entry(irc_t *irc, const char *channel, const char *user, const char *message) {
+    if (!message)
+        return;
+
     const char *get = family_get(message);
 
     if (!get) {

@@ -92,7 +92,7 @@ bool database_statement_bind(database_statement_t *statement, const char *mappin
                 break;
 
             case 'S':
-                if (sqlite3_bind_text((sqlite3_stmt*)statement, index, string_contents((string_t*)va_arg(va, void *)), -1, NULL) != SQLITE_OK)
+                if (sqlite3_bind_text((sqlite3_stmt*)statement, index, string_contents(va_arg(va, void *)), -1, NULL) != SQLITE_OK)
                     goto error;
                 break;
 

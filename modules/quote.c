@@ -47,6 +47,18 @@ static int quote_length(void) {
     return count;
 }
 
+static bool quote_count(const char *user, int *count) {
+    database_statement_t *statement = database_statement_create("SELECT COUNT(*) FROM QUOTES WHERE NAME=?");
+    if (!statement || !database_statement_bind(statement, "s", user))
+        return false;
+
+    database_row_t *row = database_row_extract(statement, "i");
+    if ((*count = database_row_pop_integer(row)) >= 1)
+        return true;
+
+    return false;
+}
+
 static bool quote_find(const char *user, const char *quote) {
     database_statement_t *statement = database_statement_create("SELECT COUNT(*) FROM QUOTES WHERE NAME=? AND CONTENT=?");
     if (!statement || !database_statement_bind(statement, "ss", user, quote))
@@ -182,6 +194,41 @@ static void quote_forget(irc_t *irc, const char *channel, const char *user, cons
     );
 }
 
+static void quote_reauthor(irc_t *irc, const char *channel, const char *user, const char *who) {
+    int count = 0;
+
+    if (!strchr(who, ' '))
+        return quote_help(irc, channel, user);
+
+    char *from = strdup(who);
+    char *to   = strchr(who, ' ');
+
+    if (!to)
+        return quote_help(irc, channel, user);
+
+    to++;
+    *strchr(from, ' ')='\0';
+
+    if (!quote_count(from, &count)) {
+        irc_write(irc, channel, "%s: Sorry, could not find any quotes by \"%s\"", user, from);
+        return;
+    }
+
+    // reauthor
+    database_statement_t *statement = database_statement_create("UPDATE QUOTES SET NAME=? WHERE NAME=?");
+
+    if (!statement || !database_statement_bind(statement, "ss", to, from))
+        return;
+
+    if (!database_statement_complete(statement))
+        return;
+
+    if (count == 1)
+        irc_write(irc, channel, "%s: Ok, reauthored 1 quote from %s to %s", user, from, to);
+    else
+        irc_write(irc, channel, "%s: Ok, reauthored %d quotes from %s to %s", user, count, from, to);
+}
+
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     if (!message)
         return quote_entry_random(irc, channel, user);
@@ -193,5 +240,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         return quote_forget(irc, channel, user, &message[8]);
     else if (strstr(message, "-stats") == &message[0])
         return quote_stats(irc, channel, user);
+    else if (strstr(message, "-reauthor") == &message[0])
+        return quote_reauthor(irc, channel, user, &message[10]);
     return quote_entry(irc, channel, user, message);
 }
