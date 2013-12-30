@@ -74,7 +74,7 @@ static bool quote_find(const char *user, const char *quote) {
 
 // quote -help
 static void quote_help(irc_t *irc, const char *channel, const char *user) {
-    irc_write(irc, channel, "%s: quote [<nick> [searchtext]|<-stats>|<-add|-forget> <nickname> <phrase>]", user);
+    irc_write(irc, channel, "%s: quote [<nick> [searchtext]|<-stats [nick]|-add|-forget|-reauthor <oldnick> <newnick>> <nickname> <phrase>]", user);
     irc_write(irc, channel, "%s: used -> <<nickname>> <phrase>", user);
 }
 
@@ -125,11 +125,19 @@ static void quote_entry(irc_t *irc, const char *channel, const char *user, const
     irc_write(irc, channel, "%s: <%s> %s", user, quotenick, quotemessage);
 }
 
-static void quote_stats(irc_t *irc, const char *channel, const char *user) {
-    int count   = quote_length();
-    int request = database_request_count(irc, "QUOTES");
+static void quote_stats(irc_t *irc, const char *channel, const char *user, const char *who) {
+    if (!who) {
+        int count   = quote_length();
+        int request = database_request_count(irc, "QUOTES");
 
-    irc_write(irc, channel, "%s: quote stats -> %d quotes -> requested %d times", user, count, request);
+        irc_write(irc, channel, "%s: quote stats -> %d quotes -> requested %d times", user, count, request);
+    }
+
+    int count = 0;
+    if (!quote_count(who, &count))
+        return;
+
+    irc_write(irc, channel, "%s: %s has %d quotes", user, who, count);
 }
 
 static void quote_add(irc_t *irc, const char *channel, const char *user, const char *message) {
@@ -239,7 +247,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     else if (strstr(message, "-forget") == &message[0])
         return quote_forget(irc, channel, user, &message[8]);
     else if (strstr(message, "-stats") == &message[0])
-        return quote_stats(irc, channel, user);
+        return quote_stats(irc, channel, user, &message[7]);
     else if (strstr(message, "-reauthor") == &message[0])
         return quote_reauthor(irc, channel, user, &message[10]);
     return quote_entry(irc, channel, user, message);
