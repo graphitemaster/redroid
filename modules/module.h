@@ -390,6 +390,7 @@ int  database_row_pop_integer(database_row_t *row);
 bool database_request(irc_t *instance, const char *table);
 int database_request_count(irc_t *instance, const char *table);
 bool irc_modules_reload(irc_t *irc, const char *name);
+bool irc_modules_unload(irc_t *irc, const char *name);
 bool irc_modules_add(irc_t *irc, const char *file);
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...);

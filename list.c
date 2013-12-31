@@ -119,6 +119,18 @@ void *list_pop(list_t *list) {
     return element;
 }
 
+bool list_erase(list_t *list, void *element) {
+    for (list_node_t *curr = list->head; curr; curr = curr->next) {
+        if (curr->element != element)
+            continue;
+        *((curr->prev) ? &curr->prev->next : &list->head) = curr->next;
+        *((curr->next) ? &curr->next->prev : &list->tail) = curr->prev;
+        list_node_destroy(curr);
+        return true;
+    }
+    return false;
+}
+
 size_t list_length(list_t *list) {
     return (list) ? list->length : 0;
 }

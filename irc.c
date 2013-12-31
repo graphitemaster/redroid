@@ -260,6 +260,21 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     return false;
 }
 
+bool irc_modules_unload(irc_t *irc, const char *name) {
+    list_iterator_t *it = list_iterator_create(irc->modules);
+    while (!list_iterator_end(it)) {
+        module_t *entry = list_iterator_next(it);
+        if (!strcmp(entry->name, name)) {
+            list_iterator_destroy(it);
+            if (!list_erase(irc->modules, entry))
+                return false;
+            return true;
+        }
+    }
+    list_iterator_destroy(it);
+    return true;
+}
+
 static module_t *irc_modules_command(irc_t *irc, const char *command) {
     list_iterator_t *it = list_iterator_create(irc->modules);
     while (!list_iterator_end(it)) {
