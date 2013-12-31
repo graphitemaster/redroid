@@ -19,29 +19,10 @@
 // This provides a hot/cold cache of memory-managed compiled regular
 // expressions to deal with this.
 //
-// The cost of executing a regular expression is far less than that of
-// creating one and since there is only a few modules that depend on
-// regular expressions having a fixed static size cache if sufficent
-// enough to compensate for regular expression construction. It should
-// be noted however that when the cache gets full the LEAST hot, i.e
-// cold (least commonly invoked) regular expressions will be erased
-// from the cache
-//
-// Each new regular expression gets added to the tail end of the cache
-// which is considered the cold end. Hot regular expression objects are
-// sorted on hotness-update to exist at the head of the cache.
-//
-// Right now a number of sixteen is a fair-enough static size for the
-// cache. When the cache reaches this value in elements the cold half
-// of the cache is erased, i.e this number / 2 is erased from the tail
-// end of the cache.
-//
-#define REGEXPR_CACHE_SIZE 16
 
 struct regexpr_s {
     regex_t reg;
     char   *match;
-    size_t  hot;
 };
 
 struct regexpr_cache_s {
@@ -84,32 +65,7 @@ regexpr_cache_t *regexpr_cache_create(void) {
 }
 
 static void regexpr_cache_insert(regexpr_cache_t *cache, regexpr_t *expr) {
-    //
-    // Throw away anything that isn't hot cached, i.e isn't used often,
-    // i.e remove the cold compiled expressions. Hotter cached elements
-    // are at the head of the cache.
-    //
-    if (list_length(cache->cache) >= REGEXPR_CACHE_SIZE)
-        for (size_t i = 0; i < (REGEXPR_CACHE_SIZE >> 1); i++)
-            regexpr_destroy(list_pop(cache->cache));
-
     list_push(cache->cache, expr);
-}
-
-static bool regexpr_cache_sort(const void *a, const void *b) {
-    const regexpr_t *ra = a;
-    const regexpr_t *rb = b;
-
-    return !!(ra->hot < rb->hot);
-}
-
-static void regexpr_cache_hotter(regexpr_cache_t *cache, regexpr_t *find) {
-    //
-    // Make the current expression hotter in the cache and force a restart
-    // of the cache.
-    //
-    find->hot++;
-    list_sort(cache->cache, &regexpr_cache_sort);
 }
 
 // regular expression management
@@ -120,14 +76,8 @@ regexpr_t *regexpr_create(regexpr_cache_t *cache, const char *string, bool icase
     // which is quite common in an IRC channel.
     //
     regexpr_t *find;
-    if ((find = regexpr_cache_find(cache, string))) {
-        //
-        // Make the current regular expression hotter in the cache since
-        // it's used more often as a result.
-        //
-        regexpr_cache_hotter(cache, find);
+    if ((find = regexpr_cache_find(cache, string)))
         return find;
-    }
 
     regexpr_t *next = malloc(sizeof(*next));
 
