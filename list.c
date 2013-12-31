@@ -134,3 +134,22 @@ bool list_erase(list_t *list, void *element) {
 size_t list_length(list_t *list) {
     return (list) ? list->length : 0;
 }
+
+void list_sort(list_t *list, bool (*predicate)(const void *a, const void *b)) {
+    list_node_t *ptr = list->head;
+    list_node_t *nxt = list->head->next;
+
+    void *temp;
+    while (nxt) {
+        while (nxt != ptr) {
+            if (predicate(nxt->element, ptr->element)) {
+                temp         = ptr->element;
+                ptr->element = nxt->element;
+                nxt->element = temp;
+            }
+            ptr = ptr->next;
+        }
+        ptr = list->head;
+        nxt = nxt->next;
+    }
+}

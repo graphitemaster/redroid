@@ -141,6 +141,7 @@ localtime
 mktime
 inet_ntop
 raise
+strncasecmp
 
 list_iterator_next
 list_iterator_end

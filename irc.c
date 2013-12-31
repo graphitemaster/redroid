@@ -164,14 +164,15 @@ irc_t *irc_create(config_t *entry) {
         irc->auth = NULL;
     }
 
-    irc->ready      = false;
-    irc->readying   = false;
-    irc->bufferpos  = 0;
-    irc->modules    = list_create();
-    irc->channels   = list_create();
-    irc->queue      = list_create();
-    irc->database   = database_create(entry->database);
-    irc->whitelist  = database_create("whitelist.db");
+    irc->ready        = false;
+    irc->readying     = false;
+    irc->bufferpos    = 0;
+    irc->modules      = list_create();
+    irc->channels     = list_create();
+    irc->queue        = list_create();
+    irc->database     = database_create(entry->database);
+    irc->whitelist    = database_create("whitelist.db");
+    irc->regexprcache = regexpr_cache_create();
 
     printf("instance: %s\n", irc->name);
     printf("    nick     => %s\n", irc->nick);
@@ -327,6 +328,9 @@ void irc_destroy(irc_t *irc) {
 
     database_destroy(irc->database);
     database_destroy(irc->whitelist);
+
+    // destory all regular expression cache
+    regexpr_cache_destroy(irc->regexprcache);
 
     // destory modules
     list_iterator_t *it = NULL;

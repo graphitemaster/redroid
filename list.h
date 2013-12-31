@@ -18,5 +18,6 @@ void list_push(list_t *list, void *element);
 void *list_pop(list_t *list);
 size_t list_length(list_t *list);
 bool list_erase(list_t *list, void *element);
+void list_sort(list_t *list, bool (*predicate)(const void *, const void *));
 
 #endif

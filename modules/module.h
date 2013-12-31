@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+struct regexpr_s;
 struct addrinfo;
 struct database_statement_s;
 struct database_row_s;
@@ -12,6 +13,7 @@ struct list_s;
 struct list_iterator_s;
 struct string_s;
 
+typedef struct regexpr_s                regexpr_t;
 typedef struct database_statement_s     database_statement_t;
 typedef struct database_row_s           database_row_t;
 typedef struct irc_s                    irc_t;
@@ -220,6 +222,7 @@ static inline database_statement_t *database_statement_create(const char *string
 static inline database_row_t *database_row_extract(database_statement_t *statement, const char *fields) {
     MODULE_GC_CALL(database_row_extract)(statement, fields);
 }
+
 /*
  * Function: database_row_pop_string
  *  Pop a string from a database row.
@@ -265,6 +268,50 @@ static inline list_t *strsplit(char *string, char *delimiter) {
 }
 static inline list_t *strnsplit(char *string, char *delimiter, size_t count) {
     MODULE_GC_CALL(strnsplit)(string, delimiter, count);
+}
+
+/*
+ * Function: regexpr_create
+ *  Create a regular expression.
+ *
+ * Parameters:
+ *  string  - POSIX regular expression match string
+ *  icase   - Case insensitive match
+ *
+ * Returns:
+ *  A regular expression object on success; otherwise, NULL on failure.
+ *
+ * Remarks:
+ *  The resources allocated by this function are cached and garbage
+ *  collected depending on how cold this expression is. This allows
+ *  for efficent construction of regular expressions. Since modules
+ *  are likely to be called often in succession on IRC channels it
+ *  isn't wise to waste resources recompiling regular expressions
+ *  if they're already in regular expression cache.
+ */
+static inline regexpr_t *regexpr_create(const char *string, bool icase) {
+    MODULE_GC_CALL(regexpr_create)(string, icase);
+}
+
+/*
+ * Function: regexpr_execute
+ *  Execute a regular expression
+ *
+ * Parameters:
+ *  expr    - The regular expression to execute
+ *  string  - The string to perform the regular expression on
+ *  nmatch  - How many maximal matches.
+ *  list    - Pointer to a list_t* which will be allocated and filled
+ *            with regexpr_match_t* objects containing start and end
+ *            offsets of the match inside *string*
+ *
+ * Remarks:
+ *  The list allocated by this function when a match, or match(s) are
+ *  found is subjected to the automatic garbage collector. So the
+ *  resources will be freed automatically.
+ */
+static inline bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, list_t **list) {
+    MODULE_GC_CALL(regexpr_execute)(expr, string, nmatch, list);
 }
 
 /*
@@ -396,5 +443,4 @@ int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
 const char *irc_nick(irc_t *irc);
 list_t *irc_modules(irc_t *irc);
-
 #endif

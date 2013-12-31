@@ -19,6 +19,9 @@ Features
          * IRC
          * Database
          * Sockets
+         * Regular Expressions
+            * Cached
+            * POSIX Compatible
 
 Prerequisites
 -------------
@@ -26,6 +29,7 @@ Prerequisites
  * Linux 2.6+/BSD
  * SQLite3 (-lsqlite3)
  * POSIX Threads (-lpthread)
+ * POSIX Regular Expressions (<regex.h>)
 
 Building
 --------
@@ -46,11 +50,15 @@ You can use CTRL+C at anytime to send a shutdown signal, which will
 safely shut down the process.
 
 In daemon mode there is no safe way to shut down the bot other than
-to send a SIGINT with kill, for that you'll need the PID. Optionally
-you can `killall -3 redroid`.
+to send a SIGUSR1 with kill, for that you'll need the PID. Optionally
+you can `killall -SIGUSR1 redroid`.
+
+It isn't very probably or often since modules are run in a seperate
+thread, but if commands stop working you can forcefully restart the
+command processor by sending `SIGUSR2` to the process.
 
 If you invoke redroid in a terminal in normal/quiet mode. Closing the
-terminal will force daemonization of the redroid process (SIGHUP).
+terminal will force daemonization of the redroid process `SIGHUP`.
 
 Architecture
 ------------

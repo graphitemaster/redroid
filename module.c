@@ -1,5 +1,6 @@
 #include "module.h"
 #include "database.h"
+#include "regexpr.h"
 #include "irc.h"
 
 #include <dlfcn.h>
@@ -10,6 +11,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <pthread.h>
+#include <regex.h>
 
 struct module_mem_s {
     module_t          *instance;
@@ -426,4 +428,35 @@ list_t* module_strnsplit(char *str, char *delim, size_t count) {
     }
     module_mem_mutex_unlock(module);
     return list;
+}
+
+
+regexpr_t *module_regexpr_create(const char *string, bool icase) {
+    //
+    // There is no need to gaurd a mutex here since the module cache
+    // system also serves as a garbage collector. This will implictly
+    // deal with freeing regexpr_t objects automatically. Instead we
+    // need the GC call to access the modules instances regexpr cache.
+    //
+    module_t *module = *module_get();
+    return regexpr_create(module->instance->regexprcache, string, icase);
+}
+
+bool module_regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, list_t **list) {
+    module_t *module    = *module_get();
+    list_t   *storelist = NULL;
+
+    module_mem_mutex_lock(module);
+    if (!regexpr_execute(expr, string, nmatch, &storelist)) {
+        module_mem_mutex_unlock(module);
+        return false;
+    }
+
+    if (storelist) {
+        module_mem_push(module, storelist, (void (*)(void *))&regexpr_execute_destroy);
+        *list = storelist;
+    }
+
+    module_mem_mutex_unlock(module);
+    return true;
 }
