@@ -123,9 +123,18 @@ bool list_erase(list_t *list, void *element) {
     for (list_node_t *curr = list->head; curr; curr = curr->next) {
         if (curr->element != element)
             continue;
-        *((curr->prev) ? &curr->prev->next : &list->head) = curr->next;
-        *((curr->next) ? &curr->next->prev : &list->tail) = curr->prev;
+
+        if (curr == list->head)
+            list->head = list->head->next;
+        if (curr == list->tail)
+            list->tail = list->tail->prev;
+        if (curr->next)
+            curr->next->prev = curr->prev;
+        if (curr->prev)
+            curr->prev->next = curr->next;
+
         list_node_destroy(curr);
+        list->length--;
         return true;
     }
     return false;

@@ -269,6 +269,7 @@ bool irc_modules_unload(irc_t *irc, const char *name) {
             list_iterator_destroy(it);
             if (!list_erase(irc->modules, entry))
                 return false;
+            module_destroy(entry);
             return true;
         }
     }
