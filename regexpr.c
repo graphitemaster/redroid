@@ -109,7 +109,7 @@ static void regexpr_cache_hotter(regexpr_cache_t *cache, regexpr_t *find) {
     // of the cache.
     //
     find->hot++;
-    //list_sort(cache->cache, &regexpr_cache_sort);
+    list_sort(cache->cache, &regexpr_cache_sort);
 }
 
 // regular expression management
