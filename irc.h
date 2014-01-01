@@ -18,6 +18,7 @@ struct irc_s {
     char             buffer[512];  // processing buffer
     size_t           bufferpos;    // buffer position
     list_t          *modules;      // list of modules for this instance
+    list_t          *modunload;    // list of unloaded module addresses
     list_t          *channels;     // list of channels for this instance
     list_t          *queue;        // queue of IRC messages
     database_t      *database;     // database for modules

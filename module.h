@@ -24,6 +24,7 @@ struct module_s {
     module_mem_t *memory;
 };
 
+bool module_unloaded(irc_t *irc, module_t *test);
 module_t *module_open(const char *file, irc_t *instance, string_t **error);
 void module_destroy(module_t *module);
 bool module_reload(module_t *module);
@@ -32,7 +33,7 @@ void module_mem_mutex_lock(module_t *module);
 void module_mem_mutex_unlock(module_t *module);
 void module_mem_push(module_t *module, void *data, void (*cleanup)(void *));
 module_mem_t *module_mem_create(module_t *instance);
-void module_mem_destroy(module_mem_t *mem);
+void module_mem_destroy(module_t *module);
 
 
 #endif

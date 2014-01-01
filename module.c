@@ -61,7 +61,8 @@ static bool module_mem_pop(module_mem_t *mem) {
     return true;
 }
 
-void module_mem_destroy(module_mem_t *mem) {
+void module_mem_destroy(module_t *module) {
+    module_mem_t *mem = module->memory;
     while (module_mem_pop(mem))
         ;
     module_mem_node_destroy(mem->head);
@@ -235,10 +236,27 @@ module_t *module_open(const char *file, irc_t *instance, string_t **error) {
     return module;
 }
 
+bool module_unloaded(irc_t *irc, module_t *test) {
+    list_iterator_t *it = list_iterator_create(irc->modunload);
+    while (!list_iterator_end(it)) {
+        module_t *old = list_iterator_next(it);
+        if (old == test) {
+            list_iterator_destroy(it);
+            return true;
+        }
+    }
+    list_iterator_destroy(it);
+    return false;
+}
+
 bool module_reload(module_t *module) {
     if (module->close)
         module->close(module->instance);
     dlclose(module->handle);
+
+    // save old address for unloaded modules
+    list_push(module->instance->modunload, module->handle);
+
     if (!(module->handle = dlopen(module->file, RTLD_LAZY)))
         goto module_reload_error;
 
@@ -258,6 +276,10 @@ void module_destroy(module_t *module) {
     if (module->handle)
         dlclose(module->handle);
     free(module->file);
+
+    // save old address for unloaded modules
+    list_push(module->instance->modunload, module);
+
     free(module);
 }
 

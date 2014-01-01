@@ -180,7 +180,7 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
     if (entry->user)    string_destroy(entry->user);
     if (entry->message) string_destroy(entry->message);
 
-    module_mem_destroy(entry->instance->memory);
+    module_mem_destroy(entry->instance);
 
     free(entry);
 }
@@ -194,17 +194,27 @@ static void *cmd_channel_threader(void *data) {
     cmd_entry_t   *entry   = NULL;
 
     while (cmd_channel_pop(channel, &entry)) {
-        if (entry->instance->enter) {
+        module_t *module = entry->instance;
+
+        //
+        // unloaded module references cannot be accessed. We'll just
+        // ignore any commands that still reference old modules.
+        //
+        if (module_unloaded(module->instance, module))
+            continue;
+
+        if (module && module->enter) {
             channel->cmd_time  = time(NULL);
             channel->cmd_entry = entry;
-            *module_get()      = entry->instance; // save current module instance
-            entry->instance->memory = module_mem_create(entry->instance);
-            entry->instance->enter(
-                entry->instance->instance,
+            *module_get()      = module; // save current module instance
+            module->memory     = module_mem_create(module);
+            module->enter(
+                module->instance,
                 string_contents(entry->channel),
                 string_contents(entry->user),
                 string_contents(entry->message)
             );
+
             pthread_mutex_lock(&channel->cmd_mutex);
             cmd_entry_destroy(entry);
             channel->cmd_time  = 0;
@@ -242,9 +252,15 @@ bool cmd_channel_timeout(cmd_channel_t *channel) {
     module_t *instance;
     if (!channel->cmd_time || channel->cmd_time + 3 >= time(NULL))
         return false;
+
     // a command timed out:
     pthread_mutex_lock(&channel->cmd_mutex);
     instance = channel->cmd_entry->instance;
+    if (!instance) {
+        pthread_mutex_unlock(&channel->cmd_mutex);
+        return false;
+    }
+
     module_mem_mutex_lock(instance);
     // it's possible the thread locked the mutex first, which means the command
     // took _exactly_ as much time as allowed, so we need to recheck

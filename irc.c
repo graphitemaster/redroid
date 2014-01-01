@@ -168,6 +168,7 @@ irc_t *irc_create(config_t *entry) {
     irc->readying     = false;
     irc->bufferpos    = 0;
     irc->modules      = list_create();
+    irc->modunload    = list_create();
     irc->channels     = list_create();
     irc->queue        = list_create();
     irc->database     = database_create(entry->database);
@@ -340,6 +341,7 @@ void irc_destroy(irc_t *irc) {
 
     list_iterator_destroy(it);
     list_destroy(irc->modules);
+    list_destroy(irc->modunload);
 
     // destroy channels
     for (it = list_iterator_create(irc->channels); !list_iterator_end(it); )
