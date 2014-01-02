@@ -14,6 +14,10 @@ Features
  * Modules
      * Garbage collected
      * Sandboxed
+        * Only whitelisted functions can be used
+        * Shortly lived
+        * Run in a seperate thread
+        * Run in a empty chroot
      * Configurable
      * Module API
          * IRC
@@ -29,13 +33,49 @@ Prerequisites
  * Linux 2.6+/BSD
  * SQLite3 (-lsqlite3)
  * POSIX Threads (-lpthread)
- * POSIX Regular Expressions (<regex.h>)
+ * POSIX Regular Expressions (regex.h)
 
 Building
 --------
 Redroid can be built with one simple invocation of GNU make
 
     $ make
+
+Modules
+-------
+Included with Redroid are the following modules currently
+
+| Module    | Description                                           |
+| --------- | ----------------------------------------------------- |
+| cookie    | Chop a target up and make cookies out of the pieces   |
+| dance     | Dance like a jolly idiot or give a target a lap dance |
+| dns       | Resolve a domain names ipv4 or ipv6 addresses         |
+| dur       | Convert seconds to a duration of time                 |
+| fail      | Check if a target fails                               |
+| family    | Control target family member status                   |
+| fnord     | Generate disinformation about a target                |
+| gibberish | Generate gibberish text                               |
+| help      | Condescendingly reassure target there isn't any help  |
+| lava      | Melt target in ball of flames or blindy agony         |
+| module    | Load, unload or reload modules                        |
+| penish    | Calculate e-penis length of target                    |
+| phail     | Reassure target that author of Redroid cannot phail   |
+| poetter   | Shit Lennart Poettering says                          |
+| quit      | Shutdown Redroid                                      |
+| quote     | Quote database control                                |
+| twss      | That's what she said monitor                          |
+
+You can write your own modules using the `module.h` header in `modules/`.
+Compiling your module with `make` is also possible as long as your module
+is inside the `modules/` directory.
+
+You can also load newely created modules while the bot is already running
+by invoking the `module` module from IRC with the bot pattern using the
+arguments `-load [modulename]`.
+
+Documentation for modules can be procured by invoking the bot from IRC
+using the argument `-help`. Your module should contain handling for such
+an argument as a result to stay consistent with Redroid as a whole.
 
 Running
 -------

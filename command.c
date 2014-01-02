@@ -1,10 +1,13 @@
 #include "command.h"
 #include "string.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
@@ -227,6 +230,59 @@ static void *cmd_channel_threader(void *data) {
     return NULL;
 }
 
+static bool cmd_channel_jail(cmd_channel_t *channel, const char *jail) {
+    if (setuid(0) == -1) {
+        fprintf(stderr, "    queue    => setuid for jail failed\n");
+        return false;
+    }
+
+    // make an empty directory for the jail where modules will assume
+    // is the root for chroot to chroot into.
+    struct stat s;
+    int test = stat(jail, &s);
+    if (test == -1) {
+        fprintf(stderr, "    queue    => creating jail\n");
+        if (mkdir("jail", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) {
+            fprintf(stderr, "    queue    => failed to create jail %s\n", strerror(errno));
+            return false;
+        }
+    }
+
+    // change the root directory now
+    if (chroot(jail) == -1) {
+        fprintf(stderr, "    queue    => chroot for jail failed\n");
+        return false;
+    }
+
+    // after a successfull jail we should clear the enviroment variables
+    // since there is likely going to be PWD= left behind and other
+    // things we don't want to give the sandboxed module access to
+    if (clearenv() != 0) {
+        fprintf(stderr, "    queue    => failed to clear enviroment for jail");
+        return false;
+    }
+
+    // put the module at the very root anyways
+    if (chdir("/") == -1) {
+        fprintf(stderr, "    queue    => chdir for jail failed\n");
+        return false;
+    }
+
+    // get rid of all permissions
+    if (setgid(getgid()) == -1) {
+        fprintf(stderr, "    queue    => dropping privileges for jail failed\n");
+        return false;
+    }
+
+    // give it fakeroot user id
+    if (setuid(getuid()) == -1) {
+        fprintf(stderr, "    queue    => setting user id for jail failed\n");
+        return false;
+    }
+
+    return true;
+}
+
 bool cmd_channel_begin(cmd_channel_t *channel) {
     //
     // if a module segfaults or times out the handler will gracefully
@@ -235,6 +291,13 @@ bool cmd_channel_begin(cmd_channel_t *channel) {
     //
     signal(SIGUSR2, &cmd_channel_signalhandle);
     signal(SIGSEGV, &cmd_channel_signalhandle);
+
+    // do not allow running if we cannot create a jail
+    // for the module to run in.
+    if (!cmd_channel_jail(channel, "jail")) {
+        raise(SIGUSR1);
+        return false;
+    }
 
     if (pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel) == 0) {
         printf("    queue    => %s\n", (channel->ready) ? "restarted" : "running");
