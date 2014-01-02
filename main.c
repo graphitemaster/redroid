@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
+#include <errno.h>
+#include <time.h>
 
 #include "ircman.h"
 #include "config.h"
@@ -12,7 +14,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <time.h>
 
 static bool signal_shutdown(bool shutdown) {
     static bool stage = false;
@@ -66,11 +67,52 @@ static void signal_install(void) {
     signal(SIGHUP,  &signal_handle);
 }
 
+static bool jail_install(const char *jail) {
+    if (setuid(0) == -1) {
+        fprintf(stderr, "    jail     => setuid for jail failed\n");
+        return false;
+    }
+
+    struct stat s;
+    int test = stat(jail, &s);
+    if (test == -1) {
+        fprintf(stderr, "    jail     => creating jail\n");
+        if (mkdir("jail", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) {
+            fprintf(stderr, "    jail     => failed to create jail %s\n", strerror(errno));
+            return false;
+        }
+    }
+
+    if (chroot(jail) == -1) {
+        fprintf(stderr, "    jail     => chroot for jail failed\n");
+        return false;
+    }
+    if (clearenv() != 0) {
+        fprintf(stderr, "    jail     => failed to clear enviroment for jail");
+        return false;
+    }
+    if (chdir("/") == -1) {
+        fprintf(stderr, "    jail     => chdir for jail failed\n");
+        return false;
+    }
+    if (setgid(getgid()) == -1) {
+        fprintf(stderr, "    jail     => dropping privileges for jail failed\n");
+        return false;
+    }
+    if (setuid(getuid()) == -1) {
+        fprintf(stderr, "    jail     => setting user id for jail failed\n");
+        return false;
+    }
+
+    return true;
+}
+
 int main(int argc, char **argv) {
     argc--;
     argv++;
 
-    irc_manager_t *manager;
+    const char    *jail     = "jail";
+    irc_manager_t *manager  = NULL;
 
     signal_install();
     srand(time(0));
@@ -132,6 +174,11 @@ int main(int argc, char **argv) {
 
     list_iterator_destroy(it);
     config_unload(list); // unload config
+
+    // do jail
+    if (!jail_install(jail))
+        return EXIT_FAILURE;
+    printf("    jail     => successfully jailed\n");
 
     while (signal_shutdown(false))
         irc_manager_process(manager);

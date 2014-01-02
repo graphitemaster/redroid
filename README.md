@@ -12,6 +12,9 @@ Features
      * Multiple nicks
      * Database
      * Modules
+ * Sanboxed
+     * Runs in an empty chroot
+     * Contains no observable enviroment or state
  * Flood protection
      * Queued
  * Modules
@@ -20,7 +23,6 @@ Features
         * Only whitelisted functions can be used
         * Forecfully shortly lived (3 seconds default)
         * Run in a seperate thread
-        * Run in a empty chroot
      * Configurable
      * Module API
          * IRC
