@@ -5,21 +5,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-//
-// MODULE_ALWAYS functions are always entered regardless of their match.
-// one could argue that regular expression would go on THAT. But that
-// doesn't solve the issue with something still being entered constantly
-// that may not depend on that specific match. It's easy to compile a
-// regular expression each time that moudle is entered, which is once
-// for every line from an IRC server. This isn't efficent and it also
-// lends itself to being wasteful even for when the regular expression
-// is only created once for the process. The bigger problem is when users
-// on an IRC channel decide to play with the module and spam it, forcing
-// it to create and executes its regular expression for every invocation.
-// This provides a hot/cold cache of memory-managed compiled regular
-// expressions to deal with this.
-//
-
 struct regexpr_s {
     regex_t reg;
     char   *match;
@@ -103,7 +88,7 @@ void regexpr_destroy(regexpr_t *regexpr) {
 }
 
 // regular expression execution/result
-bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, list_t **list) {
+bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
     regmatch_t *temp = NULL;
     if (nmatch)
         temp = malloc(sizeof(regmatch_t) * nmatch);
@@ -114,13 +99,10 @@ bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, l
     }
 
     if (nmatch) {
-        *list = list_create();
+        *array = malloc(sizeof(regexpr_match_t) * nmatch);
         for (size_t i = 0; i < nmatch; i++) {
-            const regexpr_match_t match = {
-                .soff = temp[i].rm_so,
-                .eoff = temp[i].rm_eo
-            };
-            list_push(*list, memcpy(malloc(sizeof(regexpr_match_t)), &match, sizeof(regexpr_match_t)));
+            (*array)[i].soff = temp[i].rm_so;
+            (*array)[i].eoff = temp[i].rm_eo;
         }
         free(temp);
     }
@@ -128,10 +110,6 @@ bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, l
     return true;
 }
 
-void regexpr_execute_destroy(list_t *list) {
-    list_iterator_t *it = list_iterator_create(list);
-    while (!list_iterator_end(it))
-        free(list_iterator_next(it));
-    list_iterator_destroy(it);
-    list_destroy(list);
+void regexpr_execute_destroy(regexpr_match_t *array) {
+    free(array);
 }

@@ -464,19 +464,19 @@ regexpr_t *module_regexpr_create(const char *string, bool icase) {
     return regexpr_create(module->instance->regexprcache, string, icase);
 }
 
-bool module_regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, list_t **list) {
-    module_t *module    = *module_get();
-    list_t   *storelist = NULL;
+bool module_regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
+    module_t        *module     = *module_get();
+    regexpr_match_t *storearray = NULL;
 
     module_mem_mutex_lock(module);
-    if (!regexpr_execute(expr, string, nmatch, &storelist)) {
+    if (!regexpr_execute(expr, string, nmatch, &storearray)) {
         module_mem_mutex_unlock(module);
         return false;
     }
 
-    if (storelist) {
-        module_mem_push(module, storelist, (void (*)(void *))&regexpr_execute_destroy);
-        *list = storelist;
+    if (storearray) {
+        module_mem_push(module, storearray, (void (*)(void *))&regexpr_execute_destroy);
+        *array = storearray;
     }
 
     module_mem_mutex_unlock(module);

@@ -13,6 +13,24 @@ struct list_s;
 struct list_iterator_s;
 struct string_s;
 
+typedef struct {
+    size_t  soff;   // Start offset for match
+    size_t  eoff;   // End offset for match
+} regexpr_match_t;
+
+/*
+ * Macro: regexpr_match_invalid
+ *  To test if a regexpr_match_t object is valid.
+ *
+ * Remarks:
+ *  On regular expression matches which are invalid, i.e do not match
+ *  the fields of the starting and ending offsets will be set to -1.
+ *  This macro simply provides a clean way to test if either are == -1;
+ *  in which if they are the match is invalid.
+ */
+#define regexpr_match_invalid(X) \
+    ((X).soff == -1 || ((X).eoff == -1))
+
 typedef struct regexpr_s                regexpr_t;
 typedef struct database_statement_s     database_statement_t;
 typedef struct database_row_s           database_row_t;
@@ -301,17 +319,17 @@ static inline regexpr_t *regexpr_create(const char *string, bool icase) {
  *  expr    - The regular expression to execute
  *  string  - The string to perform the regular expression on
  *  nmatch  - How many maximal matches.
- *  list    - Pointer to a list_t* which will be allocated and filled
- *            with regexpr_match_t* objects containing start and end
+ *  array   - Pointer to a regexpr_match_t* which will be allocated and filled
+ *            with regexpr_match_t objects containing start and end
  *            offsets of the match inside *string*
  *
  * Remarks:
- *  The list allocated by this function when a match, or match(s) are
+ *  The array allocated by this function when a match, or match(s) are
  *  found is subjected to the automatic garbage collector. So the
  *  resources will be freed automatically.
  */
-static inline bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, list_t **list) {
-    MODULE_GC_CALL(regexpr_execute)(expr, string, nmatch, list);
+static inline bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
+    MODULE_GC_CALL(regexpr_execute)(expr, string, nmatch, array);
 }
 
 /*
