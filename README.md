@@ -6,16 +6,19 @@ Features
 --------
  * Configuration
      * Instances
- * Multithreaded
- * Multiple networks
-     * Multiple channels
+ * Instance
+     * Multiple networks
+        * Multiple channels
+     * Multiple nicks
+     * Database
+     * Modules
  * Flood protection
      * Queued
  * Modules
      * Garbage collected
      * Sandboxed
         * Only whitelisted functions can be used
-        * Shortly lived
+        * Forecfully shortly lived (3 seconds default)
         * Run in a seperate thread
         * Run in a empty chroot
      * Configurable
