@@ -56,7 +56,7 @@ bool list_iterator_end(list_iterator_t *it) {
 }
 
 // list node
-list_node_t *list_node_create(void *element) {
+static list_node_t *list_node_create(void *element) {
     list_node_t *node = malloc(sizeof(*node));
 
     node->element = element;
@@ -66,8 +66,13 @@ list_node_t *list_node_create(void *element) {
     return node;
 }
 
-void list_node_destroy(list_node_t *node) {
+static void list_node_destroy(list_node_t *node) {
     free(node);
+}
+
+static void list_node_scrub(list_node_t **node) {
+    list_node_destroy(*node);
+    *node = NULL;
 }
 
 // list
@@ -108,13 +113,7 @@ void *list_pop(list_t *list) {
 
     void *element = list->tail->element;
     list->tail = list->tail->prev;
-    if (list->tail) {
-        list_node_destroy(list->tail->next);
-        list->tail->next = NULL;
-    } else {
-        list_node_destroy(list->head);
-        list->head = NULL;
-    }
+    list_node_scrub((list->tail) ? &list->tail->next : &list->head);
     list->length--;
     return element;
 }
@@ -125,13 +124,7 @@ void *list_shift(list_t *list) {
 
     void *element = list->head->element;
     list->head = list->head->next;
-    if (list->head) {
-        list_node_destroy(list->head->prev);
-        list->head->prev = NULL;
-    } else {
-        list_node_destroy(list->tail);
-        list->tail = NULL;
-    }
+    list_node_scrub((list->head) ? &list->head->prev : &list->tail);
     list->length--;
     return element;
 }
