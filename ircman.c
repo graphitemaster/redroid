@@ -91,7 +91,7 @@ void irc_manager_stage(irc_manager_t *manager) {
     if (!it)
         return;
 
-    manager->epollfd = epoll_create(1);
+    manager->epollfd = epoll_create(list_length(manager->instances));
 
     list_iterator_reset(it);
     while (!list_iterator_end(it)) {
