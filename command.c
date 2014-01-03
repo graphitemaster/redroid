@@ -48,6 +48,10 @@ void cmd_link_destroy(cmd_link_t *link, void (*destroy)(cmd_entry_t *)) {
     free(link);
 }
 
+bool cmd_channel_exclusive(cmd_channel_t *channel) {
+    return channel->rdintent != NULL;
+}
+
 cmd_channel_t *cmd_channel_create(void) {
     cmd_channel_t *channel = malloc(sizeof(*channel));
 
@@ -208,6 +212,7 @@ static void *cmd_channel_threader(void *data) {
             channel->cmd_entry = entry;
             *module_get()      = module; // save current module instance
             module->memory     = module_mem_create(module);
+
             module->enter(
                 module->instance,
                 string_contents(entry->channel),
@@ -222,7 +227,8 @@ static void *cmd_channel_threader(void *data) {
             pthread_mutex_unlock(&channel->cmd_mutex);
         }
 
-        irc_queue_dequeue(module->instance);
+        while (irc_queue_dequeue(module->instance))
+            ;
     }
 
     cmd_channel_rdclose(channel);

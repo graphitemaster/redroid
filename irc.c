@@ -46,7 +46,7 @@ void irc_queue_entry_destroy(irc_queue_entry_t *entry) {
 }
 
 bool irc_queue_dequeue(irc_t *irc) {
-    irc_queue_entry_t *entry = list_pop(irc->queue);
+    irc_queue_entry_t *entry = list_shift(irc->queue);
     if (!entry)
         return false;
 
@@ -105,12 +105,14 @@ static int irc_action_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, data);
 }
 
-static int irc_quit(irc_t *irc, const char *message) {
+// DO NOT USE these from irc_process or irc_process_line
+// these are for modules which run in a seperate thread.
+int irc_quit(irc_t *irc, const char *message) {
     irc_queue_enqueue(irc, &irc_quit_raw, NULL, string_create(message)); // freed in irc_queue_dequeue
     return 1;
 }
 
-static int irc_join(irc_t *irc, const char *channel) {
+int irc_join(irc_t *irc, const char *channel) {
     irc_queue_enqueue(irc, &irc_join_raw, NULL, string_create(channel)); // freed in irc_queue_dequeue
     return 1;
 }
@@ -319,7 +321,7 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
 }
 
 void irc_destroy(irc_t *irc) {
-    irc_quit(irc, "Shutting down");
+    irc_quit_raw(irc, NULL, "Shutting down");
 
     //
     // process anything left in the queue before closing off / releasing
@@ -371,7 +373,7 @@ const char *irc_name(irc_t *irc) {
 static void irc_channels_join(irc_t *irc) {
     list_iterator_t *it = list_iterator_create(irc->channels);
     while (!list_iterator_end(it))
-        irc_join(irc, list_iterator_next(it));
+        irc_join_raw(irc, NULL, list_iterator_next(it));
     list_iterator_destroy(it);
 }
 
@@ -468,7 +470,7 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
         }
 
         if (kick && channel) {
-            irc_join(irc, channel);
+            irc_join_raw(irc, NULL, channel);
 
             free(channel);
 
@@ -532,8 +534,6 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
 
 int irc_process(irc_t *irc, void *data) {
     cmd_channel_t *commander = data;
-
-    irc_queue_dequeue(irc);
 
     char temp[128];
     int  read;

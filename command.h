@@ -25,5 +25,6 @@ bool cmd_channel_timeout(cmd_channel_t *channel);
 void cmd_channel_process(cmd_channel_t *channel);
 cmd_channel_t *cmd_channel_create(void);
 void cmd_channel_destroy(cmd_channel_t *channel);
+bool cmd_channel_exclusive(cmd_channel_t *channel);
 
 #endif

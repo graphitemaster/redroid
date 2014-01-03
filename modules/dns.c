@@ -22,7 +22,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
 
     int status;
     if ((status = getaddrinfo(message, NULL, &hints, &res)) != 0) {
-        irc_write(irc, channel, "%s: domain name resolution failed", message);
+        irc_write(irc, channel, "%s: domain name resolution failed (%s)", user, message);
         return;
     }
 

@@ -102,11 +102,3 @@ command processor by sending `SIGUSR2` to the process.
 
 If you invoke redroid in a terminal in normal/quiet mode. Closing the
 terminal will force daemonization of the redroid process `SIGHUP`.
-
-Architecture
-------------
-
-A description of the architecture behind redroid is provided in
-ARCHITECTURE for developers, which describes the architecture behind
-redroid in a high-enough-level fashion to help developers to get
-familiarized with the source code.

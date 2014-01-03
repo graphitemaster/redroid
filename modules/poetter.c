@@ -20,5 +20,5 @@ static const char *list[] = {
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     size_t entry = rand() % (sizeof(list) / sizeof(*list));
-    irc_write(irc, channel, "%s: shit Lennart Poettering says:＂%s＂", user, list[entry]);
+    irc_write(irc, channel, "%s: shit Lennart Poettering says: ``%s''", user, list[entry]);
 }

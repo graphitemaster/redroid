@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include <poll.h>
 
@@ -57,7 +58,7 @@ static void irc_manager_stage(irc_manager_t *manager) {
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         manager->polls[i].fd     = manager->instances->data[i]->sock;
-        manager->polls[i].events = POLLIN;
+        manager->polls[i].events = POLLIN | POLLPRI;
     }
 
     // begin the channel
@@ -87,8 +88,15 @@ void irc_manager_process(irc_manager_t *manager) {
     if (!cmd_channel_ready(manager->commander))
         irc_manager_stage(manager);
 
-    if (poll(manager->polls, manager->instances->size, -1) == -1)
+    int wait = poll(manager->polls, manager->instances->size, -1);
+    if (wait == 0)
         return;
+
+    if (wait == -1) {
+        if (errno == EINTR)
+            irc_manager_destroy(manager);
+        return;
+    }
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         if (manager->polls[i].revents & POLLIN ||
