@@ -10,5 +10,6 @@ void irc_manager_destroy(irc_manager_t *manager);
 irc_t *irc_manager_find(irc_manager_t *manager, const char *name);
 void irc_manager_process(irc_manager_t *manager);
 void irc_manager_add(irc_manager_t *manager, irc_t *instance);
+void irc_manager_stage(irc_manager_t *manager);
 
 #endif

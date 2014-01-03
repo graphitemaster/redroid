@@ -12,9 +12,6 @@ Features
      * Multiple nicks
      * Database
      * Modules
- * Sanboxed
-     * Runs in an empty chroot
-     * Contains no observable enviroment or state
  * Flood protection
      * Queued
  * Modules
@@ -88,8 +85,9 @@ Setup the appropriate instance(s) inside config.ini then invoke
 the bot directly with
 
     $ ./redroid
-    $ ./redroid -q # run quiet
-    $ ./redroid -d # run as daemon
+    $ ./redroid -q        # run quiet
+    $ ./redroid -d        # run as daemon
+    $ ./redroid -l <file> # log to <file>
 
 You can use CTRL+C at anytime to send a shutdown signal, which will
 safely shut down the process.

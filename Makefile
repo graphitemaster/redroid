@@ -1,5 +1,5 @@
 CC      ?= clang
-CFLAGS   = -std=gnu99 -Wall -ggdb3
+CFLAGS   = -std=gnu99 -Wall -ggdb3 -DREDROID_USE_EPOLL
 LDFLAGS  = -ldl -lpthread -lsqlite3 -Wl,--export-dynamic
 SOURCES  = $(shell echo *.c)
 OBJECTS  = $(SOURCES:.c=.o)
