@@ -6,6 +6,7 @@
 #include <string.h>
 
 #ifdef REDROID_USE_EPOLL
+#   include <errno.h>
 #   include <sys/epoll.h>
 #   include <unistd.h>
 #endif
@@ -72,9 +73,12 @@ void irc_manager_process(irc_manager_t *manager) {
         irc_process(list_iterator_next(it), manager->commander);
 #else
     struct epoll_event event;
-    memset(&event, 0, sizeof(struct epoll_event));
-    if (epoll_wait(manager->epollfd, &event, 1, -1) == -1)
+    if (epoll_wait(manager->epollfd, &event, 1, 500) == -1) {
+        if (errno == EINTR)
+            irc_manager_destroy(manager);
         return;
+    }
+
     irc_process(event.data.ptr, manager->commander);
 #endif
 
@@ -98,7 +102,7 @@ void irc_manager_stage(irc_manager_t *manager) {
         irc_t *instance = list_iterator_next(it);
         struct epoll_event ev = {
             .data.ptr = instance,
-            .events   = EPOLLIN
+            .events   = EPOLLIN | EPOLLOUT | EPOLLET
         };
         epoll_ctl(manager->epollfd, EPOLL_CTL_ADD, instance->sock, &ev);
     }
