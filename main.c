@@ -134,7 +134,6 @@ int main(int argc, char **argv) {
     list_iterator_destroy(it);
     config_unload(list); // unload config
 
-    irc_manager_stage(manager); // stage
     while (signal_shutdown(false))
         irc_manager_process(manager);
 

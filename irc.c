@@ -45,7 +45,7 @@ void irc_queue_entry_destroy(irc_queue_entry_t *entry) {
     free(entry);
 }
 
-static bool irc_queue_dequeue(irc_t *irc) {
+bool irc_queue_dequeue(irc_t *irc) {
     irc_queue_entry_t *entry = list_pop(irc->queue);
     if (!entry)
         return false;

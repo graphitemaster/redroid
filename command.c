@@ -221,6 +221,8 @@ static void *cmd_channel_threader(void *data) {
             channel->cmd_entry = NULL;
             pthread_mutex_unlock(&channel->cmd_mutex);
         }
+
+        irc_queue_dequeue(module->instance);
     }
 
     cmd_channel_rdclose(channel);

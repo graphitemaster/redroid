@@ -38,5 +38,6 @@ bool irc_modules_add(irc_t *irc, const char *file);
 bool irc_channels_add(irc_t *irc, const char *channel);
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
+bool irc_queue_dequeue(irc_t *irc);
 
 #endif

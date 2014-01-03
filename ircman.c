@@ -5,116 +5,102 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef REDROID_USE_EPOLL
-#   include <errno.h>
-#   include <sys/epoll.h>
-#   include <unistd.h>
-#endif
+#include <poll.h>
+
+typedef struct {
+    irc_t **data;
+    size_t  size;
+    size_t  reserved;
+} irc_instances_t;
 
 struct irc_manager_s {
-    list_t          *instances;
-    list_iterator_t *iterator; // cached iterator
+    irc_instances_t *instances;
     cmd_channel_t   *commander;
-    int              epollfd;
+    struct pollfd   *polls;
 };
+
+static irc_instances_t *irc_instances_create(void) {
+    irc_instances_t *instances = malloc(sizeof(*instances));
+
+    instances->size     = 0;
+    instances->reserved = 1;
+    instances->data     = malloc(sizeof(irc_t*));
+
+    return instances;
+}
+
+static void irc_instances_destroy(irc_instances_t *instances) {
+    for (size_t i = 0; i < instances->size; i++)
+        irc_destroy(instances->data[i]);
+    free(instances);
+}
+
+static void irc_instances_push(irc_instances_t *instances, irc_t *instance) {
+    if (instances->size + 1 >= instances->reserved) {
+        instances->reserved <<= 1;
+        instances->data       = realloc(instances->data, instances->reserved * sizeof(irc_t *));
+    }
+
+    instances->data[instances->size++] = instance;
+}
+
+static irc_t *irc_instances_find(irc_instances_t *instances, const char *name) {
+    for (size_t i = 0; i < instances->size; i++) {
+        if (!strcmp(instances->data[i]->name, name))
+            return instances->data[i];
+    }
+    return NULL;
+}
+
+static void irc_manager_stage(irc_manager_t *manager) {
+    manager->polls = malloc(sizeof(struct pollfd) * manager->instances->size);
+
+    for (size_t i = 0; i < manager->instances->size; i++) {
+        manager->polls[i].fd     = manager->instances->data[i]->sock;
+        manager->polls[i].events = POLLIN;
+    }
+
+    // begin the channel
+    if (!cmd_channel_ready(manager->commander))
+        cmd_channel_begin(manager->commander);
+}
 
 irc_manager_t *irc_manager_create(void) {
     irc_manager_t *man = malloc(sizeof(*man));
     if (!man)
         return NULL;
 
-    if (!(man->instances = list_create())) {
-        free(man);
-        return NULL;
-    }
-
-    man->iterator  = NULL;
+    man->instances = irc_instances_create();
     man->commander = cmd_channel_create();
-
     return man;
 }
 
 void irc_manager_destroy(irc_manager_t *manager) {
-    list_iterator_t *it = manager->iterator;
-    if (it) {
-        list_iterator_reset(it);
-        while (!list_iterator_end(it))
-            irc_destroy(list_iterator_next(it));
-        list_iterator_destroy(it);
-    }
-
+    irc_instances_destroy(manager->instances);
     cmd_channel_destroy(manager->commander);
-    list_destroy(manager->instances);
-    free(manager);
-#ifdef REDROID_USE_EPOLL
-    close(manager->epollfd);
-#endif
-}
 
-irc_t *irc_manager_find(irc_manager_t *manager, const char *name) {
-    list_iterator_t *it = manager->iterator;
-    list_iterator_reset(it);
-    while (!list_iterator_end(it)) {
-        irc_t *instance = list_iterator_next(it);
-        if (!strcmp(irc_name(instance), name))
-            return instance;
-    }
-    return NULL;
+    free(manager->polls);
+    free(manager);
 }
 
 void irc_manager_process(irc_manager_t *manager) {
-    list_iterator_t *it = manager->iterator;
-    if (!it)
-        return;
-
-#ifndef REDROID_USE_EPOLL
-    list_iterator_reset(it);
-    while (!list_iterator_end(it))
-        irc_process(list_iterator_next(it), manager->commander);
-#else
-    struct epoll_event event;
-    if (epoll_wait(manager->epollfd, &event, 1, 500) == -1) {
-        if (errno == EINTR)
-            irc_manager_destroy(manager);
-        return;
-    }
-
-    irc_process(event.data.ptr, manager->commander);
-#endif
-
     if (!cmd_channel_ready(manager->commander))
-        cmd_channel_begin(manager->commander);
-    else
-        cmd_channel_process(manager->commander);
+        irc_manager_stage(manager);
+
+    if (poll(manager->polls, manager->instances->size, -1) == -1)
+        return;
+
+    for (size_t i = 0; i < manager->instances->size; i++) {
+        if (manager->polls[i].revents & POLLIN ||
+            manager->polls[i].revents & POLLOUT)
+            irc_process(manager->instances->data[i], manager->commander);
+    }
 }
 
-
-void irc_manager_stage(irc_manager_t *manager) {
-#ifdef REDROID_USE_EPOLL
-    list_iterator_t *it = manager->iterator;
-    if (!it)
-        return;
-
-    manager->epollfd = epoll_create(list_length(manager->instances));
-
-    list_iterator_reset(it);
-    while (!list_iterator_end(it)) {
-        irc_t *instance = list_iterator_next(it);
-        struct epoll_event ev = {
-            .data.ptr = instance,
-            .events   = EPOLLIN | EPOLLOUT | EPOLLET
-        };
-        epoll_ctl(manager->epollfd, EPOLL_CTL_ADD, instance->sock, &ev);
-    }
-#endif
+irc_t *irc_manager_find(irc_manager_t *manager, const char *name) {
+    return irc_instances_find(manager->instances, name);
 }
 
 void irc_manager_add(irc_manager_t *manager, irc_t *instance) {
-    if (!manager->iterator)
-        manager->iterator = list_iterator_create(manager->instances);
-
-    if (irc_manager_find(manager, irc_name(instance)))
-        return;
-
-    list_push(manager->instances, instance);
+    irc_instances_push(manager->instances, instance);
 }
