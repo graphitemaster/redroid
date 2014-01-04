@@ -35,6 +35,7 @@ Prerequisites
  * Linux 2.6+/BSD
  * SQLite3 (-lsqlite3)
  * POSIX Threads (-lpthread)
+ * POSIX Realtime Timers (-lrt)
  * POSIX Regular Expressions (regex.h)
 
 Building
