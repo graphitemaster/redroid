@@ -33,6 +33,7 @@ static irc_instances_t *irc_instances_create(void) {
 static void irc_instances_destroy(irc_instances_t *instances) {
     for (size_t i = 0; i < instances->size; i++)
         irc_destroy(instances->data[i]);
+    free(instances->data);
     free(instances);
 }
 
@@ -89,14 +90,8 @@ void irc_manager_process(irc_manager_t *manager) {
         irc_manager_stage(manager);
 
     int wait = poll(manager->polls, manager->instances->size, -1);
-    if (wait == 0)
+    if (wait == 0 || wait == -1)
         return;
-
-    if (wait == -1) {
-        if (errno == EINTR)
-            irc_manager_destroy(manager);
-        return;
-    }
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         if (manager->polls[i].revents & POLLIN ||

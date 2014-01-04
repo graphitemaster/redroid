@@ -1,3 +1,4 @@
+#include "irc.h"
 #include "command.h"
 #include "string.h"
 
@@ -204,7 +205,7 @@ static void *cmd_channel_threader(void *data) {
         // unloaded module references cannot be accessed. We'll just
         // ignore any commands that still reference old modules.
         //
-        if (module_unloaded(module->instance, module))
+        if (module_manager_module_unloaded(module->instance->moduleman, module))
             continue;
 
         if (module && module->enter) {

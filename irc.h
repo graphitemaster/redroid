@@ -4,27 +4,24 @@
 #include "database.h"
 #include "config.h"
 #include "regexpr.h"
+#include "module.h"
 
-typedef struct irc_s irc_t;
-
-struct irc_s {
-    char            *name;         // irc instance name
-    char            *nick;         // nick to use on this network
-    char            *pattern;      // pattern bot uses to know a command
-    char            *auth;         // authenticaion (NickServ)
-    int              sock;         // network socket
-    bool             ready;        // ready
-    bool             readying;     // readying up
-    char             buffer[512];  // processing buffer
-    size_t           bufferpos;    // buffer position
-    list_t          *modules;      // list of modules for this instance
-    list_t          *modunload;    // list of unloaded module addresses
-    list_t          *channels;     // list of channels for this instance
-    list_t          *queue;        // queue of IRC messages
-    database_t      *database;     // database for modules
-    database_t      *whitelist;    // whitelist of allowed functions in modules
-    regexpr_cache_t *regexprcache; // regular expression cache
-};
+typedef struct irc_s {
+    char             *name;         // irc instance name
+    char             *nick;         // nick to use on this network
+    char             *pattern;      // pattern bot uses to know a command
+    char             *auth;         // authenticaion (NickServ)
+    int               sock;         // network socket
+    bool              ready;        // ready
+    bool              readying;     // readying up
+    char              buffer[512];  // processing buffer
+    size_t            bufferpos;    // buffer position
+    list_t           *channels;     // list of channels for this instance
+    list_t           *queue;        // queue of IRC messages
+    module_manager_t *moduleman;    // module manager
+    database_t       *database;     // database for this IRC instance
+    regexpr_cache_t  *regexprcache; // regular expression cache
+} irc_t;
 
 irc_t *irc_create(config_t *config);
 void  irc_destroy(irc_t *irc);

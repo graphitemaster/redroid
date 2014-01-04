@@ -1,7 +1,7 @@
+#include "irc.h"
 #include "module.h"
 #include "database.h"
 #include "regexpr.h"
-#include "irc.h"
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -196,11 +196,11 @@ static bool module_allow(const char *path, char **function, database_t *database
     return true;
 }
 
-module_t *module_open(const char *file, irc_t *instance, string_t **error) {
+module_t *module_open(const char *file, module_manager_t *manager, string_t **error) {
     char *function = NULL;
     bool  libc;
 
-    if (!module_allow(file, &function, instance->whitelist, &libc)) {
+    if (!module_allow(file, &function, manager->whitelist, &libc)) {
         *error = string_construct();
         if (libc)
             string_catf(*error, "%s from libc is blacklisted", function);
@@ -219,7 +219,7 @@ module_t *module_open(const char *file, irc_t *instance, string_t **error) {
     }
 
     module->file     = strdup(file);
-    module->instance = instance;
+    module->instance = manager->instance;
 
     if (!module_load(module)) {
         if (!module)
@@ -233,29 +233,17 @@ module_t *module_open(const char *file, irc_t *instance, string_t **error) {
         return NULL;
     }
 
+    list_push(manager->modules, module);
     return module;
 }
 
-bool module_unloaded(irc_t *irc, module_t *test) {
-    list_iterator_t *it = list_iterator_create(irc->modunload);
-    while (!list_iterator_end(it)) {
-        module_t *old = list_iterator_next(it);
-        if (old == test) {
-            list_iterator_destroy(it);
-            return true;
-        }
-    }
-    list_iterator_destroy(it);
-    return false;
-}
-
-bool module_reload(module_t *module) {
+bool module_reload(module_t *module, module_manager_t *manager) {
     if (module->close)
         module->close(module->instance);
     dlclose(module->handle);
 
     // save old address for unloaded modules
-    list_push(module->instance->modunload, module->handle);
+    list_push(manager->unloaded, module->handle);
 
     if (!(module->handle = dlopen(module->file, RTLD_LAZY)))
         goto module_reload_error;
@@ -266,11 +254,11 @@ bool module_reload(module_t *module) {
     return true;
 
 module_reload_error:
-    module_destroy(module);
+    module_close(module, manager);
     return false;
 }
 
-void module_destroy(module_t *module) {
+void module_close(module_t *module, module_manager_t *manager) {
     if (module->close)
         module->close(module->instance);
     if (module->handle)
@@ -278,7 +266,7 @@ void module_destroy(module_t *module) {
     free(module->file);
 
     // save old address for unloaded modules
-    list_push(module->instance->modunload, module);
+    list_push(manager->unloaded, module);
 
     free(module);
 }
@@ -295,6 +283,98 @@ module_t **module_get(void) {
     static module_t *module = NULL;
     return &module;
 }
+
+// module manager
+module_manager_t *module_manager_create(irc_t *instance) {
+    module_manager_t *manager = malloc(sizeof(*manager));
+
+    manager->instance  = instance;
+    manager->modules   = list_create();
+    manager->unloaded  = list_create();
+    manager->whitelist = database_create("whitelist.db");
+
+    return manager;
+}
+
+void module_manager_destroy(module_manager_t *manager) {
+    list_iterator_t *it = list_iterator_create(manager->modules);
+    while (!list_iterator_end(it))
+        module_close(list_iterator_next(it), manager);
+    list_iterator_destroy(it);
+
+    list_destroy(manager->modules);
+    list_destroy(manager->unloaded);
+
+    database_destroy(manager->whitelist);
+
+    free(manager);
+}
+
+bool module_manager_module_unload(module_manager_t *manager, const char *name) {
+    module_t *find = module_manager_module_search(manager, name, MMSEARCH_NAME);
+    if (!find)
+        return false;
+
+    if (!list_erase(manager->modules, find))
+        return false;
+
+    return true;
+}
+
+bool module_manager_module_reload(module_manager_t *manager, const char *name) {
+    module_t *find = module_manager_module_search(manager, name, MMSEARCH_NAME);
+    if (!find)
+        return false;
+
+    if (!module_reload(find, manager))
+        return false;
+
+    return true;
+}
+
+bool module_manager_module_unloaded(module_manager_t *manager, module_t *module) {
+    list_iterator_t *it = list_iterator_create(manager->unloaded);
+    while (!list_iterator_end(it)) {
+        module_t *instance = list_iterator_next(it);
+        if (instance == module) {
+            list_iterator_destroy(it);
+            return true;
+        }
+    }
+    list_iterator_destroy(it);
+    return false;
+}
+
+module_t *module_manager_module_command(module_manager_t *manager, const char *command) {
+    return module_manager_module_search(manager, command, MMSEARCH_MATCH);
+}
+
+module_t *module_manager_module_search(module_manager_t *manager, const char *name, int method) {
+    list_iterator_t *it;
+
+    for (it = list_iterator_create(manager->modules); !list_iterator_end(it); ) {
+        module_t   *module = list_iterator_next(it);
+        const char *compare;
+
+        switch (method) {
+            case MMSEARCH_FILE:  compare = module->file;  break;
+            case MMSEARCH_NAME:  compare = module->name;  break;
+            case MMSEARCH_MATCH: compare = module->match; break;
+
+            default:
+                list_iterator_destroy(it);
+                return NULL;
+        }
+
+        if (!strcmp(compare, name)) {
+            list_iterator_destroy(it);
+            return module;
+        }
+    }
+    list_iterator_destroy(it);
+    return NULL;
+}
+
 
 // memory pinners
 void *module_malloc(size_t bytes) {
