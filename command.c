@@ -10,16 +10,6 @@
 #include <signal.h>
 #include <stdio.h>
 
-// signal matrix:
-// | signal   | action                    |
-// | -------- | ------------------------- |
-// | SIGUSR1  | internal error            |
-// | SIGUSR2  | command processor restart |
-// | SIGSEGV  | command processor restart |
-// | SIGHUP   | deamonization             |
-// | SIGINT   | shutdown                  |
-// | SIGALARM | command processor timeout |
-
 struct cmd_link_s {
     cmd_entry_t *data;
     cmd_link_t  *next;

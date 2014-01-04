@@ -93,13 +93,26 @@ the bot directly with
 You can use CTRL+C at anytime to send a shutdown signal, which will
 safely shut down the process.
 
-In daemon mode there is no safe way to shut down the bot other than
-to send a SIGUSR1 with kill, for that you'll need the PID. Optionally
-you can `killall -SIGUSR1 redroid`.
+In daemon mode there is no easy way to shut down the bot other than
+to send a `SIGUSR1` signal with kill, for that you'll need the PID.
+Optionally you can `killall -SIGUSR1 redroid`.
 
-It isn't very probably or often since modules are run in a seperate
+It isn't very probable or often; since modules are run in a seperate
 thread, but if commands stop working you can forcefully restart the
 command processor by sending `SIGUSR2` to the process.
 
-If you invoke redroid in a terminal in normal/quiet mode. Closing the
-terminal will force daemonization of the redroid process `SIGHUP`.
+If you invoke redroid in a terminal in normal/quiet mode; closing the
+terminal will force daemonization of the redroid process. Similarly
+this can be done by sending `SIGHUP` to the process.
+
+A full list of the signals Redroid intercepts and what they do is
+provided below for reference.
+
+| Signal   | Reason                    | Action                         |
+| -------- | ------------------------- | ------------------------------ |
+| SIGUSR1  | Internal error            | Quick Shutdown                 |
+| SIGUSR2  | Command processor restart | Restarts the command processor |
+| SIGSEGV  | Command processor restart | Restarts the command processor |
+| SIGHUP   | Deamonization             | Deamonizes Redroid             |
+| SIGINT   | Shutdown                  | Clean Shutdown                 |
+| SIGALARM | Command processor timeout | Raises SIGUSR2 on timeout      |
