@@ -6,9 +6,19 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <time.h>
 #include <unistd.h>
+#include <signal.h>
+#include <stdio.h>
+
+// signal matrix:
+// | signal   | action                    |
+// | -------- | ------------------------- |
+// | SIGUSR1  | internal error            |
+// | SIGUSR2  | command processor restart |
+// | SIGSEGV  | command processor restart |
+// | SIGHUP   | deamonization             |
+// | SIGINT   | shutdown                  |
+// | SIGALARM | command processor timeout |
 
 struct cmd_link_s {
     cmd_entry_t *data;
@@ -19,6 +29,7 @@ struct cmd_channel_s {
     pthread_t       thread;
     pthread_mutex_t mutex;
     pthread_cond_t  waiter;
+    timer_t         timerid;
     cmd_link_t     *head;
     cmd_link_t     *tail;
     cmd_link_t     *volatile rdintent;
@@ -26,7 +37,6 @@ struct cmd_channel_s {
     volatile bool   wrend;
     void          (*destroy)(cmd_entry_t *);
     bool            ready;
-    time_t          cmd_time;
     cmd_entry_t    *cmd_entry;
     pthread_mutex_t cmd_mutex;
 };
@@ -67,7 +77,6 @@ cmd_channel_t *cmd_channel_create(void) {
     channel->wrend     = false;
     channel->destroy   = NULL;
     channel->ready     = false;
-    channel->cmd_time  = 0;
     channel->cmd_entry = NULL;
 
     return channel;
@@ -75,9 +84,7 @@ cmd_channel_t *cmd_channel_create(void) {
 
 void cmd_channel_destroy(cmd_channel_t *channel) {
     cmd_channel_wrclose(channel);
-    if (cmd_channel_timeout(channel))
-        cmd_entry_destroy(channel->cmd_entry);
-    else if (channel->ready)
+    if (channel->ready)
         pthread_join(channel->thread, NULL);
 
     pthread_mutex_destroy(&channel->mutex);
@@ -190,8 +197,44 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
     free(entry);
 }
 
-static void cmd_channel_signalhandle(int sig) {
+static void cmd_channel_signalhandle_quit(int sig) {
+    // called from the threaded end to bring down the thread
     pthread_exit(NULL);
+}
+
+static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignore) {
+    cmd_channel_t *channel = si->si_value.sival_ptr;
+    module_t      *instance;
+
+    // a command timed out:
+    pthread_mutex_lock(&channel->cmd_mutex);
+    instance = channel->cmd_entry->instance;
+    if (!instance) {
+        pthread_mutex_unlock(&channel->cmd_mutex);
+        return;
+    }
+
+    module_mem_mutex_lock(instance);
+    pthread_kill(channel->thread, SIGUSR2); // calls cmd_channel_signalhandle_quit
+    pthread_join(channel->thread, NULL);
+    pthread_mutex_unlock(&channel->cmd_mutex);
+    module_mem_mutex_unlock(instance);
+
+    cmd_entry_t *entry = channel->cmd_entry;
+    channel->cmd_entry = NULL;
+
+    irc_write(
+        entry->instance->instance,
+        string_contents(entry->channel),
+        "%s: command timed out",
+        string_contents(entry->user)
+    );
+
+    cmd_entry_destroy(entry);
+
+    // reopen the reading end
+    channel->rdend = false;
+    cmd_channel_begin(channel);
 }
 
 static void *cmd_channel_threader(void *data) {
@@ -209,10 +252,19 @@ static void *cmd_channel_threader(void *data) {
             continue;
 
         if (module && module->enter) {
-            channel->cmd_time  = time(NULL);
+            //channel->cmd_time  = time(NULL);
             channel->cmd_entry = entry;
             *module_get()      = module; // save current module instance
             module->memory     = module_mem_create(module);
+
+            // begin the timer
+            struct itimerspec its = {
+                .it_value.tv_sec    = 3, // expires in 3 seconds
+                .it_interval.tv_sec = 3, // executes in 3 second intervals
+            };
+
+            if (timer_settime(channel->timerid, 0, &its, NULL) == -1)
+                raise(SIGUSR1); // internal error
 
             module->enter(
                 module->instance,
@@ -223,7 +275,11 @@ static void *cmd_channel_threader(void *data) {
 
             pthread_mutex_lock(&channel->cmd_mutex);
             cmd_entry_destroy(entry);
-            channel->cmd_time  = 0;
+
+            // disarm the timer
+            its.it_value.tv_sec = 0; // will expire it right away
+            timer_settime(channel->timerid, 0, &its, NULL);
+
             channel->cmd_entry = NULL;
             pthread_mutex_unlock(&channel->cmd_mutex);
         }
@@ -236,14 +292,37 @@ static void *cmd_channel_threader(void *data) {
     return NULL;
 }
 
+static bool cmd_channel_init(cmd_channel_t *channel) {
+    // allow a module to segfault
+    signal(SIGSEGV, &cmd_channel_signalhandle_quit); // allow segfault to kill thread
+    signal(SIGUSR2, &cmd_channel_signalhandle_quit); // allow SIGUSR to kill thread
+
+    // establish signal handler for timer
+    struct sigaction sa = {
+        .sa_flags     = SA_SIGINFO,
+        .sa_sigaction = &cmd_channel_signalhandle_timeout,
+    };
+
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGALRM, &sa, NULL) == -1)
+        return false;
+
+    // create the timeout timer
+    sigevent_t e = {
+        .sigev_notify          = SIGEV_SIGNAL,
+        .sigev_signo           = SIGALRM,
+        .sigev_value.sival_ptr = channel
+    };
+
+    if (timer_create(CLOCK_REALTIME, &e, &channel->timerid) == -1)
+        return false;
+
+    return true;
+}
+
 bool cmd_channel_begin(cmd_channel_t *channel) {
-    //
-    // if a module segfaults or times out the handler will gracefully
-    // (while cleaning up resources) get rid of it. Without bringing
-    // the whole bot process down.
-    //
-    signal(SIGUSR2, &cmd_channel_signalhandle);
-    signal(SIGSEGV, &cmd_channel_signalhandle);
+    if (!channel->ready && !cmd_channel_init(channel))
+        return false;
 
     if (pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel) == 0) {
         printf("    queue    => %s\n", (channel->ready) ? "restarted" : "running");
@@ -255,59 +334,4 @@ bool cmd_channel_begin(cmd_channel_t *channel) {
 
 bool cmd_channel_ready(cmd_channel_t *channel) {
     return channel->ready;
-}
-
-bool cmd_channel_timeout(cmd_channel_t *channel) {
-    module_t *instance;
-    if (!channel->cmd_time || channel->cmd_time + 3 >= time(NULL))
-        return false;
-
-    // a command timed out:
-    pthread_mutex_lock(&channel->cmd_mutex);
-    instance = channel->cmd_entry->instance;
-    if (!instance) {
-        pthread_mutex_unlock(&channel->cmd_mutex);
-        return false;
-    }
-
-    module_mem_mutex_lock(instance);
-    // it's possible the thread locked the mutex first, which means the command
-    // took _exactly_ as much time as allowed, so we need to recheck
-    // for whether the command actually did time out:
-    if (!channel->cmd_time || channel->cmd_time + 3 >= time(NULL)) {
-        // it didn't
-        pthread_mutex_unlock(&channel->cmd_mutex);
-        module_mem_mutex_unlock(instance);
-        return false;
-    }
-    // now we send the kill signal
-
-    pthread_kill(channel->thread, SIGUSR2);
-    pthread_join(channel->thread, NULL);
-    pthread_mutex_unlock(&channel->cmd_mutex);
-    module_mem_mutex_unlock(instance);
-    return true;
-}
-
-void cmd_channel_process(cmd_channel_t *channel) {
-    if (!cmd_channel_timeout(channel))
-        return;
-
-    // the entry is ours now, we need to clean this up:
-    cmd_entry_t *entry = channel->cmd_entry;
-    channel->cmd_entry = NULL;
-    channel->cmd_time  = 0;
-
-    irc_write(
-        entry->instance->instance,
-        string_contents(entry->channel),
-        "%s: command timed out",
-        string_contents(entry->user)
-    );
-
-    cmd_entry_destroy(entry);
-
-    // reopen the reading end
-    channel->rdend = false;
-    cmd_channel_begin(channel);
 }
