@@ -91,6 +91,8 @@ void cmd_channel_destroy(cmd_channel_t *channel) {
     pthread_mutex_destroy(&channel->cmd_mutex);
     pthread_cond_destroy (&channel->waiter);
 
+    timer_delete(channel->timerid);
+
     cmd_link_t *link = channel->head;
     while (link) {
         cmd_link_t *next = link->next;
