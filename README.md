@@ -32,7 +32,7 @@ Features
 Prerequisites
 -------------
  * GNU make
- * Linux 2.6+/BSD
+ * Linux 2.6+ / FreeBSD 7.0+
  * SQLite3 (-lsqlite3)
  * POSIX Threads (-lpthread)
  * POSIX Realtime Timers (-lrt)
