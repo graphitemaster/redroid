@@ -74,14 +74,17 @@ cmd_channel_t *cmd_channel_create(void) {
 
 void cmd_channel_destroy(cmd_channel_t *channel) {
     cmd_channel_wrclose(channel);
-    if (channel->ready)
+
+    if (channel->ready) {
         pthread_join(channel->thread, NULL);
+        timer_delete(channel->timerid);
+    }
 
     pthread_mutex_destroy(&channel->mutex);
     pthread_mutex_destroy(&channel->cmd_mutex);
     pthread_cond_destroy (&channel->waiter);
 
-    timer_delete(channel->timerid);
+
 
     cmd_link_t *link = channel->head;
     while (link) {
@@ -300,7 +303,7 @@ static bool cmd_channel_init(cmd_channel_t *channel) {
         return false;
 
     // create the timeout timer
-    sigevent_t e = {
+    struct sigevent e = {
         .sigev_notify          = SIGEV_SIGNAL,
         .sigev_signo           = SIGALRM,
         .sigev_value.sival_ptr = channel

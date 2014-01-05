@@ -115,4 +115,5 @@ provided below for reference.
 | SIGSEGV  | Command processor restart | Restarts the command processor |
 | SIGHUP   | Deamonization             | Deamonizes Redroid             |
 | SIGINT   | Shutdown                  | Clean Shutdown                 |
+| SIGTERM  | Shutdown                  | Clean Shutdown                 |
 | SIGALARM | Command processor timeout | Raises SIGUSR2 on timeout      |

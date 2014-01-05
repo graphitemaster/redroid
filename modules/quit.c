@@ -9,5 +9,5 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         irc_write(irc, channel, "%s: sorry, you're not allowed to quit", user);
         return;
     }
-    raise(SIGUSR1); // safe kill
+    raise(SIGINT);
 }
