@@ -201,7 +201,7 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
 
     // a command timed out:
     pthread_mutex_lock(&channel->cmd_mutex);
-    instance = channel->cmd_entry->instance;
+    instance = (channel->cmd_entry) ? channel->cmd_entry->instance : NULL;
     if (!instance) {
         pthread_mutex_unlock(&channel->cmd_mutex);
         return;

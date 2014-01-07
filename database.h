@@ -8,7 +8,6 @@ typedef struct database_s           database_t;
 typedef struct irc_s                irc_t;
 
 database_statement_t *database_statement_create(database_t *database, const char *string);
-void                  database_statement_destroy(database_statement_t *statement);
 bool                  database_statement_complete(database_statement_t *statement);
 bool                  database_statement_bind(database_statement_t *statement, const char *mapping, ...);
 

@@ -126,27 +126,21 @@ static bool module_allow_symbol(const char *name, database_t *database, bool *li
     if (!statement)
         return false;
 
-    if (!database_statement_bind(statement, "s", name)) {
-        database_statement_destroy(statement);
+    if (!database_statement_bind(statement, "s", name))
         return false;
-    }
 
     database_row_t *row = database_row_extract(statement, "i");
-    if (!row) {
-        database_statement_destroy(statement);
+    if (!row)
         return false;
-    }
 
     *libc = database_row_pop_integer(row);
 
     if (!database_statement_complete(statement)) {
-        database_statement_destroy(statement);
         database_row_destroy(row);
         return false;
     }
 
     database_row_destroy(row);
-    database_statement_destroy(statement);
 
     return true;
 }
@@ -433,12 +427,13 @@ int module_getaddrinfo(const char *mode, const char *service, const struct addri
 }
 
 database_statement_t *module_database_statement_create(const char *string) {
-    module_t *module = *module_get();
-    module_mem_mutex_lock(module);
-    database_statement_t *statement = database_statement_create(module->instance->database, string);
-    module_mem_push(module, statement, (void(*)(void*))&database_statement_destroy);
-    module_mem_mutex_unlock(module);
-    return statement;
+    //
+    // There is no need to gaurd a mutex here since the database statement
+    // cache system also serves as a garbage collector. This will implictly
+    // deal with freeing database statements. Instead we need the GC call
+    // to access the modules instance database
+    //
+    return database_statement_create((*module_get())->instance->database, string);
 }
 
 database_row_t *module_database_row_extract(database_statement_t *statement, const char *fields) {
