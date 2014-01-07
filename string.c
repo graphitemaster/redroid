@@ -5,6 +5,12 @@
 #include <string.h>
 #include <stdio.h>
 
+struct string_s {
+    char   *buffer;
+    size_t  allocated;
+    size_t  length;
+};
+
 static void string_reallocate(string_t *string) {
     size_t size   = string->allocated * 2;
     char  *buffer = malloc(size);

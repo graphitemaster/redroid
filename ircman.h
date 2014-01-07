@@ -2,7 +2,6 @@
 #define REDROID_IRCMAN_HDR
 #include "irc.h"
 
-struct irc_manager_s;
 typedef struct irc_manager_s irc_manager_t;
 
 irc_manager_t *irc_manager_create(void);

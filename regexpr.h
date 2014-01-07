@@ -2,9 +2,6 @@
 #define REDROID_REGEXPR_HDR
 #include "list.h"
 
-struct regexpr_s;
-struct regexpr_cache_s;
-
 typedef struct regexpr_s       regexpr_t;
 typedef struct regexpr_cache_s regexpr_cache_t;
 

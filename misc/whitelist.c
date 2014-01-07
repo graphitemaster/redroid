@@ -2,60 +2,118 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sqlite3.h>
 
-int main(void) {
-    FILE *fp = fopen("misc/whitelist", "r");
-    FILE *db = fopen("/tmp/redroid_db_gen", "w");
+int main(int argc, char **argv) {
+    argv++;
+    argc--;
 
-    if (!fp || !db)
+    bool debug   = argc && !strcmp(*argv, "-d");
+    int  exitval = EXIT_SUCCESS;
+
+    sqlite3 *database;
+    if (sqlite3_open("whitelist.db", &database) != SQLITE_OK)
         return EXIT_FAILURE;
 
-    printf("Generating entries ...");
+    char *errmsg = NULL;
+    if (sqlite3_exec(database, "CREATE TABLE IF NOT EXISTS WHITELIST (NAME TEXT, LIBC INTEGER)", NULL, NULL, &errmsg) != SQLITE_OK) {
+        fprintf(stderr, "internal error: %s\n", errmsg);
+        sqlite3_free(errmsg);
+        sqlite3_close(database);
+        return EXIT_FAILURE;
+    }
 
-    char   *line  = NULL;
-    size_t  size  = 0;
-    size_t  count = 0;
-    bool    libc  = true;
+    sqlite3_stmt *insert = NULL;
+    if (sqlite3_prepare_v2(database, "INSERT INTO WHITELIST VALUES(?, ?)", -1, &insert, NULL) != SQLITE_OK)
+        goto prep_error;
+
+    sqlite3_stmt *find = NULL;
+    if (sqlite3_prepare_v2(database, "SELECT LIBC FROM WHITELIST WHERE NAME = ?", -1, &find, NULL) != SQLITE_OK) {
+    prep_error:
+        fprintf(stderr, "failed to prepare statement\n");
+        if (insert) sqlite3_finalize(insert);
+        if (find)   sqlite3_finalize(find);
+
+        sqlite3_close(database);
+        return EXIT_FAILURE;
+    }
+
+    // read the whitelist and fill the database
+    char  *line   = NULL;
+    bool   libc   = false;
+    size_t size   = 0;
+    size_t count  = 0;
+    size_t exist  = 0;
+    size_t lineno = 0;
+    FILE  *fp     = fopen("misc/whitelist", "r");
+
+    if (!fp)
+        goto process;
 
     while (getline(&line, &size, fp) != EOF) {
-        // lines beginning with '#' are comments
+        lineno++;
+
         if (*line == '#')
             continue;
-
-        // empty line denotes beginning of non libc section
         if (*line == '\n') {
             libc = false;
             continue;
         }
 
-        // strip newline
         *strchr(line, '\n')='\0';
-        fprintf(db, "INSERT INTO WHITELIST VALUES('%s', %d);\n", line, libc);
+
+        sqlite3_reset(find);
+        size_t error;
+        if ((error = sqlite3_bind_text(find, 1, line, strlen(line), NULL)) != SQLITE_OK) {
+            fprintf(stderr, "failed to bind name `%s` %zu\n", line, error);
+            goto internal_error_silent;
+        }
+
+        if (sqlite3_step(find) == SQLITE_ROW) {
+            if (debug)
+                printf("duplicate: %zu => %s\n", lineno, line);
+            exist++;
+            continue;
+        }
+
         count++;
+
+        sqlite3_reset(insert);
+        if (sqlite3_bind_text(insert, 1, line, strlen(line), NULL) != SQLITE_OK)
+            goto internal_error;
+        if (sqlite3_bind_int(insert, 2, libc) != SQLITE_OK)
+            goto internal_error;
+        if (sqlite3_step(insert) != SQLITE_DONE)
+            goto internal_error;
     }
 
-    free(line);
-    fclose(fp);
-    fclose(db);
+    goto process;
 
-    printf("\tSUCCESS (%d entries created)\n", count);
-
-    printf("Creating database ...");
-    if (system("echo \"CREATE TABLE IF NOT EXISTS WHITELIST (NAME TEXT, LIBC INTEGER);\" | sqlite3 whitelist.db") != EXIT_SUCCESS) {
-        printf("\tERROR\n");
-        remove("/tmp/redroid_db_gen");
-        return EXIT_FAILURE;
-    }
-    printf("\tSUCCESS\nPopulating database ...");
-
-    if (system("cat /tmp/redroid_db_gen | sqlite3 whitelist.db") != EXIT_SUCCESS) {
-        printf("\tERROR\n");
-        remove("/tmp/redroid_db_gen");
-        return EXIT_FAILURE;
+internal_error:
+    fprintf(stderr, "internal error\n");
+internal_error_silent:
+    exitval = EXIT_FAILURE;
+process:
+    if (!fp) {
+        fprintf(stderr, "failed to open whitelist for processing\n");
+        exitval = EXIT_FAILURE;
     }
 
-    remove("/tmp/redroid_db_gen");
-    printf("\tSUCCESS\n");
+    if (line)
+        free(line);
+    if (fp)
+        fclose(fp);
 
-    return EXIT_SUCCESS;
+    sqlite3_finalize(insert);
+    sqlite3_finalize(find);
+
+    if (debug) {
+        printf("Entries:\n");
+        printf("    added:    %zu\n", count);
+        printf("    existing: %zu\n", exist);
+    }
+
+    sqlite3_close(database);
+
+    return exitval;
 }

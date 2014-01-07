@@ -4,14 +4,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-struct string_s;
 typedef struct string_s string_t;
-
-struct string_s {
-    char   *buffer;
-    size_t  allocated;
-    size_t  length;
-};
 
 void string_vcatf(string_t *string, const char *fmt, va_list varg);
 void string_catf(string_t *string, const char *fmt, ...);

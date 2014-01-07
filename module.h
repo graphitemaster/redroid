@@ -1,11 +1,9 @@
 #ifndef REDROID_MODULE_HDR
 #define REDROID_MODULE_HDR
-
 #include "database.h"
+#include "irc.h"
 #include "string.h"
-#include "list.h"
 
-typedef struct irc_s             irc_t;
 typedef struct module_s          module_t;
 typedef struct module_mem_s      module_mem_t;
 typedef struct module_mem_node_s module_mem_node_t;

@@ -10,9 +10,14 @@ MODULE_LDFLAGS = -shared -rdynamic -lm
 MODULE_SOURCES = $(shell echo modules/*.c)
 MODULE_OBJECTS = $(MODULE_SOURCES:.c=.so)
 
-all: $(SOURCES) $(MODULE_OBJECTS) $(REDROID)
+WHITELIST_CFLAGS  = -std=gnu99 -ggdb3
+WHITELIST_LDFLAGS = -lsqlite3
+WHITELIST_SOURCES = misc/whitelist.c
+WHITELIST_OBJECTS = $(WHITELIST_SOURCES:.c=.o)
 
-$(REDROID): $(OBJECTS) whitelist.db
+all: $(SOURCES) $(MODULE_OBJECTS) $(REDROID) whitelist
+
+$(REDROID): $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
 .c.o:
@@ -21,19 +26,23 @@ $(REDROID): $(OBJECTS) whitelist.db
 modules/%.so: modules/%.c
 	$(CC) $(MODULE_CFLAGS) $(MODULE_LDFLAGS) $< -o $@
 
-whitelist.db:
-	@$(CC) misc/whitelist.c -o misc/gen
-	@./misc/gen
-	@rm -f misc/gen
+wlgen: $(WHITELIST_OBJECTS)
+	$(CC) $(WHITELIST_LDFLAGS) $(WHITELIST_OBJECTS) -o $@
+
+whitelist: wlgen
+	@./wlgen
 
 modules: $(MODULE_OBJECTS)
 
 cleanmodules:
 	rm -f $(MODULE_OBJECTS)
 
+cleanwlgen:
+	rm -f wlgen
+
 cleanwhitelist:
 	rm -f whitelist.db
 
-clean: cleanmodules cleanwhitelist
+clean: cleanmodules cleanwlgen
 	rm -f $(OBJECTS)
 	rm -f $(REDROID)
