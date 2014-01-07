@@ -50,6 +50,10 @@ int main(int argc, char **argv) {
     if (!fp)
         goto process;
 
+    char *err = NULL;
+    sqlite3_exec(database, "BEGIN TRANSACTION", NULL, NULL, &err);
+    sqlite3_free(err);
+
     while (getline(&line, &size, fp) != EOF) {
         lineno++;
 
@@ -86,6 +90,9 @@ int main(int argc, char **argv) {
         if (sqlite3_step(insert) != SQLITE_DONE)
             goto internal_error;
     }
+
+    sqlite3_exec(database, "COMMIT TRANSACTION", NULL, NULL, &err);
+    sqlite3_free(err);
 
     goto process;
 
