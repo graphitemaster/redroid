@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 
     // read the whitelist and fill the database
     char  *line   = NULL;
-    bool   libc   = false;
+    bool   libc   = true;
     size_t size   = 0;
     size_t count  = 0;
     size_t exist  = 0;

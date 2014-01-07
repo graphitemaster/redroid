@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <sqlite3.h>
 
-void table(const char *file, const char *table, size_t fields) {
+void table(const char *file, const char *table) {
     FILE *fp = fopen(file, "r");
     if (!fp)
         return;
