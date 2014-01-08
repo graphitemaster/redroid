@@ -41,6 +41,7 @@ typedef struct string_s                 string_t;
 
 #define MODULE_DEFAULT(NAME) char module_name[]  = #NAME, module_match[] = #NAME
 #define MODULE_ALWAYS(NAME)  char module_name[]  = #NAME, module_match[] = ""
+#define MODULE_BOTH(NAME)    char module_name[]  = #NAME, module_match[] = ""
 
 /*
  * Macro: MODULE_GC_CALL

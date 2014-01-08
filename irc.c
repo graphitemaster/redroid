@@ -390,8 +390,12 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
         }
 
         if (private || kick) {
-            if ((ptr = strtok(NULL, ":")))
+            if ((ptr = strtok(NULL, ":"))) {
+                char *consume ;
                 channel = strdup(ptr);
+                if ((consume = strchr(channel, ' ')))
+                    *consume = '\0';
+            }
             if ((ptr = strtok(NULL, "")))
                 message = strdup(ptr);
         }
