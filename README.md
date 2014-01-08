@@ -24,6 +24,7 @@ Features
      * Module API
          * IRC
          * Database
+            * Cached
          * Sockets
          * Regular Expressions
             * Cached
