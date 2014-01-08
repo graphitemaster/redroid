@@ -527,6 +527,44 @@ list_t* module_strnsplit(char *str, char *delim, size_t count) {
     return list;
 }
 
+typedef struct {
+    unsigned long long num;
+    string_t          *str;
+} strdur_context_t;
+
+static void strdur_step(strdur_context_t *c, unsigned long long d, const char *suffix) {
+    unsigned long long cnt = c->num / d;
+    c->num %= d; // compiler should keep the above div's mod part
+    if (!cnt)
+        return;
+    string_catf(c->str, "%llu%s", cnt, suffix);
+}
+
+static char *strdur(unsigned long long duration) {
+    if (!duration)
+        return strdup("0");
+
+    strdur_context_t ctx;
+    ctx.num = duration;
+    ctx.str = string_construct();
+
+                 strdur_step(&ctx, 60*60*24*7, "w");
+    if (ctx.num) strdur_step(&ctx, 60*60*24,   "d");
+    if (ctx.num) strdur_step(&ctx, 60*60,      "h");
+    if (ctx.num) strdur_step(&ctx, 60,         "m");
+    if (ctx.num) strdur_step(&ctx, 1,          "s");
+
+    return string_end(ctx.str);
+}
+
+char *module_strdur(unsigned long long duration) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    char *data = strdur(duration);
+    module_mem_push(module, data, &free);
+    module_mem_mutex_unlock(module);
+    return data;
+}
 
 regexpr_t *module_regexpr_create(const char *string, bool icase) {
     //

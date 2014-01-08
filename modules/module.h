@@ -290,6 +290,22 @@ static inline list_t *strnsplit(char *string, char *delimiter, size_t count) {
 }
 
 /*
+ * Function: strdur
+ *  Takes an amount of seconds and creates a string representing
+ *  the duration as weeks, days, hours, minutes and seconds.
+ *
+ * Parmeters:
+ *  seconds     - The duration in seconds
+ *
+ * Returns:
+ *  A newly allocated string containing the textual representation
+ *  of the duration.
+ */
+static inline char *strdur(unsigned long long dur) {
+    MODULE_GC_CALL(strdur)(dur);
+}
+
+/*
  * Function: regexpr_create
  *  Create a regular expression.
  *
