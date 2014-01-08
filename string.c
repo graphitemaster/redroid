@@ -72,8 +72,16 @@ string_t *string_create(const char *contents) {
     );
 }
 
+void string_clear(string_t *string) {
+    if (string->buffer)
+        free(string->buffer);
+    string->buffer    = NULL;
+    string->allocated = 0;
+    string->length    = 0;
+}
+
 void string_destroy(string_t *string) {
-    free(string->buffer);
+    string_clear(string);
     free(string);
 }
 
@@ -87,4 +95,17 @@ size_t string_length(string_t *string) {
 
 bool string_empty(string_t *string) {
     return (string_length(string) == 0) || !*string->buffer;
+}
+
+char *string_move(string_t *string) {
+    char *data = string->buffer;
+    string->buffer = NULL;
+    string_clear(string);
+    return data;
+}
+
+char *string_end(string_t *string) {
+    char *data = string_move(string);
+    string_destroy(string);
+    return data;
 }
