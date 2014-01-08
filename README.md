@@ -68,6 +68,7 @@ Included with Redroid are the following modules currently
 | quit      | Shutdown Redroid                                      |
 | quote     | Quote database control                                |
 | twss      | That's what she said monitor                          |
+| calc      | Infix calculator with constants and functions         |
 
 You can write your own modules using the `module.h` header in `modules/`.
 Compiling your module with `make` is also possible as long as your module
