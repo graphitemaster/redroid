@@ -4,7 +4,8 @@
 
 MODULE_ALWAYS(youtube);
 
-#define NETHERS 4000
+#define NETHER_COUNT   4000
+#define NETHER_VICTIM "graphite"
 
 typedef struct {
     const char *user;
@@ -84,9 +85,18 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
 
     youtube_t data;
     if (youtube_find(id, &data)) {
-        irc_write(irc, channel, "%s: I've seen that youtube link %d %s before, last was %d by %s on %s",
-            user, data.count, (data.count == 1) ? "time" : "times",
-            data.timestamp, data.user, (!strcmp(data.chan, channel)) ? "this channel" : data.chan
+        irc_write(irc, channel,
+            "%s: I've seen that youtube link %d %s before, last was %s by %s on %s",
+            user,
+            data.count,
+            (data.count == 1)
+                ? "time"
+                : "times",
+            strdur(time(NULL) - data.timestamp),
+            data.user,
+            (!strcmp(data.chan, channel))
+                ? "this channel"
+                : data.chan
         );
         // update
         data.user      = user;
@@ -105,8 +115,13 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
 last:
     count = youtube_count();
     irc_write(irc, channel,
-        "%s: A total of %d %s been spammed in my presence, only %d more to go until graphite waxes his nethers.",
-        user, count, (count == 1) ? "link has" : "links have",
-        NETHERS - count
+        "%s: A total of %d %s been spammed in my presence, only %d more to go until %s waxes his nethers.",
+        user,
+        count,
+        (count == 1)
+            ? "link has"
+            : "links have",
+        NETHER_COUNT - count,
+        NETHER_VICTIM
     );
 }
