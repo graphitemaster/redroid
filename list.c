@@ -154,21 +154,35 @@ size_t list_length(list_t *list) {
     return (list) ? list->length : 0;
 }
 
-void list_sort(list_t *list, bool (*predicate)(const void *a, const void *b)) {
-    list_node_t *ptr = list->head;
-    list_node_t *nxt = list->head->next;
+static list_node_t *list_sort_split(list_node_t *node) {
+    if (!node || !node->next) return NULL;
+    list_node_t *split = node->next;
+    node->next  = split->next;
+    split->next = list_sort_split(split->next);
+    return split;
+}
 
-    void *temp;
-    while (nxt) {
-        while (nxt != ptr) {
-            if (predicate(nxt->element, ptr->element)) {
-                temp         = ptr->element;
-                ptr->element = nxt->element;
-                nxt->element = temp;
-            }
-            ptr = ptr->next;
-        }
-        ptr = list->head;
-        nxt = nxt->next;
+static list_node_t *list_sort_merge(list_node_t *a, list_node_t *b, bool (*predicate)(const void *, const void *)) {
+    if (!a) return b;
+    if (!b) return a;
+    if (predicate(a->element, b->element)) {
+        b->next       = list_sort_merge(a, b->next, predicate);
+        b->next->prev = b;
+        return b;
     }
+    a->next       = list_sort_merge(a->next, b, predicate);
+    a->next->prev = a;
+    return a;
+}
+
+static list_node_t *list_sort_impl(list_node_t *begin, bool (*predicate)(const void *, const void *)) {
+    if (!begin)       return NULL;
+    if (!begin->next) return begin;
+
+    list_node_t *split = list_sort_split(begin);
+    return list_sort_merge(list_sort_impl(begin, predicate), list_sort_impl(split, predicate), predicate);
+}
+
+void list_sort(list_t *list, bool (*predicate)(const void *, const void *)) {
+    list->head = list_sort_impl(list->head, predicate);
 }

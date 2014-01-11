@@ -410,6 +410,17 @@ void *list_pop(list_t *list);
 size_t list_length(list_t *list);
 
 /*
+ * Function: list_sort
+ *  Sort a list given a predicate
+ *
+ * Parameters:
+ *  list      - The list to sort
+ *  predicate - The predicate for comparing elements
+ *
+ */
+void list_sort(list_t *list, bool (*predicate)(const void *, const void *));
+
+/*
  * Function: string_catf
  *  Concatenate a formatted string to a managed string
  *

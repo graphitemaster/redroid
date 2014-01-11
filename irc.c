@@ -233,6 +233,11 @@ bool irc_modules_unload(irc_t *irc, const char *name) {
     return module_manager_module_unload(irc->moduleman, name);
 }
 
+static bool irc_modules_list_sort(const void *a, const void *b) {
+    return strcmp(a, b) >= 0;
+}
+
+
 list_t *irc_modules_list(irc_t *irc) {
     list_t          *list = list_create();
     list_iterator_t *it   = list_iterator_create(irc->moduleman->modules);
@@ -241,6 +246,7 @@ list_t *irc_modules_list(irc_t *irc) {
         list_push(list, (void *)entry->name);
     }
     list_iterator_destroy(it);
+    list_sort(list, &irc_modules_list_sort);
     return list;
 }
 
