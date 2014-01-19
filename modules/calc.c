@@ -24,6 +24,19 @@ static const char *const calc_cnames[] = {
     0
 };
 
+static const char *calc_jokes[] = {
+    "The continuous functions are having a ball. At the dance floor, cosine and sine are jumping up and down, and the polynomials are forming a ring. But the exponential function is standing seperately the whole evening. Due to sympathy for it, the identity joins it and suggests: \"Come one, just integrate yourself!\" – \"I've tried that already\", answers the exponential function, \"but it didn't change a bit!\"",
+    "Every natural number is interesting. Let us assume, that there is an uninteresting natural number. Then there would be a smallest unteresting number – but this number would be very interesting indeed. Therefore it is an interesting number. This contradiction proves: All natural numbers are interesting.",
+    "To every problem, there is a one line proof ... if we start sufficiently far to the left.",
+    "The best moments in the life of a mathematician are the first few moments after one has proved the result, but before one finds the mistake.",
+    "A topologist is a person who does not know the difference between a coffee cup and a doughnut.",
+    "2 is the oddest prime.",
+    "An engineer is convinced that his equations are an approximation of reality. A physicist thinks that reality is an approximation of his equations. A mathematician does not worry about that.",
+    "My geometry teacher was sometimes acute, and sometimes obtuse, but always, he was right.",
+    "It was mentioned on CNN that the new prime number discovered recently is four times bigger then the previous record.",
+    "What is the shortest mathematicians joke? Let epsilon be smaller than zero."
+};
+
 typedef struct {
     size_t      index;      // stack index
     char       *sp;         // stack pointer
@@ -417,6 +430,11 @@ static bool calc(calc_expr_t **expr, const char *s, calc_parser_t p) {
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
+    if (!strcmp(message, "joke")) {
+        irc_write(irc, channel, "%s: %s", user, calc_jokes[rand() % (sizeof(calc_jokes) / sizeof(*calc_jokes))]);
+        return;
+    }
+
     calc_parser_t ctx = {
         .irc     = irc,
         .channel = channel,

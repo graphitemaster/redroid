@@ -733,11 +733,6 @@ static list_t *module_svnlog_read(const char *url, size_t depth) {
     }
     pclose(fp);
 
-    if (depth != 0) {
-        module_svnlog_destroy(entries);
-        return NULL;
-    }
-
     return entries;
 }
 
