@@ -9,6 +9,7 @@
 MODULE_DEFAULT(calc);
 
 static const double calc_cvalues[] = {
+    42,
     M_PI,
     M_PI * 2,
     M_E,
@@ -16,6 +17,7 @@ static const double calc_cvalues[] = {
 };
 
 static const char *const calc_cnames[] = {
+    "theanswertolifetheuniverseandeverything",
     "PI",
     "TAU",
     "E",
@@ -403,7 +405,7 @@ static bool calc(calc_expr_t **expr, const char *s, calc_parser_t p) {
     }
 
     if (*p.sp) {
-        irc_write(p.irc, p.channel, "%s: Invalid chracter(s) '%s' at end of expression '%s'\n", p.user, p.sp, s0);
+        irc_write(p.irc, p.channel, "%s: Invalid chracter(s) '%s' at end of expression '%s'", p.user, p.sp, s0);
         return false;
     }
 

@@ -66,10 +66,23 @@ static const char *family_get(const char *nick) {
     return status;
 }
 
-static void family_entry(irc_t *irc, const char *channel, const char *user, const char *message) {
-    if (!message)
+static void family_entry_random(irc_t *irc, const char *channel, const char *user) {
+    database_statement_t *statement = database_statement_create("SELECT NAME, CONTENT FROM FAMILY ORDER BY RANDOM() LIMIT 1");
+    if (!statement)
         return;
 
+    database_row_t *row = database_row_extract(statement, "ss");
+    if (!row)
+        return;
+
+    const char *name    = database_row_pop_string(row);
+    const char *content = database_row_pop_string(row);
+
+    database_request(irc, "FAMILY");
+    irc_write(irc, channel, "%s: %s is the %s in our screwed up family", user, name, content);
+}
+
+static void family_entry(irc_t *irc, const char *channel, const char *user, const char *message) {
     const char *get = family_get(message);
 
     if (!get) {
@@ -189,17 +202,23 @@ static void family_forget(irc_t *irc, const char *channel, const char *user, con
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    if (strstr(message, "-help") == &message[0])
+    if (!message)
+        return family_entry_random(irc, channel, user);
+
+    list_t     *list   = strnsplit(strdup(message), " ", 2);
+    const char *method = list_shift(list);
+
+    if (!strcmp(method, "-help"))
         return family_help(irc, channel, user);
-    else if (strstr(message, "-add") == &message[0])
-        return family_add_replace(irc, channel, user, &message[5], false);
-    else if (strstr(message, "-replace"))
-        return family_add_replace(irc, channel, user, &message[9], true);
-    else if (strstr(message, "-concat"))
-        return family_concat(irc, channel, user, &message[8]);
-    else if (strstr(message, "-forget") == &message[0])
-        return family_forget(irc, channel, user, &message[8]);
-    else if (strstr(message, "-stats") == &message[0])
+    if (!strcmp(method, "-add"))
+        return family_add_replace(irc, channel, user, list_shift(list), false);
+    if (!strcmp(method, "-replace"))
+        return family_add_replace(irc, channel, user, list_shift(list), true);
+    if (!strcmp(method, "-concat"))
+        return family_concat(irc, channel, user, list_shift(list));
+    if (!strcmp(method, "-forget"))
+        return family_forget(irc, channel, user, list_shift(list));
+    if (!strcmp(method, "-stats"))
         return family_stats(irc, channel, user);
-    return family_entry(irc, channel, user, message);
+    family_entry(irc, channel, user, message);
 }
