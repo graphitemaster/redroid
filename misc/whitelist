@@ -139,6 +139,7 @@ strncasecmp
 list_iterator_next
 list_iterator_end
 list_pop
+list_shift
 list_length
 list_sort
 string_contents

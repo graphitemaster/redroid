@@ -18,6 +18,12 @@ typedef struct {
     size_t  eoff;   // End offset for match
 } regexpr_match_t;
 
+typedef struct {
+    struct string_s *message;
+    struct string_s *author;
+    struct string_s *revision;
+} svn_entry_t;
+
 /*
  * Macro: regexpr_match_invalid
  *  To test if a regexpr_match_t object is valid.
@@ -39,12 +45,16 @@ typedef struct list_s                   list_t;
 typedef struct list_iterator_s          list_iterator_t;
 typedef struct string_s                 string_t;
 
-#define MODULE_DEFAULT(NAME) char module_name[]  = #NAME, module_match[] = #NAME
-#define MODULE_ALWAYS(NAME)  char module_name[]  = #NAME, module_match[] = ""
-#define MODULE_BOTH(NAME)    char module_name[]  = #NAME, module_match[] = ""
+
+#define MODULE_DEFAULT(NAME) char module_name[] = #NAME, module_match[] = #NAME
+#define MODULE_ALWAYS(NAME)  char module_name[] = #NAME, module_match[] = ""
+
+#define MODULE_TIMED(NAME, INTERVAL) \
+    MODULE_ALWAYS(NAME);             \
+    int module_interval = INTERVAL
 
 /*
- * Macro: MODULE_GC_CALL
+ * Macro: return MODULE_GC_CALL
  *  Call a garbage collected function.
  *
  * Parameters:
@@ -55,9 +65,10 @@ typedef struct string_s                 string_t;
  *  already provided by this same header and are already marked to call
  *  the garbage collector if they allocate or return allocated resources.
  */
-#define MODULE_GC_CALL(NAME)               \
-    extern __typeof__(NAME) module_##NAME; \
-    return module_##NAME
+#define MODULE_GC_CALL(NAME) ({                \
+        extern __typeof__(NAME) module_##NAME; \
+        module_##NAME;                         \
+    })
 
 /*
  * Function: irc_modules_list
@@ -74,7 +85,7 @@ typedef struct string_s                 string_t;
  *  The list this function returns is garbage collected.
  */
 static inline list_t *irc_modules_list(irc_t *irc) {
-    MODULE_GC_CALL(irc_modules_list)(irc);
+    return MODULE_GC_CALL(irc_modules_list)(irc);
 }
 
 /*
@@ -96,7 +107,7 @@ static inline list_t *irc_modules_list(irc_t *irc) {
  *  The memory this function returns a pointer to is garbage collected.
  */
 static inline void *malloc(size_t size) {
-    MODULE_GC_CALL(malloc)(size);
+    return MODULE_GC_CALL(malloc)(size);
 }
 
 /*
@@ -114,7 +125,27 @@ static inline void *malloc(size_t size) {
  *  The managed string this function returns is garbage collected.
  */
 static inline string_t *string_create(const char *input) {
-    MODULE_GC_CALL(string_create)(input);
+    return MODULE_GC_CALL(string_create)(input);
+}
+
+/*
+ * Function: string_format
+ *  Create a managed string object with a default value specified
+ *  by a format string.
+ *
+ * Returns:
+ *  Pointer to a managed string object default initialied with
+ *  *input*
+ *
+ * Parameters:
+ *  fmt   - The format string
+ *  ...   - Format string arguments
+ *
+ * Remarks:
+ *  The managed string this function returns is garbage collected.
+ */
+static inline string_t *string_format(const char *input, ...) {
+    return MODULE_GC_CALL(string_format)(input);
 }
 
 /*
@@ -128,7 +159,7 @@ static inline string_t *string_create(const char *input) {
  *  The managed string this function returns is garbage collected.
  */
 static inline string_t *string_construct(void) {
-    MODULE_GC_CALL(string_construct)();
+    return MODULE_GC_CALL(string_construct)();
 }
 
 /*
@@ -142,7 +173,7 @@ static inline string_t *string_construct(void) {
  *  The iterator this function returns is garbage collected.
  */
 static inline list_iterator_t *list_iterator_create(list_t *list) {
-    MODULE_GC_CALL(list_iterator_create)(list);
+    return MODULE_GC_CALL(list_iterator_create)(list);
 }
 
 /*
@@ -156,7 +187,7 @@ static inline list_iterator_t *list_iterator_create(list_t *list) {
  *  The list this function returns is garbage collected.
  */
 static inline list_t *list_create(void) {
-    MODULE_GC_CALL(list_create)();
+    return MODULE_GC_CALL(list_create)();
 }
 
 /*
@@ -171,7 +202,7 @@ static inline list_t *list_create(void) {
  *  The resources this function allocates are garbage collected.
  */
 static inline void list_push(list_t *list, void *element) {
-    MODULE_GC_CALL(list_push)(list, element);
+    return MODULE_GC_CALL(list_push)(list, element);
 }
 
 /*
@@ -194,7 +225,7 @@ static inline void list_push(list_t *list, void *element) {
  *  are garbage collected.
  */
 static inline int getaddrinfo(const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
-    MODULE_GC_CALL(getaddrinfo)(mode, service, hints, result);
+    return MODULE_GC_CALL(getaddrinfo)(mode, service, hints, result);
 }
 
 /*
@@ -212,7 +243,7 @@ static inline int getaddrinfo(const char *mode, const char *service, const struc
  *  The statement this function returns is garbage collected.
  */
 static inline database_statement_t *database_statement_create(const char *string) {
-    MODULE_GC_CALL(database_statement_create)(string);
+    return MODULE_GC_CALL(database_statement_create)(string);
 }
 
 /*
@@ -239,7 +270,7 @@ static inline database_statement_t *database_statement_create(const char *string
  *  collected.
  */
 static inline database_row_t *database_row_extract(database_statement_t *statement, const char *fields) {
-    MODULE_GC_CALL(database_row_extract)(statement, fields);
+    return MODULE_GC_CALL(database_row_extract)(statement, fields);
 }
 
 /*
@@ -262,7 +293,7 @@ static inline database_row_t *database_row_extract(database_statement_t *stateme
  *  collected.
  */
 static inline const char *database_row_pop_string(database_row_t *row) {
-    MODULE_GC_CALL(database_row_pop_string)(row);
+    return MODULE_GC_CALL(database_row_pop_string)(row);
 }
 
 /*
@@ -279,14 +310,14 @@ static inline const char *database_row_pop_string(database_row_t *row) {
  *  The string returned by this function is garbage collected.
  */
 static inline char *strdup(const char *string) {
-    MODULE_GC_CALL(strdup)(string);
+    return MODULE_GC_CALL(strdup)(string);
 }
 
 static inline list_t *strsplit(char *string, char *delimiter) {
-    MODULE_GC_CALL(strsplit)(string, delimiter);
+    return MODULE_GC_CALL(strsplit)(string, delimiter);
 }
 static inline list_t *strnsplit(char *string, char *delimiter, size_t count) {
-    MODULE_GC_CALL(strnsplit)(string, delimiter, count);
+    return MODULE_GC_CALL(strnsplit)(string, delimiter, count);
 }
 
 /*
@@ -302,7 +333,7 @@ static inline list_t *strnsplit(char *string, char *delimiter, size_t count) {
  *  of the duration.
  */
 static inline char *strdur(unsigned long long dur) {
-    MODULE_GC_CALL(strdur)(dur);
+    return MODULE_GC_CALL(strdur)(dur);
 }
 
 /*
@@ -325,7 +356,7 @@ static inline char *strdur(unsigned long long dur) {
  *  if they're already in regular expression cache.
  */
 static inline regexpr_t *regexpr_create(const char *string, bool icase) {
-    MODULE_GC_CALL(regexpr_create)(string, icase);
+    return MODULE_GC_CALL(regexpr_create)(string, icase);
 }
 
 /*
@@ -346,7 +377,7 @@ static inline regexpr_t *regexpr_create(const char *string, bool icase) {
  *  resources will be freed automatically.
  */
 static inline bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
-    MODULE_GC_CALL(regexpr_execute)(expr, string, nmatch, array);
+    return MODULE_GC_CALL(regexpr_execute)(expr, string, nmatch, array);
 }
 
 /*
@@ -396,6 +427,19 @@ void *list_iterator_next(list_iterator_t *iterator);
  *  The element at the head of the list.
  */
 void *list_pop(list_t *list);
+
+
+/*
+ * Function: list_shift
+ *  Pop the element off the tail of the list
+ *
+ * Parameters:
+ *  list    - The list to pop element off of
+ *
+ * Returns:
+ *  The element at the tail of the list.
+ */
+void *list_shift(list_t *list);
 
 /*
  * Function: list_length
@@ -474,6 +518,10 @@ bool string_empty(string_t *string);
  *  Pointer to the raw contents of the string (internal buffer).
  */
 char *const string_contents(string_t *string);
+
+static inline list_t *svnlog(const char *url, size_t depth) {
+    return MODULE_GC_CALL(svnlog)(url, depth);
+}
 
 bool database_statement_complete(database_statement_t *statement);
 bool database_statement_bind(database_statement_t *statement, const char *mapping, ...);

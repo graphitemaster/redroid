@@ -1,5 +1,7 @@
 #ifndef REDROID_MODULE_HDR
 #define REDROID_MODULE_HDR
+#include <time.h>
+
 #include "database.h"
 #include "irc.h"
 #include "string.h"
@@ -18,6 +20,8 @@ struct module_s {
     void         *handle;
     const char   *name;
     const char   *match;
+    int           interval;
+    time_t        lastinterval;
     char         *file;
     void        (*enter)(irc_t *irc, const char *channel, const char *user, const char *message);
     void        (*close)(irc_t *irc);

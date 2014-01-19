@@ -89,10 +89,16 @@ static bool module_load(module_t *module) {
         return false;
     }
 
-    if (!(module->enter = dlsym(module->handle, "module_enter"))) {
+    if (!module->enter) {
         fprintf(stderr, "    module   => missing command handler %s [%s]\n", module->name, module->file);
         return false;
     }
+
+    // module interval
+    int *interval = dlsym(module->handle, "module_interval");
+
+    module->interval     = (interval) ? *interval : 0;
+    module->lastinterval = 0;
 
     return true;
 }
@@ -398,6 +404,19 @@ string_t *module_string_construct(void) {
     return string;
 }
 
+string_t *module_string_format(const char *fmt, ...) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    string_t *string = string_construct();
+    module_mem_push(module, string, (void (*)(void*))&string_destroy);
+    va_list va;
+    va_start(va, fmt);
+    string_vcatf(string, fmt, va);
+    va_end(va);
+    module_mem_mutex_unlock(module);
+    return string;
+}
+
 list_iterator_t *module_list_iterator_create(list_t *list) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
@@ -496,11 +515,8 @@ list_t* module_strsplit(char *str, char *delim) {
     return list;
 }
 
-list_t* module_strnsplit(char *str, char *delim, size_t count) {
-    module_t *module = *module_get();
-    module_mem_mutex_lock(module);
+list_t* module_strnsplit_impl(char *str, char *delim, size_t count) {
     list_t *list = list_create();
-    module_mem_push(module, list, (void (*)(void*))&list_destroy);
     if (count < 2) {
         while (*str && strchr(delim, *str))
             ++str;
@@ -523,6 +539,14 @@ list_t* module_strnsplit(char *str, char *delim, size_t count) {
             tok = strtok_r(NULL, delim, &saveptr);
         }
     }
+    return list;
+}
+
+list_t* module_strnsplit(char *str, char *delim, size_t count) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    list_t *list = module_strnsplit_impl(str, delim, count);
+    module_mem_push(module, list, (void (*)(void*))&list_destroy);
     module_mem_mutex_unlock(module);
     return list;
 }
@@ -594,4 +618,138 @@ bool module_regexpr_execute(const regexpr_t *expr, const char *string, size_t nm
 
     module_mem_mutex_unlock(module);
     return true;
+}
+
+typedef struct {
+    string_t *message;
+    string_t *author;
+    string_t *revision;
+} svn_entry_t;
+
+// a simple way to parse the svn log
+static svn_entry_t *module_svnlog_read_entry(FILE *handle) {
+    svn_entry_t *entry  = malloc(sizeof(*entry));
+    char        *line   = NULL;
+    size_t       length = 0;
+
+    // process a line
+    if (getline(&line, &length, handle) == EOF) {
+        free(entry);
+        free(line);
+        return NULL;
+    }
+
+    // if we have '-' at start then it's a seperator
+    if (*line == '-') {
+        if (getline(&line, &length, handle) == EOF) {
+            free(entry);
+            free(line);
+            return NULL;
+        }
+    }
+
+    // expecting a revision tag
+    if (*line != 'r') {
+        free(entry);
+        free(line);
+        return NULL;
+    }
+
+    // split revision marker "rev | author | date | changes"
+    char   *copy  = strdup(&line[1]);
+    list_t *split = module_strnsplit_impl(copy, " |", 2);
+    list_pop(split); // drop "date | changes"
+
+    entry->revision = string_create(list_shift(split));
+    entry->author   = string_create(list_shift(split));
+
+    // now parse it
+    string_t *message = string_construct();
+    while (getline(&line, &length, handle) != EOF) {
+        // ignore empty lines
+        if (*line == '\n')
+            continue;
+
+        // seperator marks end of message
+        if (*line == '-') {
+            entry->message = message;
+            list_destroy(split);
+            free(copy);
+            free(line);
+            return entry;
+        }
+
+        // strip newlines
+        char *nl = strchr(line, '\n');
+        if (nl)
+            *nl = '\0';
+
+        string_catf(message, line);
+    }
+
+    string_destroy(message);
+    list_destroy(split);
+    free(copy);
+    free(entry);
+    free(line);
+
+    return NULL;
+}
+
+static void module_svnlog_destroy(list_t *list) {
+    list_iterator_t *it;
+    for (it = list_iterator_create(list); !list_iterator_end(it);) {
+        svn_entry_t *e = list_iterator_next(it);
+        string_destroy(e->revision);
+        string_destroy(e->author);
+        string_destroy(e->message);
+        free(e);
+    }
+    list_iterator_destroy(it);
+    list_destroy(list);
+}
+
+static list_t *module_svnlog_read(const char *url, size_t depth) {
+    string_t *command = string_format("svn log -l%zu %s", depth, url);
+    list_t   *entries = list_create();
+    FILE     *fp      = popen(string_contents(command), "r");
+
+    string_destroy(command);
+    if (!fp) {
+        list_destroy(entries);
+        return NULL;
+    }
+
+    svn_entry_t *e = NULL;
+    for (;;) {
+        if (depth == 0)
+            break;
+
+        if (!(e = module_svnlog_read_entry(fp)))
+            break;
+
+        depth--;
+        list_push(entries, e);
+    }
+    pclose(fp);
+
+    if (depth != 0) {
+        module_svnlog_destroy(entries);
+        return NULL;
+    }
+
+    return entries;
+}
+
+list_t *module_svnlog(const char *url, size_t depth) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    list_t *list = module_svnlog_read(url, depth);
+    if (!list) {
+        module_mem_mutex_unlock(module);
+        return NULL;
+    }
+    module_mem_push(module, list, (void(*)(void* ))&module_svnlog_destroy);
+    module_mem_mutex_unlock(module);
+    return list;
 }

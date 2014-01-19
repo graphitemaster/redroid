@@ -10,6 +10,8 @@
 #include <signal.h>
 #include <stdio.h>
 
+#define COMMAND_TIMEOUT_SECONDS 10
+
 struct cmd_link_s {
     cmd_entry_t *data;
     cmd_link_t  *next;
@@ -197,21 +199,20 @@ static void cmd_channel_signalhandle_quit(int sig) {
 
 static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignore) {
     cmd_channel_t *channel = si->si_value.sival_ptr;
-    module_t      *instance;
 
     // a command timed out:
     pthread_mutex_lock(&channel->cmd_mutex);
-    instance = (channel->cmd_entry) ? channel->cmd_entry->instance : NULL;
-    if (!instance) {
+    if (!((channel->cmd_entry) ? channel->cmd_entry->instance : NULL)) {
         pthread_mutex_unlock(&channel->cmd_mutex);
         return;
+
     }
 
-    module_mem_mutex_lock(instance);
+    //module_mem_mutex_lock(instance);
     pthread_kill(channel->thread, SIGUSR2); // calls cmd_channel_signalhandle_quit
     pthread_join(channel->thread, NULL);
     pthread_mutex_unlock(&channel->cmd_mutex);
-    module_mem_mutex_unlock(instance);
+    //module_mem_mutex_unlock(instance);
 
     cmd_entry_t *entry = channel->cmd_entry;
     channel->cmd_entry = NULL;
@@ -252,8 +253,8 @@ static void *cmd_channel_threader(void *data) {
 
             // begin the timer
             struct itimerspec its = {
-                .it_value.tv_sec    = 3, // expires in 3 seconds
-                .it_interval.tv_sec = 3, // executes in 3 second intervals
+                .it_value.tv_sec    = COMMAND_TIMEOUT_SECONDS,
+                .it_interval.tv_sec = COMMAND_TIMEOUT_SECONDS, // executes in 3 second intervals
             };
 
             if (timer_settime(channel->timerid, 0, &its, NULL) == -1)

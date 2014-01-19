@@ -29,6 +29,8 @@ Features
          * Regular Expressions
             * Cached
             * POSIX Compatible
+        * SVN
+            * Query remote SVN logs
 
 Prerequisites
 -------------
@@ -38,6 +40,7 @@ Prerequisites
  * POSIX Threads (-lpthread)
  * POSIX Realtime Timers (-lrt)
  * POSIX Regular Expressions (regex.h)
+ * Subversion (svn command line tool)
 
 Building
 --------
@@ -70,6 +73,7 @@ Included with Redroid are the following modules currently
 | twss      | That's what she said monitor                          |
 | calc      | Infix calculator with constants and functions         |
 | youtube   | Youtube link monitor                                  |
+| svn       | Subversion commit notificator                         |
 
 You can write your own modules using the `module.h` header in `modules/`.
 Compiling your module with `make` is also possible as long as your module

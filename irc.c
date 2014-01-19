@@ -448,12 +448,24 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
                     free(copy);
                 }
 
-                // run all modules with no match rule
+                // run all modules with no match rule, unless they have an interval
+                // then ensure the interval has passed
                 list_iterator_t *it = list_iterator_create(irc->moduleman->modules);
                 while (!list_iterator_end(it)) {
                     module_t *module = list_iterator_next(it);
-                    if (!strlen(module->match))
-                        cmd_channel_push(commander, cmd_entry_create(commander, module, channel, nick, message));
+                    if (!strlen(module->match)) {
+                        cmd_entry_t *entry = cmd_entry_create(commander, module, channel, nick, message);
+                        if (module->interval == 0) {
+                            cmd_channel_push(commander, entry);
+                            continue;
+                        }
+                        if (difftime(time(0), module->lastinterval) >= module->interval) {
+                            fprintf(stderr, "    module   => %s interval met\n", module->name);
+                            module->lastinterval = time(0);
+                            cmd_channel_push(commander, entry);
+                            continue;
+                        }
+                    }
                 }
                 list_iterator_destroy(it);
             }

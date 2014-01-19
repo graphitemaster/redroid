@@ -72,6 +72,15 @@ string_t *string_create(const char *contents) {
     );
 }
 
+string_t *string_format(const char *fmt, ...) {
+    string_t *string = string_construct();
+    va_list va;
+    va_start(va, fmt);
+    string_vcatf(string, fmt, va);
+    va_end(va);
+    return string;
+}
+
 void string_clear(string_t *string) {
     if (string->buffer)
         free(string->buffer);

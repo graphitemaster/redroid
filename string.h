@@ -10,6 +10,7 @@ void string_vcatf(string_t *string, const char *fmt, va_list varg);
 void string_catf(string_t *string, const char *fmt, ...);
 string_t *string_construct(void);
 string_t *string_create(const char *contents);
+string_t *string_format(const char *fmt, ...);
 void string_clear(string_t *string);
 void string_destroy(string_t *string);
 size_t string_length(string_t *string);
