@@ -11,6 +11,7 @@ void list_iterator_destroy(list_iterator_t *iterator);
 void list_iterator_reset(list_iterator_t *iterator);
 bool list_iterator_end(list_iterator_t *iterator);
 void *list_iterator_next(list_iterator_t *iterator);
+void *list_iterator_prev(list_iterator_t *iterator);
 
 list_t *list_create(void);
 void list_destroy(list_t *list);

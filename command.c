@@ -246,7 +246,6 @@ static void *cmd_channel_threader(void *data) {
             continue;
 
         if (module && module->enter) {
-            //channel->cmd_time  = time(NULL);
             channel->cmd_entry = entry;
             *module_get()      = module; // save current module instance
             module->memory     = module_mem_create(module);

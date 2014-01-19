@@ -417,6 +417,21 @@ bool list_iterator_end(list_iterator_t *iterator);
 void *list_iterator_next(list_iterator_t *iterator);
 
 /*
+ * Function: list_iterator_prev
+ *  Get the element at the iterator position
+ *
+ * Parameters:
+ *  iterator    - The iterator
+ *
+ * Returns:
+ *  The element at that position
+ *
+ * Remarks:
+ *  This decreases the iterators position by one.
+ */
+void *list_iterator_prev(list_iterator_t *iterator);
+
+/*
  * Function: list_pop
  *  Pop the element off the head of the list
  *
