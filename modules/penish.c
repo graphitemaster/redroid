@@ -20,12 +20,10 @@ void module_enter(irc_t *irc, const char *channel, const char *who, const char *
     if (!string)
         string = who;
 
-    string_t *str = string_construct();
-    string_catf(str, "%s: ((", who);
-
-    size_t index  = 0;
-    size_t length = strlen(string);
-    int    value  = 0;
+    string_t *str    = string_format("%s: ((", who);
+    size_t    index  = 0;
+    size_t    length = strlen(string);
+    int       value  = 0;
 
     while (index < length) {
         char c = tolower(string[index]);
