@@ -59,12 +59,12 @@ static void fnord_from(string_t *out, const char *word_type) {
 }
 
 static void fnord_chance(string_t *out, int chance, const char *word_type) {
-    if (rand()%100 < chance)
+    if (urand()%100 < chance)
         fnord_from(out, word_type);
 }
 
 static void fnord_a_chance(string_t *out, int chance, const char *maybe, const char *from) {
-    if (rand()%100 < chance) {
+    if (urand()%100 < chance) {
         fnord_a(out, maybe);
         fnord_from(out, from);
     } else {
@@ -73,7 +73,7 @@ static void fnord_a_chance(string_t *out, int chance, const char *maybe, const c
 }
 
 static void fnord_chance_prefix(string_t *out, int chance, const char *text, const char *word_type) {
-    if (rand()%100 < chance)
+    if (urand()%100 < chance)
         return;
 
     string_catf(out, "%s ", text);
@@ -84,7 +84,7 @@ static string_t *generate() {
     string_t *out = string_construct();
 
     fnord_chance(out, 50, "intros");
-    switch (rand()%13) {
+    switch (urand()%13) {
         default:
         case 0:
             string_catf(out, "%s ", "the");
@@ -209,7 +209,7 @@ static string_t *generate() {
 static string_t *generate_about(const char *user) {
     string_t *out = string_construct();
 
-    switch (rand()%3) {
+    switch (urand()%3) {
         default:
         case 0:
             fnord_chance(out, 50, "intros");

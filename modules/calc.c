@@ -34,7 +34,23 @@ static const char *calc_jokes[] = {
     "An engineer is convinced that his equations are an approximation of reality. A physicist thinks that reality is an approximation of his equations. A mathematician does not worry about that.",
     "My geometry teacher was sometimes acute, and sometimes obtuse, but always, he was right.",
     "It was mentioned on CNN that the new prime number discovered recently is four times bigger then the previous record.",
-    "What is the shortest mathematicians joke? Let epsilon be smaller than zero."
+    "What is the shortest mathematicians joke? Let epsilon be smaller than zero.",
+    "What is a rigorous definition of rigor?",
+    "Classification of mathematical problems as linear and nonlinear is like classification of the Universe as bananas and non-bananas.",
+    "A tragedy of mathematics is a beautiful conjecture ruined by an ugly fact.",
+    "Algebraic symbols are used when you do not know what you are talking about.",
+    "A mathematician is asked to design a table. He first designs a table with no legs. Then he designs a table with infinitely many legs. He spends the rest of his life generalizing the results for the table with N legs (where N is not necessarily a natural number).",
+    "Golden rule for math teachers: You must tell the truth, and nothing but the truth, but not the whole truth.",
+    "The problems for the exam will be similar to the discussed in the class. Of course, the numbers will be different. But not all of them. Pi will still be 3.14159...",
+    "Relations between pure and applied mathematicians are based on trust and understanding. Namely, pure mathematicians do not trust applied mathematicians, and applied mathematicians do not understand pure mathematicians.",
+    "These days, even the most pure and abstract mathematics is in danger to be applied.",
+    "The reason that every major university maintains a department of mathematics is that it is cheaper to do this than to institutionalize all those people.",
+    "The number you have dialed is imaginary. Please rotate your phone 90 degrees and try again.",
+    "In modern mathematics, algebra has become so important that numbers will soon only have symbolic meaning.",
+    "A circle is a round straight line with a hole in the middle.",
+    "In the topologic hell the beer is packed in Klein's bottles.",
+    "A statistician can have his head in an oven and his feet in ice, and he will say that on the average he feels fine.",
+    "Math and Alcohol don't mix, so... PLEASE DON'T DRINK AND DERIVE"
 };
 
 typedef struct {
@@ -431,7 +447,7 @@ static bool calc(calc_expr_t **expr, const char *s, calc_parser_t p) {
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     if (!strcmp(message, "joke")) {
-        irc_write(irc, channel, "%s: %s", user, calc_jokes[rand() % (sizeof(calc_jokes) / sizeof(*calc_jokes))]);
+        irc_write(irc, channel, "%s: %s", user, calc_jokes[urand() % (sizeof(calc_jokes) / sizeof(*calc_jokes))]);
         return;
     }
 

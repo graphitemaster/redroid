@@ -233,6 +233,7 @@ module_t *module_open(const char *file, module_manager_t *manager, string_t **er
         return NULL;
     }
 
+    module->random = mt_create();
     list_push(manager->modules, module);
     return module;
 }
@@ -251,6 +252,10 @@ bool module_reload(module_t *module, module_manager_t *manager) {
     if (!module_load(module))
         goto module_reload_error;
 
+    // reload the prng too
+    mt_destroy(module->random);
+    module->random = mt_create();
+
     return true;
 
 module_reload_error:
@@ -267,7 +272,7 @@ void module_close(module_t *module, module_manager_t *manager) {
 
     // save old address for unloaded modules
     list_push(manager->unloaded, module);
-
+    mt_destroy(module->random);
     free(module);
 }
 
@@ -747,4 +752,12 @@ list_t *module_svnlog(const char *url, size_t depth) {
     module_mem_push(module, list, (void(*)(void* ))&module_svnlog_destroy);
     module_mem_mutex_unlock(module);
     return list;
+}
+
+uint32_t module_urand(void) {
+    return mt_urand((*module_get())->random);
+}
+
+double module_drand(void) {
+    return mt_drand((*module_get())->random);
 }

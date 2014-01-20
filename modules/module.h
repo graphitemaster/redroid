@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 struct regexpr_s;
 struct addrinfo;
@@ -378,6 +379,14 @@ static inline regexpr_t *regexpr_create(const char *string, bool icase) {
  */
 static inline bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
     return MODULE_GC_CALL(regexpr_execute)(expr, string, nmatch, array);
+}
+
+static inline uint32_t urand(void) {
+    return MODULE_GC_CALL(urand)();
+}
+
+static inline double drand(void) {
+    return MODULE_GC_CALL(drand)();
 }
 
 /*

@@ -5,6 +5,7 @@
 #include "database.h"
 #include "irc.h"
 #include "string.h"
+#include "mt.h"
 
 typedef struct module_s          module_t;
 typedef struct module_mem_s      module_mem_t;
@@ -27,6 +28,7 @@ struct module_s {
     void        (*close)(irc_t *irc);
     irc_t        *instance;
     module_mem_t *memory;
+    mt_t         *random; // random device for module
 };
 
 typedef struct {

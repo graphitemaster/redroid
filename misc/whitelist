@@ -101,7 +101,6 @@ strtold
 strtoll
 strtoul
 strtoull
-rand
 strcpy
 strncpy
 strcat
