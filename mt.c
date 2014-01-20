@@ -44,7 +44,7 @@ static unsigned long mt_seed(mt_t *mt) {
 
 static mt_t *mt_init(mt_t *mt, unsigned long seed) {
     *mt->state = (uint32_t)(seed & FMASK);
-    for (size_t i = 0; i < MT_N; i++) {
+    for (size_t i = 1; i < MT_N; i++) {
         mt->state[i] = (1812433253U * (mt->state[i - 1] ^ (mt->state[i - 1] >> 30)) + i);
         mt->state[i] &= FMASK;
     }

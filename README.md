@@ -26,6 +26,8 @@ Features
          * Database
             * Cached
          * Sockets
+         * Random numbers
+            * Mersenne Twister (MT1997)
          * Regular Expressions
             * Cached
             * POSIX Compatible
@@ -74,6 +76,7 @@ Included with Redroid are the following modules currently
 | calc      | Infix calculator with constants and functions         |
 | youtube   | Youtube link monitor                                  |
 | svn       | Subversion commit notificator                         |
+| kitten    | Play with the lives of kittens in the name of n00bs   |
 
 You can write your own modules using the `module.h` header in `modules/`.
 Compiling your module with `make` is also possible as long as your module

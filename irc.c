@@ -463,7 +463,6 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
                             fprintf(stderr, "    module   => %s interval met\n", module->name);
                             module->lastinterval = time(0);
                             cmd_channel_push(commander, entry);
-                            continue;
                         }
                     }
                 }
@@ -502,30 +501,11 @@ int irc_process(irc_t *irc, void *data) {
                 irc_process_line(irc, commander);
                 break;
 
-            // ignore stuff
-            case '\x13':    // strike-through
-            case '\x15':    // reset
-            case '\x1F':    // underline
-            case '\x16':    // reverse
-            case '\x00':    // white
-            case '\x01':    // black
-            case '\x02':    // dark blue  / (control: bold)
-            case '\x03':    // dark green / (control: color)
-            case '\x04':    // red
-            case '\x05':    // dark red
-            case '\x06':    // dark violet
-            case '\x07':    // orange
-            case '\x08':    // yellow
-            case '\x09':    // light green  / (control: italic)
-            //case '\x0A':    // cornflower blue
-            case '\x0B':    // light blue
-            case '\x0C':    // blue
-            //case '\x0D':    // violet
-            case '\x0E':    // dark grey
-            case '\x0F':    // light grey
-                break;
-
             default:
+                for (const char *test = "\x13\x15\x1F\x16\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0B\x0C\x0E\x0F"; *test; test++)
+                    if (temp[i] == *test)
+                        return 0;
+
                 irc->buffer[irc->bufferpos] = temp[i];
                 if (irc->bufferpos >= sizeof(irc->buffer) - 1)
                     ;

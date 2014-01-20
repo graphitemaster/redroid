@@ -245,7 +245,7 @@ static void *cmd_channel_threader(void *data) {
         if (module_manager_module_unloaded(module->instance->moduleman, module))
             continue;
 
-        if (module && module->enter) {
+        if (module->enter) {
             channel->cmd_entry = entry;
             *module_get()      = module; // save current module instance
             module->memory     = module_mem_create(module);
