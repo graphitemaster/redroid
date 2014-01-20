@@ -110,26 +110,26 @@ void list_push(list_t *list, void *element) {
     list->length++;
 }
 
-void *list_pop(list_t *list) {
-    if (!list->head)
-        return NULL;
-
-    void *element = list->tail->element;
-    list->tail = list->tail->prev;
-    list_node_scrub((list->tail) ? &list->tail->next : &list->head);
+static void *list_extract_impl(list_t *list, size_t a, size_t b, size_t c, size_t d) {
+    if (!list->head) return NULL;
+    list_node_t **node = &*((list_node_t **)((unsigned char *)(list)) + a);
+    void *element = *((void **)((unsigned char *)*node) + offsetof(list_node_t, element));
+    *node = *((list_node_t **)((unsigned char *)*node) + b);
+    list_node_scrub((*node) ? &*((list_node_t **)((unsigned char *)*node) + c)
+                            : &*((list_node_t **)((unsigned char *)list) + d));
     list->length--;
     return element;
 }
 
-void *list_shift(list_t *list) {
-    if (!list->head)
-        return NULL;
+#define list_extract(LIST, A, B, C, D)                                            \
+    list_extract_impl((LIST), offsetof(list_t,      A), offsetof(list_t,      B), \
+                              offsetof(list_node_t, C), offsetof(list_node_t, D))
 
-    void *element = list->head->element;
-    list->head = list->head->next;
-    list_node_scrub((list->head) ? &list->head->prev : &list->tail);
-    list->length--;
-    return element;
+void *list_pop(list_t *list) {
+    return list_extract(list, tail, head, next, prev);
+}
+void *list_shift(list_t *list) {
+    return list_extract(list, head, tail, prev, next);
 }
 
 bool list_erase(list_t *list, void *element) {
@@ -137,14 +137,10 @@ bool list_erase(list_t *list, void *element) {
         if (curr->element != element)
             continue;
 
-        if (curr == list->head)
-            list->head = list->head->next;
-        if (curr == list->tail)
-            list->tail = list->tail->prev;
-        if (curr->next)
-            curr->next->prev = curr->prev;
-        if (curr->prev)
-            curr->prev->next = curr->next;
+        if (curr == list->head) list->head       = list->head->next;
+        if (curr == list->tail) list->tail       = list->tail->prev;
+        if (curr->next)         curr->next->prev = curr->prev;
+        if (curr->prev)         curr->prev->next = curr->next;
 
         list_node_destroy(curr);
         list->length--;
