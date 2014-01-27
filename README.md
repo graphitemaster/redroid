@@ -32,8 +32,8 @@ Features
          * Regular Expressions
             * Cached
             * POSIX Compatible
-        * SVN
-            * Query remote SVN logs
+     * SVN
+         * Query remote SVN logs
 
 Prerequisites
 -------------
