@@ -4,6 +4,7 @@
     nick     = nickname       ; Nickname for this instance
     host     = irc.server.net ; IRC host address
     port     = 6667           ; IRC host port
+    ssl      = False          ; Use SSL?
     auth     = somepassword   ; ChanServ password
     pattern  = ~              ; The pattern the bot uses to interpret a command
     channels = #channel       ; Comma seperated channels
