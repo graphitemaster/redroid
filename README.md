@@ -48,18 +48,18 @@ Prerequisites
 
 Building
 --------
-Redroid can be built with one simple invocation of GNU make
+Redroid can be built with one simple invocation of GNU make:
 
     $ make
 
 You can also disable features by invoking configure, for instance to
-build without SSL support try
+build without SSL support try:
 
     $ ./configure --disable-ssl
     $ make
 
 A list of all the options for the configure script can be obtained
-like so.
+like so:
 
     $ ./configure --help
 
