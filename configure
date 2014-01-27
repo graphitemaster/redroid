@@ -1,0 +1,237 @@
+#!/bin/sh
+
+usage () {
+cat <<EOF
+Usage: $0 [OPTION]... [VAR=VALUE]
+
+To assign enviroment variables (e.g., CC, CFLAGS...), specify them as
+VAR=VALUE. See below for descriptions of some of the useful variables.
+
+Optional features:
+    --disable-ssl           inhibit building Redroid with SSL support [disabled]
+    --enable-ssl            build with SSL support [default]
+    --enable-debug          build with debugging information [disabled]
+    --disable-debug         build without debugging information [enabled]
+
+Some influential enviroment variables:
+    CC
+    CFLAGS
+    LDFLAGS
+    MODULE_CFLAGS
+    MODULE_LDFLAGS
+
+Use these variables to override the choices made by configure.
+
+EOF
+exit 0
+}
+
+# Try compiler flag
+tryflag () {
+printf "checking whether compiler accepts %s... " "$2"
+echo "typedef int x;" > "$tmpc"
+if $CC "$2" -c -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
+printf "yes\n"
+eval "$1=\"\${$1} \$2\""
+eval "$1=\${$1# }"
+return 0
+else
+printf "no\n"
+return 1
+fi
+}
+
+# Check if a command exists
+cmdexists () {
+type "$1" >/dev/null 2>&1 ;
+}
+
+# Try C compiler
+trycc () {
+test -z "$CC" && cmdexists "$1" && CC=$1 ;
+}
+
+# Matching made easier
+fnmatch () { eval "case \"\$2\" in $1) return 0 ;; *) return 1 ;; esac" ; }
+
+# Try library
+trylib () {
+printf "checking whether library exists and works (%s)... " "$1"
+printf "#include <%s>\n" "$2" > "$tmpc"
+if $CC -c -o /dev/null "$tmpc" -l "$1" >/dev/null 2>&1 ; then
+printf "yes\n"
+eval "$3=\"\${$3} -l\$1\""
+eval "$3=\${$3# }"
+return 0
+else
+printf "no\n"
+return 1
+fi
+}
+
+# Try linker flag
+tryldflag() {
+printf "checking whether linker accepts %s... " "$2"
+echo "typedef int x;" > "$tmpc"
+if $CC -nostdlib -shared "$2" -o /dev/null "$tmpc" >/dev/null 2>&1 ; then
+printf "yes\n"
+eval "$1=\"\${$1} \$2\""
+eval "$1=\${$1# }"
+return 0
+else
+printf "no\n"
+return 1
+fi
+}
+
+# Now begins the script
+CFLAGS=
+LDFLAGS=
+MODULE_LDFLAGS=
+MODULE_CFLAGS=
+ssl=yes
+debug=no
+ggdb3=no
+
+for arg ; do
+case "$arg" in
+--help) usage ;;
+--disable-ssl) ssl=no ;;
+--enable-ssl) ssl=yes ;;
+--enable-debug|--enable-debug=yes) debug=yes ;;
+--disable-debug|--enable-debug=no) debug=no ;;
+-* ) echo "$0: unknown option $arg" ;;
+CC=*) CC-${arg#*=} ;;
+CFLAGS=*) CFLAGS=${arg#*=} ;;
+MODULE_CFLAGS=*) MODULE_CFLAGS=${arg#=} ;;
+LDFLAGS=*) LDFLAGS=${arg#=} ;;
+MODULE_LDFLAGS=*) MODULE_LDFLAGS=${arg#=} ;;
+*=*) ;;
+esac
+done
+
+# Get a temporary file name
+i=0
+set -C
+while : ; do i=$(($i+1))
+tmpc="./conf$$-$PPID-$i.c"
+2>|/dev/null > "$tmpc" && break
+test "$i" -gt 50 && fail "$0: cannot create temporary file $tempc"
+done
+set +C
+trap 'rm "$tmpc"' EXIT INT QUIT TERM HUP
+
+# Find a C compiler
+printf "checking for C compiler... "
+trycc gcc
+trycc clang
+trycc cc
+trycc tcc
+trycc lice
+printf "%s\n" "$CC"
+test -n "$CC" || { echo "$0: cannot find a C compiler" ; exit 1 ; }
+
+
+# Need C99 support and _GNU_SOURCE.
+tryflag CFLAGS -std=gnu99 || {
+printf "error: -std=gnu99 required to compile redroid"
+exit
+}
+# For modules as well
+MODULE_CFLAGS="${MODULE_CFLAGS} -std=gnu99"
+
+tryflag CFLAGS -pipe                 # Always try pipe
+tryflag CFLAGS -ffast-math           # Not required but added anyways
+
+DEBUG_FLAG=
+tryflag DEBUG_FLAG -ggdb3
+
+# If debug mode is enabled we use the highest level of debug possible
+# which is -ggdb3; unless we can't then we'll stick to -g
+if test "$debug" = yes ; then
+if test "${DEBUG_FLAG}" = -ggdb3; then
+CFLAGS="${CFLAGS} -ggdb3"
+MODULE_CFLAGS="${MODULE_CFLAGS} -ggdb3"
+else
+CFLAGS="${CFLAGS} -g"
+MODULE_CFLAGS="${MODULE_CFLAGS} -g"
+fi
+else
+tryflag CFLAGS -fomit-frame-pointer  # Not required
+fi
+
+# only need these if building with SSL support
+if test "$ssl" = yes ; then
+trylib ssl "openssl/ssl.h" LDFLAGS
+trylib crypto "openssl/crypto.h" LDFLAGS
+CFLAGS="${CFLAGS} -DHAS_SSL"
+fi
+
+trylib sqlite3 "sqlite3.h" LDFLAGS
+trylib pthread "pthread.h" LDFLAGS
+
+tryldflag LDFLAGS -ldl # Some places don't need -ldl
+
+# Try for -lrt since we depend on it. Older UNIXs won't
+# have this (Solaris and NetBSD for instance)
+tryldflag LDFLAGS -lrt || {
+printf "error: -lrt required (POSIX Realtime timers)\n"
+exit
+}
+
+# We can't do anything if LD cannot do -Wl,--export-dynamic since
+# modules depend on that, e.g old Solaris systems
+tryldflag LDFLAGS -Wl,--export-dynamic || {
+printf "error: ld does'nt support --export-dynamic (required for modules)\n"
+exit
+}
+
+tryldflag MODULE_LDFLAGS -rdynamic || {
+printf "error: ld doesn't support -rdyanmic (required for modules)\n"
+exit
+}
+
+tryldflag MODULE_LDFLAGS -shared || {
+printf "error: ld doesn't support -shared (required for modules)\n"
+exit
+}
+
+# FreeBSD and some older unixes don't need -lm
+tryldflag MODULE_LDFLAGS -lm
+
+# This is more about consistency
+tryflag MODULE_CFLAGS -fPIC || {
+printf "error compiler doesn't support position independent code (required for modules)\n"
+exit
+}
+
+# Quote utility
+quote () {
+tr '\n' ' ' <<EOF | grep '^[-[:alnum:]_=,./:]* $' >/dev/null 2>&1 && { echo "$1" ; return 0 ; }
+$1
+EOF
+printf %s\\n "$1" | sed -e "s/'/'\\\\''/g" -e "1s/^/'/" -e "\$s/\$/'/" -e "s#^'\([-[:alnum:]_,./:]*\)=\(.*\)\$#\1='\2#"
+}
+
+printf "creating config.mak... "
+
+cmdline=$(quote "$0")
+for i ; do cmdline="$cmdline $(quote "$i")" ; done
+
+exec 3>&1 1>config.mak
+
+cat << EOF
+# This version of config.mak was generated by:
+# $cmdline
+# Any changes made here will be lost if configure is run again
+
+CC= $CC
+CFLAGS= $CFLAGS
+LDFLAGS= $LDFLAGS
+MODULE_LDFLAGS= $MODULE_LDFLAGS
+MODULE_CFLAGS= -Imodules/ $MODULE_CFLAGS
+
+EOF
+exec 1>&3 3>&-
+
+printf "done\n"

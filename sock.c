@@ -134,7 +134,11 @@ sock_t *sock_create(const char *host, const char *port, bool ssl) {
     int fd = sock_connection(host, port);
     if (fd == -1)
         return NULL;
-    return (ssl) ? ssl_create(fd) : sock_standard_create(fd);
+#ifdef HAS_SSL
+    if (ssl)
+        return ssl_create(fd);
+#endif
+    return sock_standard_create(fd);
 }
 
 int sock_sendf(sock_t *socket, const char *fmt, ...) {

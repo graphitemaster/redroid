@@ -6,6 +6,7 @@
 
 #include "sock.h"
 
+#ifdef HAS_SSL
 static struct {
     bool   init;
     size_t refcount;
@@ -142,3 +143,5 @@ cleanup:
     ssl_destroy(ssl);
     return NULL;
 }
+
+#endif
