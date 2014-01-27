@@ -352,8 +352,12 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
         irc_pong(irc, line + 6);
 
     // try identify (for nickserv) this is a hack
-    if (strstr(line, ":NickServ!NickServ@services. NOTICE redorito :This nickname is registered.") == &line[0])
-        irc_write(irc, "NickServ", "identify %s", irc->auth);
+    if (strstr(line, ":NickServ!NickServ@services. NOTICE") == &line[0] &&
+        strstr(line, ":This nickname is registered.")) {
+            string_t *fmt = string_format("identify %s", irc->auth);
+            irc_write_raw(irc, "NickServ", string_contents(fmt));
+            string_destroy(fmt);
+    }
 
     char *nick    = NULL;
     char *message = NULL;
