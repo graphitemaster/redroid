@@ -1,3 +1,5 @@
+#ifdef HAS_SSL
+
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/engine.h>
@@ -6,7 +8,6 @@
 
 #include "sock.h"
 
-#ifdef HAS_SSL
 static struct {
     bool   init;
     size_t refcount;
