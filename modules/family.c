@@ -5,27 +5,6 @@
 
 MODULE_DEFAULT(family);
 
-static bool family_split(const char *string, string_t **nick, string_t **message) {
-    if (!string)
-        return false;
-
-    char *space = strchr(string, ' ');
-    if (!space)
-        return false;
-
-    *nick = string_construct();
-    for (const char *from = string; from != space; from++)
-        string_catf(*nick, "%c", *from);
-
-    space++;
-    while (isspace(*space))
-        space++;
-
-    *message = string_create(space);
-
-    return true;
-}
-
 static int family_length(void) {
     database_statement_t *statement = database_statement_create("SELECT COUNT(*) FROM FAMILY");
     if (!statement)
@@ -40,13 +19,11 @@ static int family_length(void) {
     return count;
 }
 
-// family -help
 static void family_help(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel, "%s: family [<target> [nick]|<-stats|-add|-replace|-concat|-forget> <nick> <status>]", user);
     irc_write(irc, channel, "%s: used -> (target) is the <status> in our screwed up family", user);
 }
 
-// family <nick>
 static const char *family_get(const char *nick) {
     database_statement_t *statement = database_statement_create("SELECT CONTENT FROM FAMILY WHERE NAME=?");
 
@@ -102,23 +79,18 @@ static void family_stats(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel, "%s: family stats -> %d members -> requested %d times", user, count, request);
 }
 
-static void family_add_replace(irc_t *irc, const char *channel, const char *user, const char *message, bool replace) {
-    string_t *member = NULL;
-    string_t *status = NULL;
+static void family_add_replace(irc_t *irc, const char *channel, const char *user, list_t *list, bool replace) {
+    const char *member = list_shift(list);
+    const char *status = list_shift(list);
 
-    if (!family_split(message, &member, &status))
+    if (!member || !status)
         return family_help(irc, channel, user);
 
-    const char *exists = family_get(string_contents(member));
+    const char *exists = family_get(member);
     if (exists && !replace) {
-        irc_write(
-            irc,
-            channel,
+        irc_write(irc, channel,
             "%s: Sorry, but \"%s\" is already: \"%s\" - please use -replace or -concat to modify it",
-            user,
-            string_contents(member),
-            exists
-        );
+            user, member, exists);
         return;
     }
 
@@ -126,60 +98,50 @@ static void family_add_replace(irc_t *irc, const char *channel, const char *user
                                                 : database_statement_create("INSERT INTO FAMILY (NAME, CONTENT) VALUES ( ?, ? )");
     if (!statement)
         return;
-
-    if (replace) {
-        if (!database_statement_bind(statement, "SS", status, member))
-            return;
-    } else {
-        if (!database_statement_bind(statement, "SS", member, status))
-            return;
-    }
-
+    if (replace && !database_statement_bind(statement, "ss", status, member))
+        return;
+    if (!database_statement_bind(statement, "ss", member, status))
+        return;
     if (!database_statement_complete(statement))
         return;
 
     irc_write(irc, channel, "%s: Ok, %s family member: %s is the \"%s\"",
-        user,
-        (replace) ? "replaced" : "added",
-        string_contents(member),
-        string_contents(status)
-    );
+        user, (replace) ? "replaced" : "added", member, status);
 }
 
-static void family_concat(irc_t *irc, const char *channel, const char *user, const char *message) {
-    string_t *member = NULL;
-    string_t *status = NULL;
+static void family_concat(irc_t *irc, const char *channel, const char *user, list_t *list) {
+    const char *member = list_shift(list);
+    const char *status = list_shift(list);
 
-    if (!family_split(message, &member, &status))
+    if (!member || !status)
         return family_help(irc, channel, user);
 
-    const char *get = family_get(string_contents(member));
+    const char *get = family_get(member);
     if (!get) {
-        irc_write(irc, channel, "Sorry, couldn't find family member \"%s\"", string_contents(member));
+        irc_write(irc, channel, "Sorry, couldn't find family member \"%s\"", member);
         return;
     }
 
     database_statement_t *statement = database_statement_create("UPDATE FAMILY SET CONTENT=? WHERE NAME=?");
-    string_t             *content   = string_create(get);
+    string_t             *content   = string_construct();
 
-    string_catf(content, " %s", string_contents(status));
-
-    if (!database_statement_bind(statement, "SS", member, content))
+    string_catf(content, "%s %s", get, status);
+    if (!database_statement_bind(statement, "Ss", content, member))
         return;
-
     if (!database_statement_complete(statement))
         return;
 
     irc_write(irc, channel, "%s: Ok, family member: %s is the \"%s\"",
         user,
-        string_contents(member),
+        member,
         string_contents(content)
     );
 
 }
 
-static void family_forget(irc_t *irc, const char *channel, const char *user, const char *message) {
-    char *strip = strchr(message, ' ');
+static void family_forget(irc_t *irc, const char *channel, const char *user, list_t *list) {
+    char *message = list_shift(list);
+    char *strip   = strchr(message, ' ');
     if (strip)
         *strip = '\0';
 
@@ -191,10 +153,8 @@ static void family_forget(irc_t *irc, const char *channel, const char *user, con
     database_statement_t *statement = database_statement_create("DELETE FROM FAMILY WHERE NAME=?");
     if (!statement)
         return;
-
     if (!database_statement_bind(statement, "s", message))
         return;
-
     if (!database_statement_complete(statement))
         return;
 
@@ -211,14 +171,15 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!strcmp(method, "-help"))
         return family_help(irc, channel, user);
     if (!strcmp(method, "-add"))
-        return family_add_replace(irc, channel, user, list_shift(list), false);
+        return family_add_replace(irc, channel, user, list, false);
     if (!strcmp(method, "-replace"))
-        return family_add_replace(irc, channel, user, list_shift(list), true);
+        return family_add_replace(irc, channel, user, list, true);
     if (!strcmp(method, "-concat"))
-        return family_concat(irc, channel, user, list_shift(list));
+        return family_concat(irc, channel, user, list);
     if (!strcmp(method, "-forget"))
-        return family_forget(irc, channel, user, list_shift(list));
+        return family_forget(irc, channel, user, list);
     if (!strcmp(method, "-stats"))
         return family_stats(irc, channel, user);
-    family_entry(irc, channel, user, message);
+
+    family_entry(irc, channel, user, method);
 }
