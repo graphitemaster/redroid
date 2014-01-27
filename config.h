@@ -10,6 +10,7 @@ typedef struct {
     char   *port;       // server port
     char   *auth;       // auth password (NickServ)
     char   *database;   // database file for IRC instance
+    bool    ssl;        // SSL network
     list_t *modules;    // list of modules
     list_t *channels;   // list of channels
 } config_t;

@@ -1,11 +1,12 @@
 #include "sock.h"
+#include "ssl.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <errno.h>
-#include <stdbool.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -16,7 +17,11 @@
 #include <netdb.h>
 #include <fcntl.h>
 
-int sock_get(const char *host, const char *port) {
+void sock_nonblock(int fd) {
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+}
+
+static int sock_connection(const char *host, const char *port) {
     int status;
     int sock;
 
@@ -67,13 +72,6 @@ int sock_get(const char *host, const char *port) {
         goto sock_get_error;
 
     freeaddrinfo(result);
-    //
-    // Make the socket non-blocking:
-    //  On shutdown we could block in a sock_recv(). Waiting for
-    //  all servers to send their final message (typically a PING)
-    //  could take too long.
-    //
-    fcntl(sock, F_SETFL, fcntl(sock, F_GETFL, 0) | O_NONBLOCK);
     return sock;
 
 sock_get_error:
@@ -81,21 +79,65 @@ sock_get_error:
     return -1;
 }
 
-int sock_send(int sock, const char *data, size_t size) {
+// standard non SSL sockets
+typedef struct {
+    int fd;
+} sock_ctx_t;
+
+static int sock_standard_recv(sock_ctx_t *ctx, char *buffer, size_t size) {
+    int ret;
+    if ((ret = recv(ctx->fd, buffer, size, 0)) <= 0)
+        return -1;
+    return ret;
+}
+
+static int sock_standard_send(sock_ctx_t *ctx, const char *data, size_t size) {
     size_t written = 0;
     int    read;
 
     while (written < size) {
-        if ((read = send(sock, data + written, size - written, 0)) <= 0)
+        if ((read = send(ctx->fd, data + written, size - written, 0)) <= 0)
             return -1;
-
         written += read;
     }
 
     return (int)written;
 }
 
-int sock_sendf(int sock, const char *fmt, ...) {
+static bool sock_standard_destroy(sock_ctx_t *ctx) {
+    bool succeed = (close(ctx->fd) == 0);
+    free(ctx);
+    return succeed;
+}
+
+static int sock_standard_getfd(sock_ctx_t *ctx) {
+    return ctx->fd;
+}
+
+static sock_t *sock_standard_create(int fd) {
+    sock_t     *socket = malloc(sizeof(*socket));
+    sock_ctx_t *data   = malloc(sizeof(*data));
+
+    data->fd        = fd;
+    socket->data    = data;
+    socket->getfd   = (sock_getfd_func)&sock_standard_getfd;
+    socket->send    = (sock_send_func)&sock_standard_send;
+    socket->recv    = (sock_recv_func)&sock_standard_recv;
+    socket->destroy = (sock_destroy_func)&sock_standard_destroy;
+
+    sock_nonblock(fd);
+    return socket;
+}
+
+// exposed interface
+sock_t *sock_create(const char *host, const char *port, bool ssl) {
+    int fd = sock_connection(host, port);
+    if (fd == -1)
+        return NULL;
+    return (ssl) ? ssl_create(fd) : sock_standard_create(fd);
+}
+
+int sock_sendf(sock_t *socket, const char *fmt, ...) {
     char    buffer[512];
     int     length;
     va_list args;
@@ -110,19 +152,31 @@ int sock_sendf(int sock, const char *fmt, ...) {
     if (length > sizeof(buffer))
         raise(SIGUSR1);
 
-    if (sock_send(sock, buffer, length) <= 0)
+    if (socket->send(socket->data, buffer, length) <= 0)
         return -1;
 
     return length;
 }
 
-int sock_recv(int sock, char *buffer, size_t size) {
-    int ret;
-    if ((ret = recv(sock, buffer, size, 0)) <= 0)
-        return -1;
-    return ret;
+int sock_recv(sock_t *socket, char *buffer, size_t buffersize) {
+    return socket->recv(socket->data, buffer, buffersize);
 }
 
-int sock_close(int sock) {
-    return close(sock);
+int sock_send(sock_t *socket, const char *message, size_t size) {
+    return socket->send(socket->data, message, size);
+}
+
+int sock_getfd(sock_t *socket) {
+    if (!socket)
+        return -1;
+    return socket->getfd(socket->data);
+}
+
+bool sock_destroy(sock_t *socket) {
+    if (!socket)
+        return false;
+
+    bool succeed = socket->destroy(socket->data);
+    free(socket);
+    return succeed;
 }

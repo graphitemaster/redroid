@@ -1,6 +1,6 @@
 CC      ?= clang
 CFLAGS   = -std=gnu99 -Wall -ggdb3
-LDFLAGS  = -ldl -lrt -lpthread -lsqlite3 -Wl,--export-dynamic
+LDFLAGS  = -ldl -lrt -lpthread -lsqlite3 -lssl -lcrypto -Wl,--export-dynamic
 SOURCES  = $(shell echo *.c)
 OBJECTS  = $(SOURCES:.c=.o)
 REDROID  = redroid

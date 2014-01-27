@@ -166,6 +166,7 @@ irc_t *irc_create(config_t *entry) {
     printf("    database => %s\n", entry->database);
     printf("    host     => %s\n", entry->host);
     printf("    port     => %s\n", entry->port);
+    printf("    ssl      => %s\n", entry->ssl ? "Yes" : "No");
 
     return irc;
 
@@ -255,7 +256,8 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
 }
 
 void irc_destroy(irc_t *irc) {
-    irc_quit_raw(irc, NULL, "Shutting down");
+    if (irc->sock)
+        irc_quit_raw(irc, NULL, "Shutting down");
 
     irc_queue_destroy(irc);
 
@@ -272,8 +274,10 @@ void irc_destroy(irc_t *irc) {
     list_iterator_destroy(it);
     list_destroy(irc->channels);
 
-    // close the socket
-    sock_close(irc->sock);
+    sock_destroy(irc->sock);
+
+    if (irc->auth)
+        free(irc->auth);
 
     free(irc->nick);
     free(irc->name);
@@ -281,10 +285,10 @@ void irc_destroy(irc_t *irc) {
     free(irc);
 }
 
-int irc_connect(irc_t *irc, const char *host, const char *port) {
-    if ((irc->sock = sock_get(host, port)) < 0)
-        return -1;
-    return 0;
+bool irc_connect(irc_t *irc, const char *host, const char *port, bool ssl) {
+    if (!(irc->sock = sock_create(host, port, ssl)))
+        return false;
+    return true;
 }
 
 const char *irc_name(irc_t *irc) {
@@ -318,8 +322,6 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     char *line = irc->buffer;
     if (!line || !*line)
         return;
-
-    printf("%s\n", line);
 
     //
     // when to know that the IRC server is ready to accept commands from

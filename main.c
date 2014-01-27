@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
 
     list_t *list = config_load("config.ini");
     if (!list) {
-        fprintf(stderr, "failed loading configuration (see config.ini.example)\n")
+        fprintf(stderr, "failed loading configuration (see config.ini.example)\n");
         irc_manager_destroy(manager);
         return EXIT_FAILURE;
     }
@@ -126,13 +126,22 @@ int main(int argc, char **argv) {
             irc_channels_add(irc, (const char *)list_iterator_next(jt));
         list_iterator_destroy(jt);
 
-        irc_connect(irc, entry->host, entry->port);
+        if (!irc_connect(irc, entry->host, entry->port, entry->ssl)) {
+            irc_destroy(irc);
+            fprintf(stderr, "    irc      => cannot connect (ignoring instance)\n");
+            continue;
+        }
         irc_manager_add(manager, irc);
 
     }
 
     list_iterator_destroy(it);
     config_unload(list); // unload config
+
+    if (irc_manager_empty(manager)) {
+        fprintf(stderr, "No IRC instances to manage\n");
+        raise(SIGINT);
+    }
 
     while (signal_shutdown(false))
         irc_manager_process(manager);

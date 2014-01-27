@@ -1,5 +1,6 @@
 #ifndef REDROID_IRC_HDR
 #define REDROID_IRC_HDR
+#include "sock.h"
 #include "list.h"
 #include "database.h"
 #include "config.h"
@@ -11,7 +12,7 @@ typedef struct irc_s {
     char             *nick;         // nick to use on this network
     char             *pattern;      // pattern bot uses to know a command
     char             *auth;         // authenticaion (NickServ)
-    int               sock;         // network socket
+    sock_t           *sock;         // network socket
     bool              ready;        // ready
     bool              readying;     // readying up
     char              buffer[512];  // processing buffer
@@ -28,7 +29,7 @@ void  irc_destroy(irc_t *irc);
 int irc_process(irc_t *irc, void *data);
 const char *irc_name(irc_t *irc);
 
-int irc_connect(irc_t *irc, const char *host, const char *port);
+bool irc_connect(irc_t *irc, const char *host, const char *port, bool ssl);
 
 list_t *irc_modules_list(irc_t *irc);
 bool irc_modules_add(irc_t *irc, const char *file);

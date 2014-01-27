@@ -102,3 +102,17 @@ bool ini_parse(const char* filename, ini_callback_t handler, void *user) {
     fclose(file);
     return !!(error == 0);
 }
+
+
+bool ini_boolean(const char *text) {
+    if (!text)
+        return false;
+
+    if (!strcasecmp(text, "true"))  return true;
+    if (!strcasecmp(text, "false")) return false;
+
+    if (*text == '0') return false;
+    if (*text == '1') return true;
+
+    return false;
+}

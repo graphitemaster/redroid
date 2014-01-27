@@ -72,6 +72,7 @@ static bool config_entry_handler(void *user, const char *section, const char *na
     else if (!strcmp(name, "port"))      exists->port     = strdup(value);
     else if (!strcmp(name, "auth"))      exists->auth     = strdup(value);
     else if (!strcmp(name, "database"))  exists->database = strdup(value);
+    else if (!strcmp(name, "ssl"))       exists->ssl      = ini_boolean(value);
     else if (!strcmp(name, "modules")) {
         if (*value == '*') {
             // load all modules

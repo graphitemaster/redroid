@@ -58,7 +58,7 @@ static void irc_manager_stage(irc_manager_t *manager) {
     manager->polls = malloc(sizeof(struct pollfd) * manager->instances->size);
 
     for (size_t i = 0; i < manager->instances->size; i++) {
-        manager->polls[i].fd     = manager->instances->data[i]->sock;
+        manager->polls[i].fd     = sock_getfd(manager->instances->data[i]->sock);
         manager->polls[i].events = POLLIN | POLLPRI;
     }
 
@@ -74,6 +74,8 @@ irc_manager_t *irc_manager_create(void) {
 
     man->instances = irc_instances_create();
     man->commander = cmd_channel_create();
+    man->polls     = NULL;
+
     return man;
 }
 
@@ -81,7 +83,9 @@ void irc_manager_destroy(irc_manager_t *manager) {
     irc_instances_destroy(manager->instances);
     cmd_channel_destroy(manager->commander);
 
-    free(manager->polls);
+    if (manager->polls)
+        free(manager->polls);
+
     free(manager);
 }
 
@@ -106,4 +110,8 @@ irc_t *irc_manager_find(irc_manager_t *manager, const char *name) {
 
 void irc_manager_add(irc_manager_t *manager, irc_t *instance) {
     irc_instances_push(manager->instances, instance);
+}
+
+bool irc_manager_empty(irc_manager_t *manager) {
+    return manager->instances->size == 0;
 }

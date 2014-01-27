@@ -12,6 +12,7 @@ Features
      * Multiple nicks
      * Database
      * Modules
+     * SSL
  * Flood protection
      * Queued
  * Modules
@@ -43,6 +44,7 @@ Prerequisites
  * POSIX Realtime Timers (-lrt)
  * POSIX Regular Expressions (regex.h)
  * Subversion (svn command line tool)
+ * OpenSSL (-lssl and -lcrypto)
 
 Building
 --------
