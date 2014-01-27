@@ -137,7 +137,11 @@ static void quote_stats(irc_t *irc, const char *channel, const char *user, const
     if (!quote_count(who, &count))
         return;
 
-    irc_write(irc, channel, "%s: %s has %d %s", user, who, count, count > 1 ? "quotes" : "quote");
+    const char *plural = (count > 1) ? "quotes" : "quote";
+    if (strcmp(user, who))
+        irc_write(irc, channel, "%s: %s has %d %s", user, who, count, plural);
+    else
+        irc_write(irc, channel, "%s: you have %d %s", user, count, plural);
 }
 
 static void quote_add(irc_t *irc, const char *channel, const char *user, const char *message) {
@@ -155,10 +159,8 @@ static void quote_add(irc_t *irc, const char *channel, const char *user, const c
     database_statement_t *statement = database_statement_create("INSERT INTO QUOTES (NAME, CONTENT) VALUES ( ?, ? )");
     if (!statement)
         return;
-
     if (!database_statement_bind(statement, "SS", quotenick, quotemessage))
         return;
-
     if (!database_statement_complete(statement))
         return;
 
@@ -224,10 +226,8 @@ static void quote_reauthor(irc_t *irc, const char *channel, const char *user, co
 
     // reauthor
     database_statement_t *statement = database_statement_create("UPDATE QUOTES SET NAME=? WHERE NAME=?");
-
     if (!statement || !database_statement_bind(statement, "ss", to, from))
         return;
-
     if (!database_statement_complete(statement))
         return;
 

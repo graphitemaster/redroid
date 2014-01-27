@@ -50,18 +50,17 @@ static void mod_list(irc_t *irc, const char *channel, const char *user) {
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    if (!message)
-        return;
+    if (!message) return;
 
-    if (strstr(message, "-load") == &message[0])
-        return mod_load(irc, channel, user, &message[6]);
-    else if (strstr(message, "-reload") == &message[0])
-        return mod_reload(irc, channel, user, &message[8]);
-    else if (strstr(message, "-unload") == &message[0])
-        return mod_unload(irc, channel, user, &message[8]);
-    else if (strstr(message, "-list") == &message[0])
-        return mod_list(irc, channel, user);
-    else if (strstr(message, "-help") == &message[0])
-        return mod_help(irc, channel, user);
+    list_t     *split  = strnsplit(strdup(message), " ", 2);
+    const char *method = list_shift(split);
+    const char *module = list_shift(split);
+
+    if (!strcmp(method, "-load"))   return mod_load(irc, channel, user, module);
+    if (!strcmp(method, "-reload")) return mod_reload(irc, channel, user, module);
+    if (!strcmp(method, "-unload")) return mod_unload(irc, channel, user, module);
+    if (!strcmp(method, "-list"))   return mod_list(irc, channel, user);
+    if (!strcmp(method, "-help"))   return mod_help(irc, channel, user);
+
     return mod_help(irc, channel, user);
 }
