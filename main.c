@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
 
     list_t *list = config_load("config.ini");
     if (!list) {
-        fprintf(stderr, "failed loading configuration\n");
+        fprintf(stderr, "failed loading configuration (see config.ini.example)\n")
         irc_manager_destroy(manager);
         return EXIT_FAILURE;
     }
