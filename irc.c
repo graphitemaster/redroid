@@ -69,22 +69,10 @@ static int irc_pong(irc_t *irc, const char *data) {
 }
 
 static int irc_register(irc_t *irc) {
-    int accumulate = 0;
-
     if (irc->ready)
         return -1;
 
-    accumulate = sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
-
-    // try auth
-    if (irc->auth) {
-        // catch early error
-        if (accumulate < 0)
-            return accumulate;
-        accumulate += irc_write(irc, "NickServ", "IDENTIFY %s %s", irc->nick, irc->auth);
-    }
-
-    return accumulate;
+    return sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
 }
 
 static int irc_quit_raw(irc_t *irc, const char *channel, const char *message) {
@@ -331,6 +319,8 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     if (!line || !*line)
         return;
 
+    printf("%s\n", line);
+
     //
     // when to know that the IRC server is ready to accept commands from
     // is two stages:
@@ -359,9 +349,9 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     if (!strncmp(line, "PING :", 6))
         irc_pong(irc, line + 6);
 
-    if (!strncmp(line, "NOTICE AUTH :", 13)) {
-        // ignore
-    }
+    // try identify (for nickserv) this is a hack
+    if (strstr(line, ":NickServ!NickServ@services. NOTICE redorito :This nickname is registered.") == &line[0])
+        irc_write(irc, "NickServ", "identify %s", irc->auth);
 
     char *nick    = NULL;
     char *message = NULL;
