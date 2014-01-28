@@ -124,6 +124,9 @@ bool database_statement_complete(database_statement_t *statement) {
 }
 
 bool database_statement_bind(database_statement_t *statement, const char *mapping, ...) {
+    if (!statement)
+        return false;
+
     va_list va;
     va_start(va, mapping);
 
@@ -156,7 +159,7 @@ error:
 }
 
 database_row_t *database_row_extract(database_statement_t *statement, const char *fields) {
-    if (sqlite3_step(statement->statement) != SQLITE_ROW)
+    if (!statement || sqlite3_step(statement->statement) != SQLITE_ROW)
         return NULL;
 
     database_row_t *row = database_row_create();

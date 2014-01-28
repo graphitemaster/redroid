@@ -151,8 +151,6 @@ static void family_forget(irc_t *irc, const char *channel, const char *user, lis
     }
 
     database_statement_t *statement = database_statement_create("DELETE FROM FAMILY WHERE NAME=?");
-    if (!statement)
-        return;
     if (!database_statement_bind(statement, "s", message))
         return;
     if (!database_statement_complete(statement))
@@ -168,18 +166,12 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     list_t     *list   = strnsplit(strdup(message), " ", 2);
     const char *method = list_shift(list);
 
-    if (!strcmp(method, "-help"))
-        return family_help(irc, channel, user);
-    if (!strcmp(method, "-add"))
-        return family_add_replace(irc, channel, user, list, false);
-    if (!strcmp(method, "-replace"))
-        return family_add_replace(irc, channel, user, list, true);
-    if (!strcmp(method, "-concat"))
-        return family_concat(irc, channel, user, list);
-    if (!strcmp(method, "-forget"))
-        return family_forget(irc, channel, user, list);
-    if (!strcmp(method, "-stats"))
-        return family_stats(irc, channel, user);
+    if (!strcmp(method, "-help"))    return family_help(irc, channel, user);
+    if (!strcmp(method, "-add"))     return family_add_replace(irc, channel, user, list, false);
+    if (!strcmp(method, "-replace")) return family_add_replace(irc, channel, user, list, true);
+    if (!strcmp(method, "-concat"))  return family_concat(irc, channel, user, list);
+    if (!strcmp(method, "-forget"))  return family_forget(irc, channel, user, list);
+    if (!strcmp(method, "-stats"))   return family_stats(irc, channel, user);
 
     family_entry(irc, channel, user, method);
 }
