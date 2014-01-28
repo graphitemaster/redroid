@@ -90,6 +90,7 @@ Included with Redroid are the following modules currently
 | youtube   | Youtube link monitor                                  |
 | svn       | Subversion commit notificator                         |
 | kitten    | Play with the lives of kittens in the name of n00bs   |
+| faq       | Frequently answered questions                         |
 
 You can write your own modules using the `module.h` header in `modules/`.
 Compiling your module with `make` is also possible as long as your module
