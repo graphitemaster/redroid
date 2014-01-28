@@ -18,7 +18,8 @@ void table(const char *file, const char *table) {
         char *name = strdup(line);
         char *content = strchr(name, ' ') + 1;
         *strchr(name, ' ') = '\0';
-        char *nl = strchr(content, '\n');
+        char *nl = strchr(content, '\r');
+        if (!nl) nl = strchr(content, '\n');
         if (nl) *nl = '\0';
         char *esc = sqlite3_mprintf("INSERT INTO %s (NAME, CONTENT) VALUES ('%q', '%q');", table, name, content);
         printf("%s\n", esc);
@@ -48,7 +49,8 @@ void faq(const char *file) {
         *strchr(name,   ' ') = '\0';
         *strchr(author, ' ') = '\0';
 
-        char *nl = strchr(content, '\n');
+        char *nl = strchr(content, '\r');
+        if (!nl) nl = strchr(content, '\n');
         if (nl) *nl = '\0';
         char *esc = sqlite3_mprintf("INSERT INTO FAQ (NAME, AUTHOR, CONTENT) VALUES ('%q', '%q', '%q');", name, author, content);
         printf("%s\n", esc);

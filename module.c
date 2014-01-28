@@ -409,15 +409,11 @@ string_t *module_string_construct(void) {
     return string;
 }
 
-string_t *module_string_format(const char *fmt, ...) {
+string_t *module_string_vformat(const char *fmt, va_list va) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
-    string_t *string = string_construct();
+    string_t *string = string_vformat(fmt, va);
     module_mem_push(module, string, (void (*)(void*))&string_destroy);
-    va_list va;
-    va_start(va, fmt);
-    string_vcatf(string, fmt, va);
-    va_end(va);
     module_mem_mutex_unlock(module);
     return string;
 }

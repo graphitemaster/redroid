@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 struct regexpr_s;
 struct addrinfo;
@@ -146,7 +147,12 @@ static inline string_t *string_create(const char *input) {
  *  The managed string this function returns is garbage collected.
  */
 static inline string_t *string_format(const char *input, ...) {
-    return MODULE_GC_CALL(string_format)(input);
+    extern string_t *string_vformat(const char *, va_list);
+    va_list va;
+    va_start(va, input);
+    string_t *string = MODULE_GC_CALL(string_vformat)(input, va);
+    va_end(va);
+    return string;
 }
 
 /*

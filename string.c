@@ -72,11 +72,15 @@ string_t *string_create(const char *contents) {
     );
 }
 
-string_t *string_format(const char *fmt, ...) {
+string_t *string_vformat(const char *fmt, va_list va) {
     string_t *string = string_construct();
+    string_vcatf(string, fmt, va);
+}
+
+string_t *string_format(const char *fmt, ...) {
     va_list va;
     va_start(va, fmt);
-    string_vcatf(string, fmt, va);
+    string_t *string = string_vformat(fmt, va);
     va_end(va);
     return string;
 }

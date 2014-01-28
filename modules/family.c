@@ -123,9 +123,8 @@ static void family_concat(irc_t *irc, const char *channel, const char *user, lis
     }
 
     database_statement_t *statement = database_statement_create("UPDATE FAMILY SET CONTENT=? WHERE NAME=?");
-    string_t             *content   = string_construct();
+    string_t             *content   = string_format("%s %s", get, status);
 
-    string_catf(content, "%s %s", get, status);
     if (!database_statement_bind(statement, "Ss", content, member))
         return;
     if (!database_statement_complete(statement))

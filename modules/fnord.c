@@ -9,7 +9,7 @@ static const char *fnord_get(const char *word_type) {
     database_statement_t *stmt = database_statement_create(
         "SELECT word FROM fnord_words WHERE type=? ORDER BY random() LIMIT 1;");
 
-    if (!stmt || !database_statement_bind(stmt, "s", word_type))
+    if (!database_statement_bind(stmt, "s", word_type))
         return "<database error>";
 
     database_row_t *row = database_row_extract(stmt, "s");

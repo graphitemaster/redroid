@@ -121,8 +121,7 @@ static void faq_concat(irc_t *irc, const char *channel, const char *user, list_t
     if (!database_statement_complete(old))
         return;
 
-    string_t *string = string_construct();
-    string_catf(string, "%s OR %s", oldcontent, content);
+    string_t *string = string_format("%s OR %s", oldcontent, content);
     database_statement_t *statement = database_statement_create("UPDATE FAQ SET CONTENT=? WHERE NAME=?");
     if (!database_statement_bind(statement, "Ss", string, faq))
         return;
