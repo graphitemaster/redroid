@@ -46,11 +46,10 @@ static bool quote_count(const char *user, int *count) {
 
 static bool quote_find(const char *user, const char *quote) {
     database_statement_t *statement = database_statement_create("SELECT COUNT(*) FROM QUOTES WHERE NAME=? AND CONTENT=?");
-    if (!statement || !database_statement_bind(statement, "ss", user, quote))
+    if (!database_statement_bind(statement, "ss", user, quote))
         return false;
 
     database_row_t *row = database_row_extract(statement, "i");
-
     if (database_row_pop_integer(row) >= 1)
         return true;
 
@@ -156,7 +155,7 @@ static void quote_forget(irc_t *irc, const char *channel, const char *user, list
     char *quotenick    = list_shift(list);
     char *quotemessage = list_shift(list);
 
-    if (!quotenick || !list_shift)
+    if (!quotenick || !quotemessage)
         return;
 
     quote_nick_stripspecial(&quotenick);
