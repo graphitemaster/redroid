@@ -323,6 +323,8 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     if (!line || !*line)
         return;
 
+    printf(">> %s\n", line);
+
     //
     // when to know that the IRC server is ready to accept commands from
     // is two stages:
@@ -374,106 +376,108 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
         return;
 
     // parse the contents of the line
-    if (*line == ':') {
-        char *ptr = strtok(line + 1, "!");
-        if (!ptr)
-            return;
+    if (*line != ':')
+        return;
 
-        nick = strdup(ptr);
+    char *ptr = strtok(line + 1, "!");
+    if (!ptr)
+        return;
 
-        while ((ptr = strtok(NULL, " "))) {
-            if (!strcmp(ptr, "PRIVMSG")) {
-                private = true;
-                break;
-            } else if (!strcmp(ptr, "KICK")) {
-                kick = true;
-                break;
-            }
+    nick = strdup(ptr);
+
+    while ((ptr = strtok(NULL, " "))) {
+        if (!strcmp(ptr, "PRIVMSG")) {
+            private = true;
+            break;
+        } else if (!strcmp(ptr, "KICK")) {
+            kick = true;
+            break;
         }
+    }
 
-        if (private || kick) {
-            if ((ptr = strtok(NULL, ":"))) {
-                char *consume ;
-                channel = strdup(ptr);
-                if ((consume = strchr(channel, ' ')))
-                    *consume = '\0';
-            }
-            if ((ptr = strtok(NULL, "")))
-                message = strdup(ptr);
+    if (private || kick) {
+        if ((ptr = strtok(NULL, ":"))) {
+            char *consume ;
+            channel = strdup(ptr);
+            if ((consume = strchr(channel, ' ')))
+                *consume = '\0';
         }
+        if ((ptr = strtok(NULL, "")))
+            message = strdup(ptr);
+    }
 
-        if (kick && channel) {
-            irc_join_raw(irc, NULL, channel);
+    if (kick && channel) {
+        irc_join_raw(irc, NULL, channel);
 
-            free(channel);
-
-            if (nick)
-                free(nick);
-            if (message)
-                free(message);
-
-            return;
-        }
-
-        if (channel) {
-            if (private && strlen(nick) > 0) {
-                if (strlen(message) > 0 && !strncmp(message, irc->pattern, strlen(irc->pattern))) {
-                    // get the command entry and call it
-                    char *copy  = strdup(message + strlen(irc->pattern));
-                    char *match = strchr(copy, ' ');
-                    if (match)
-                        *match = '\0';
-
-                    module_t *module = module_manager_module_command(irc->moduleman, irc_process_trim(copy));
-
-                    if (module) {
-                        cmd_channel_push(
-                            commander,
-                            cmd_entry_create(
-                                commander,
-                                module,
-                                channel,
-                                nick,
-                                irc_process_trim(message + strlen(irc->pattern) + strlen(copy))
-                            )
-                        );
-                    } else {
-                        // make it go to PRIVMSG
-                        irc_write(irc, nick, "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", copy);
-                    }
-                    free(copy);
-                }
-
-                // run all modules with no match rule, unless they have an interval
-                // then ensure the interval has passed
-                list_iterator_t *it = list_iterator_create(irc->moduleman->modules);
-                while (!list_iterator_end(it)) {
-                    module_t *module = list_iterator_next(it);
-                    if (!strlen(module->match)) {
-                        cmd_entry_t *entry = cmd_entry_create(commander, module, channel, nick, message);
-                        if (module->interval == 0) {
-                            cmd_channel_push(commander, entry);
-                            continue;
-                        }
-                        if (difftime(time(0), module->lastinterval) >= module->interval) {
-                            fprintf(stderr, "    module   => %s interval met\n", module->name);
-                            module->lastinterval = time(0);
-                            cmd_channel_push(commander, entry);
-                        }
-                    }
-                }
-                list_iterator_destroy(it);
-            }
-
-            free(channel);
-        }
+        free(channel);
 
         if (nick)
             free(nick);
-
         if (message)
             free(message);
+
+        return;
     }
+
+    if (!channel)
+        goto finish_channel;
+    if (!private || strlen(nick) == 0)
+        goto finish_private;
+    if (strlen(message) == 0 || strncmp(message, irc->pattern, strlen(irc->pattern)))
+        goto finish_always_modules;
+
+    // get the command entry and call it
+    char *copy  = strdup(message + strlen(irc->pattern));
+    char *match = strchr(copy, ' ');
+    if (match)
+        *match = '\0';
+
+    module_t *module = module_manager_module_command(irc->moduleman, irc_process_trim(copy));
+
+    if (module) {
+        cmd_channel_push(
+            commander,
+            cmd_entry_create(
+                commander,
+                module,
+                channel,
+                nick,
+                irc_process_trim(message + strlen(irc->pattern) + strlen(copy))
+            )
+        );
+    } else {
+        // make it go to PRIVMSG
+        irc_write(irc, nick, "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", copy);
+    }
+    free(copy);
+
+finish_always_modules: /* always modules need to be run */
+    ;
+
+    list_iterator_t *it = list_iterator_create(irc->moduleman->modules);
+    while (!list_iterator_end(it)) {
+        module_t *module = list_iterator_next(it);
+        if (!strlen(module->match)) {
+            cmd_entry_t *entry = cmd_entry_create(commander, module, channel, nick, message);
+            if (module->interval == 0) {
+                cmd_channel_push(commander, entry);
+                continue;
+            }
+            if (difftime(time(0), module->lastinterval) >= module->interval) {
+                fprintf(stderr, "    module   => %s interval met\n", module->name);
+                module->lastinterval = time(0);
+                cmd_channel_push(commander, entry);
+            }
+        }
+    }
+    list_iterator_destroy(it);
+
+finish_private: /* on channel */
+    free(channel);
+
+finish_channel: /* not on channel */
+    if (nick)    free(nick);
+    if (message) free(message);
 }
 
 int irc_process(irc_t *irc, void *data) {
@@ -484,30 +488,21 @@ int irc_process(irc_t *irc, void *data) {
 
     if ((read = sock_recv(irc->sock, temp, sizeof(temp) - 2)) <= 0)
         return -1;
-
     temp[read] = '\0';
 
     for (size_t i = 0; i < read; ++i) {
-        switch (temp[i]) {
-            case '\r':
-            case '\n':
-                irc->buffer[irc->bufferpos] = '\0';
-                irc->bufferpos              = 0;
-
-                irc_process_line(irc, commander);
-                break;
-
-            default:
-                for (const char *test = "\x13\x15\x1F\x16\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0B\x0C\x0E\x0F"; *test; test++)
-                    if (temp[i] == *test)
-                        return 0;
-
-                irc->buffer[irc->bufferpos] = temp[i];
-                if (irc->bufferpos >= sizeof(irc->buffer) - 1)
-                    ;
-                else
-                    irc->bufferpos++;
+        if (temp[i] != '\r' && temp[i] != '\n') {
+            if (strchr("\x13\x15\x1F\x16\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0B\x0C\x0E\x0F", temp[i]))
+                return 0;
+            irc->buffer[irc->bufferpos] = temp[i];
+            if (irc->bufferpos < sizeof(irc->buffer) - 1)
+                irc->bufferpos++;
+            continue;
         }
+
+        irc->buffer[irc->bufferpos] = '\0';
+        irc->bufferpos              = 0;
+        irc_process_line(irc, commander);
     }
 
     return 0;
