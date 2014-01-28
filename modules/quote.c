@@ -10,15 +10,13 @@ static void quote_nick_stripspecial(char **input) {
     char *end = &((*input)[strlen(beg)-1]);
 
     // deal with "<nick>" -> "nick"
-    if (*beg == '<' && *end == '>') {
-        *input = &beg[1];
-        *end   = '\0';
-        end--; // to allow @ strip below
-    }
+    if (*beg == '<' && *end == '>')
+        beg++, *--end = '\0';
 
-    // strip nicks like "foo@" -> "foo"
-    if (*end == '@')
-        end[-1] = '\0';
+    if (*end == ':') *--end = '\0'; // strip nicks like "foo:" -> "foo"
+    if (*beg == '@') beg++;         // strip nicks like "@foo" -> "foo"
+
+    *input = beg;
 }
 
 static int quote_length(void) {

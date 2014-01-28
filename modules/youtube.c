@@ -4,7 +4,7 @@
 
 MODULE_ALWAYS(youtube);
 
-#define NETHER_COUNT   4000
+#define NETHER_COUNT   7000
 #define NETHER_VICTIM "graphite"
 
 typedef struct {
