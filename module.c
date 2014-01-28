@@ -745,9 +745,18 @@ list_t *module_svnlog(const char *url, size_t depth) {
         module_mem_mutex_unlock(module);
         return NULL;
     }
+
+    /*
+     * A copy of the list needs to be created because a module may pop
+     * or modify the contents of the list which is used in the cleanup
+     * to free resources. This is bad because it means memory leaks are
+     * possible.
+     */
+    list_t *copy = list_copy(list);
     module_mem_push(module, list, (void(*)(void* ))&module_svnlog_destroy);
+    module_mem_push(module, copy, (void(*)(void* ))&list_destroy);
     module_mem_mutex_unlock(module);
-    return list;
+    return copy;
 }
 
 uint32_t module_urand(void) {

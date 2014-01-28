@@ -132,6 +132,17 @@ void *list_shift(list_t *list) {
     return element;
 }
 
+list_t *list_copy(list_t *list) {
+    list_t          *copy = list_create();
+    list_iterator_t *it   = list_iterator_create(list);
+
+    while (!list_iterator_end(it))
+        list_push(copy, list_iterator_next(it));
+
+    list_iterator_destroy(it);
+    return copy;
+}
+
 bool list_erase(list_t *list, void *element) {
     for (list_node_t *curr = list->head; curr; curr = curr->next) {
         if (curr->element != element)
