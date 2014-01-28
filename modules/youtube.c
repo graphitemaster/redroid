@@ -16,7 +16,7 @@ typedef struct {
 
 static bool youtube_find(const char *id, youtube_t *data) {
     database_statement_t *check = database_statement_create("SELECT AUTHOR, CHANNEL, TIMESTAMP, COUNT FROM YOUTUBE WHERE ID = ?");
-    if (!check || !database_statement_bind(check, "s", id))
+    if (!database_statement_bind(check, "s", id))
         return false;
 
     database_row_t *row = database_row_extract(check, "ssii");
@@ -36,7 +36,7 @@ static bool youtube_find(const char *id, youtube_t *data) {
 static bool youtube_update(const char *id, youtube_t *data) {
     data->count++;
     database_statement_t *update = database_statement_create("UPDATE YOUTUBE SET COUNT = ?, AUTHOR = ?, TIMESTAMP = ? WHERE ID = ?");
-    if (!update || !database_statement_bind(update, "isis", data->count, data->user, data->timestamp, id))
+    if (!database_statement_bind(update, "isis", data->count, data->user, data->timestamp, id))
         return false;
     if (!database_statement_complete(update))
         return false;
@@ -45,7 +45,7 @@ static bool youtube_update(const char *id, youtube_t *data) {
 
 static bool youtube_add(const char *id, youtube_t *data) {
     database_statement_t *add = database_statement_create("INSERT INTO YOUTUBE VALUES(?, ?, ?, ?, ?)");
-    if (!add || !database_statement_bind(add, "sssii", data->user, data->chan, id, data->timestamp, data->count))
+    if (!database_statement_bind(add, "sssii", data->user, data->chan, id, data->timestamp, data->count))
         return false;
     if (!database_statement_complete(add))
         return false;
