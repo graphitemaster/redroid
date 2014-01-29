@@ -332,8 +332,6 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     if (!line || !*line)
         return;
 
-    printf(">> %s\n", line);
-
     //
     // when to know that the IRC server is ready to accept commands from
     // is two stages:

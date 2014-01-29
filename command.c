@@ -217,12 +217,19 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
     cmd_entry_t *entry = channel->cmd_entry;
     channel->cmd_entry = NULL;
 
-    irc_write(
-        entry->instance->instance,
-        string_contents(entry->channel),
-        "%s: command timed out",
-        string_contents(entry->user)
-    );
+    /*
+     * Don't write timeout messages for modules which are interval based.
+     * For example the SVN update module may timeout if the server goes
+     * down and we don't want those showing up here.
+     */
+    if (!entry->instance->interval) {
+        irc_write(
+            entry->instance->instance,
+            string_contents(entry->channel),
+            "%s: command timed out",
+            string_contents(entry->user)
+        );
+    }
 
     cmd_entry_destroy(entry);
 

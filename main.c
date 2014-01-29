@@ -23,8 +23,48 @@
 #define SIGNAL_RESTART   (SIGRTMIN + 5)
 #define SIGNAL_DAEMONIZE (SIGRTMIN + 6)
 
-void restart(void) {
+typedef struct {
+    char *instance;
+    char *channel;
+    char *user;
+} restart_info_t;
+
+static restart_info_t *restart_info_create(const char *instance, const char *channel, const char *user) {
+    restart_info_t *info = malloc(sizeof(*info));
+
+    info->instance = strdup(instance);
+    info->channel  = strdup(channel);
+    info->user     = strdup(user);
+
+    return info;
+}
+
+static void restart_info_destroy(restart_info_t *info) {
+    free(info->instance);
+    free(info->channel);
+    free(info->user);
+    free(info);
+}
+
+static restart_info_t *restart_info_singleton(restart_info_t *info) {
+    static restart_info_t *rest = NULL;
+    if (!rest)
+        rest = info;
+    return rest;
+}
+
+void restart(irc_t *irc, const char *channel, const char *user) {
+    /* Install information and restart */
+    restart_info_singleton(restart_info_create(irc->name, channel, user));
     raise(SIGNAL_RESTART);
+}
+
+static const char *build_date() {
+    return __DATE__;
+}
+
+static const char *build_time() {
+    return __TIME__;
 }
 
 static bool signal_restart(bool restart) {
@@ -141,7 +181,16 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
-        size_t networks;
+        /*
+         * Read the info line containing all the information about who
+         * restarted this instance.
+         */
+        size_t infosize = 0;
+        read(tmpfd, &infosize, sizeof(size_t));
+        char *infoline = malloc(infosize);
+        read(tmpfd, infoline, infosize);
+
+        size_t networks = 0;
         read(tmpfd, &networks, sizeof(size_t));
 
         printf("Restart state contains %zu network(s)\n", networks);
@@ -150,7 +199,13 @@ int main(int argc, char **argv) {
          * Grab the string table from the file and create a list from it;
          * all entries are seperated by newlines.
          */
-        lseek(tmpfd, sizeof(size_t) + sizeof(int) * networks, SEEK_SET);
+        size_t offset =
+            sizeof(size_t) +         /* infoline strlen       */
+            infosize       +         /* infoline length       */
+            sizeof(size_t) +         /* file descriptor count */
+            sizeof(int) * networks;  /* file descriptors      */
+
+        lseek(tmpfd, offset, SEEK_SET);
 
         list_t   *list   = list_create();
         string_t *string = string_construct();
@@ -175,7 +230,7 @@ int main(int argc, char **argv) {
         list_t *config = config_load("config.ini");
 
         /* Now back to where sockets themselfs are stored */
-        lseek(tmpfd, sizeof(size_t), SEEK_SET);
+        lseek(tmpfd, sizeof(size_t) * 2 + infosize, SEEK_SET);
 
         list_iterator_t *it   = list_iterator_create(list);
         string_t        *name = NULL;
@@ -231,6 +286,34 @@ int main(int argc, char **argv) {
             list_iterator_destroy(ci);
             string_destroy(name);
         }
+
+        /*
+         * The infoline can now be parsed and we can find the appropriate
+         * instance and stuff the command down the stream for that instance
+         * so we can print what happened.
+         */
+        char *instance = strdup(strtok(infoline, "|"));
+        char *channel  = strdup(strtok(NULL,     "|"));
+        char *user     = strdup(strtok(NULL,     "|"));
+        char *date     = strdup(strtok(NULL,     "|"));
+        char *time     = strdup(strtok(NULL,     "|"));
+
+        irc_t *update = irc_manager_find(manager, instance);
+        irc_write(update, channel, "%s: succesfully restarted\n",
+            user, date, time, build_date(), build_time());
+
+        if (strcmp(date, build_date()) || strcmp(time, build_time())) {
+            irc_write(update, channel, "%s: last instance build timestamp %s %s", user, date, time);
+            irc_write(update, channel, "%s: this instance build timestamp %s %s", user, build_date(), build_time());
+        } else {
+            irc_write(update, channel, "%s: this instance is the same binary as last instance", user);
+        }
+
+        free(time);
+        free(date);
+        free(user);
+        free(channel);
+        free(instance);
 
         config_unload(config);
         list_iterator_destroy(it);
@@ -309,6 +392,8 @@ int main(int argc, char **argv) {
         irc_manager_process(manager);
 
     if (!signal_restart(false)) {
+        list_t *fds = irc_manager_restart(manager); printf("G\n");
+
         char unique[] = "redroid_XXXXXX";
         int fd = mkstemp(unique);
         if (fd == -1) {
@@ -317,14 +402,37 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
+        /*
+         * Get the singleton of information containing who and from
+         * where the restart originated from. Including this current
+         * processes build date and time stamp.
+         */
+        restart_info_t *restinfo = restart_info_singleton(NULL);
+        string_t *infoline = string_format("%s|%s|%s|%s|%s",
+            restinfo->instance,
+            restinfo->channel,
+            restinfo->user,
+            build_date(),
+            build_time());
+
+        /*
+         * Calculate the length of the info line and store it as the
+         * very first thing to the restart file. Then write the info
+         * line to the file.
+         */
+        size_t infosize = string_length(infoline) + 1;  printf("A\n");
+        write(fd, &infosize, sizeof(size_t));           printf("B\n");
+        write(fd, string_contents(infoline), infosize); printf("C\n");
+        string_destroy(infoline);                       printf("D\n");
+        restart_info_destroy(restinfo);                 printf("E\n");
+
         /* String table will be stored at the end of the file */
-        string_t *stringtable = string_construct();
+        string_t *stringtable = string_construct();     printf("F\n");
 
-        /* Store number of file descriptors first */
-        list_t *fds = irc_manager_restart(manager);
-        size_t count = list_length(fds);
+        /* Store number of file descriptors */
+        size_t count = list_length(fds);                printf("H\n");
 
-        write(fd, &count, sizeof(size_t));
+        write(fd, &count, sizeof(size_t));              printf("I\n");
         printf("Restart state with %zu network(s):\n", count);
 
         /* Now deal with the file descriptors */

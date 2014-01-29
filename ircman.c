@@ -91,6 +91,8 @@ void irc_manager_destroy(irc_manager_t *manager) {
 }
 
 list_t *irc_manager_restart(irc_manager_t *manager) {
+    cmd_channel_destroy(manager->commander);
+
     list_t *list = list_create();
     for (size_t i = 0; i < manager->instances->size; i++) {
         /*
@@ -111,7 +113,6 @@ list_t *irc_manager_restart(irc_manager_t *manager) {
     }
 
     irc_instances_destroy(manager->instances, true);
-    cmd_channel_destroy(manager->commander);
 
     if (manager->polls)
         free(manager->polls);
