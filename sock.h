@@ -16,7 +16,7 @@ typedef struct {
     sock_destroy_func destroy;
 } sock_t;
 
-sock_t *sock_create(const char *host, const char *port, bool ssl);
+sock_t *sock_create(const char *host, const char *port, bool ssl, int oldfd);
 int sock_send(sock_t *socket, const char *message, size_t size);
 int sock_sendf(sock_t *socket, const char *format, ...);
 int sock_recv(sock_t *socket, char *buffer, size_t buffersize);

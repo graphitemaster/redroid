@@ -3,6 +3,11 @@
 #include <stdbool.h>
 #include "irc.h"
 
+typedef struct {
+    int   fd;
+    char *name;
+} irc_manager_restart_t;
+
 typedef struct irc_manager_s irc_manager_t;
 
 irc_manager_t *irc_manager_create(void);

@@ -91,8 +91,12 @@ void irc_manager_destroy(irc_manager_t *manager) {
 
 list_t *irc_manager_restart(irc_manager_t *manager) {
     list_t *list = list_create();
-    for (size_t i = 0; i < manager->instances->size; i++)
-        list_push(list, (union { int i; void *p; }) { sock_getfd(manager->instances->data[i]->sock) }.p);
+    for (size_t i = 0; i < manager->instances->size; i++) {
+        irc_manager_restart_t *r = malloc(sizeof(*r));
+        r->fd   = sock_getfd(manager->instances->data[i]->sock);
+        r->name = strdup(manager->instances->data[i]->name);
+        list_push(list, r);
+    }
 
     irc_instances_destroy(manager->instances, true);
     cmd_channel_destroy(manager->commander);

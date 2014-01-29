@@ -110,7 +110,7 @@ static int ssl_getfd(ssl_t *ssl) {
     return ssl->fd;
 }
 
-sock_t *ssl_create(int fd) {
+sock_t *ssl_create(int fd, int oldfd) {
     ssl_t *ssl = ssl_ctx_create(fd);
     if (!ssl) {
         fprintf(stderr, "   ssl      => failed creating context\n");
@@ -124,18 +124,35 @@ sock_t *ssl_create(int fd) {
     sock->send    = (sock_send_func)&ssl_send;
     sock->destroy = (sock_destroy_func)&ssl_destroy;
 
+    /*
+     * Reinstated instance use the old file descriptor i.e socket and
+     * try getting a SSL layer with this again.
+     */
+    if (oldfd != -1)
+        fd = oldfd;
+
     if (!SSL_set_fd(ssl->ssl, fd))
         goto cleanup;
 
-    if (SSL_connect(ssl->ssl) != 1)
-        goto cleanup;
+    /*
+     * Only reconnect and check certificates when we're performing a
+     * new connection.
+     */
+    if (oldfd == -1) {
+        if (SSL_connect(ssl->ssl) != 1)
+            goto cleanup;
 
-    if (!ssl_certificate_check(ssl))
-        goto cleanup;
+        if (!ssl_certificate_check(ssl))
+            goto cleanup;
 
-    printf("    ssl      => connected with %s encryption\n", SSL_get_cipher(ssl->ssl));
+        printf("    ssl      => connected with %s encryption\n", SSL_get_cipher(ssl->ssl));
+        sock_nonblock(fd);
+    } else {
+        char c;
+        ssl_send(ssl, "0", 1);
+        ssl_recv(ssl, &c, 1);
+    }
 
-    sock_nonblock(fd);
     return sock;
 
 cleanup:

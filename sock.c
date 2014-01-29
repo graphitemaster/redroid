@@ -130,13 +130,13 @@ static sock_t *sock_standard_create(int fd) {
 }
 
 // exposed interface
-sock_t *sock_create(const char *host, const char *port, bool ssl) {
-    int fd = sock_connection(host, port);
+sock_t *sock_create(const char *host, const char *port, bool ssl, int oldfd) {
+    int fd = (oldfd != -1) ? oldfd : sock_connection(host, port);
     if (fd == -1)
         return NULL;
 #ifdef HAS_SSL
     if (ssl)
-        return ssl_create(fd);
+        return ssl_create(fd, oldfd);
 #endif
     return sock_standard_create(fd);
 }
