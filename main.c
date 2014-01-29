@@ -23,6 +23,10 @@
 #define SIGNAL_RESTART   (SIGRTMIN + 5)
 #define SIGNAL_DAEMONIZE (SIGRTMIN + 6)
 
+void restart(void) {
+    raise(SIGNAL_RESTART);
+}
+
 static bool signal_restart(bool restart) {
     static bool stage = false;
     if (restart)
@@ -304,7 +308,7 @@ int main(int argc, char **argv) {
     while (signal_empty())
         irc_manager_process(manager);
 
-    if (signal_restart(false)) {
+    if (!signal_restart(false)) {
         char unique[] = "redroid_XXXXXX";
         int fd = mkstemp(unique);
         if (fd == -1) {
@@ -343,7 +347,6 @@ int main(int argc, char **argv) {
 
         char buffer[1024];
         snprintf(buffer, sizeof(buffer), "-r%d", fd);
-        printf("Restarting ...\n", fd);
         execv(*argv, (char *[]){ *argv, buffer, (char *)NULL });
     }
 
