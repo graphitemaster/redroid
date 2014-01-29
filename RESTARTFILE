@@ -1,0 +1,10 @@
+The restart file in Redroid has the following structure:
+
+struct {
+    size_t infosize;
+    char   infoline[infosize];
+    size_t networks;
+    ind    fds[networks];
+    char   stringtable[...]; // same order as fds newline seperated
+};
+
