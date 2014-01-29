@@ -255,8 +255,8 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
     return true;
 }
 
-void irc_destroy(irc_t *irc) {
-    if (irc->sock)
+void irc_destroy(irc_t *irc, bool restart) {
+    if (irc->sock && !restart)
         irc_quit_raw(irc, NULL, "Shutting down");
 
     irc_queue_destroy(irc);
@@ -274,14 +274,17 @@ void irc_destroy(irc_t *irc) {
     list_iterator_destroy(it);
     list_destroy(irc->channels);
 
-    sock_destroy(irc->sock);
-
     if (irc->auth)
         free(irc->auth);
 
     free(irc->nick);
     free(irc->name);
     free(irc->pattern);
+
+    // hold onto the socket for restarts
+    if (!restart)
+        sock_destroy(irc->sock);
+
     free(irc);
 }
 

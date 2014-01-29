@@ -25,7 +25,7 @@ typedef struct irc_s {
 } irc_t;
 
 irc_t *irc_create(config_t *config);
-void  irc_destroy(irc_t *irc);
+void  irc_destroy(irc_t *irc, bool restart);
 int irc_process(irc_t *irc, void *data);
 const char *irc_name(irc_t *irc);
 

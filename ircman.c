@@ -30,9 +30,9 @@ static irc_instances_t *irc_instances_create(void) {
     return instances;
 }
 
-static void irc_instances_destroy(irc_instances_t *instances) {
+static void irc_instances_destroy(irc_instances_t *instances, bool restart) {
     for (size_t i = 0; i < instances->size; i++)
-        irc_destroy(instances->data[i]);
+        irc_destroy(instances->data[i], restart);
     free(instances->data);
     free(instances);
 }
@@ -80,13 +80,29 @@ irc_manager_t *irc_manager_create(void) {
 }
 
 void irc_manager_destroy(irc_manager_t *manager) {
-    irc_instances_destroy(manager->instances);
+    irc_instances_destroy(manager->instances, false);
     cmd_channel_destroy(manager->commander);
 
     if (manager->polls)
         free(manager->polls);
 
     free(manager);
+}
+
+list_t *irc_manager_restart(irc_manager_t *manager) {
+    list_t *list = list_create();
+    for (size_t i = 0; i < manager->instances->size; i++)
+        list_push(list, (union { int i; void *p; }) { sock_getfd(manager->instances->data[i]->sock) }.p);
+
+    irc_instances_destroy(manager->instances, true);
+    cmd_channel_destroy(manager->commander);
+
+    if (manager->polls)
+        free(manager->polls);
+
+    free(manager);
+
+    return list;
 }
 
 void irc_manager_process(irc_manager_t *manager) {
