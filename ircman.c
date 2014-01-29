@@ -32,7 +32,8 @@ static irc_instances_t *irc_instances_create(void) {
 
 static void irc_instances_destroy(irc_instances_t *instances, bool restart) {
     for (size_t i = 0; i < instances->size; i++)
-        irc_destroy(instances->data[i], restart);
+        if (instances->data[i])
+            irc_destroy(instances->data[i], restart);
     free(instances->data);
     free(instances);
 }
@@ -48,7 +49,7 @@ static void irc_instances_push(irc_instances_t *instances, irc_t *instance) {
 
 static irc_t *irc_instances_find(irc_instances_t *instances, const char *name) {
     for (size_t i = 0; i < instances->size; i++) {
-        if (!strcmp(instances->data[i]->name, name))
+        if (instances->data[i] && !strcmp(instances->data[i]->name, name))
             return instances->data[i];
     }
     return NULL;
@@ -92,6 +93,17 @@ void irc_manager_destroy(irc_manager_t *manager) {
 list_t *irc_manager_restart(irc_manager_t *manager) {
     list_t *list = list_create();
     for (size_t i = 0; i < manager->instances->size; i++) {
+        /*
+         * Only the instances that are actually ready and actively
+         * participating in IO will be restarted. The ones which
+         * are not will be entierly destroyed.
+         */
+        if (!manager->instances->data[i]->ready) {
+            irc_destroy(manager->instances->data[i], false);
+            manager->instances->data[i] = NULL;
+            continue;
+        }
+
         irc_manager_restart_t *r = malloc(sizeof(*r));
         r->fd   = sock_getfd(manager->instances->data[i]->sock);
         r->name = strdup(manager->instances->data[i]->name);

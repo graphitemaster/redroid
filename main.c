@@ -297,7 +297,8 @@ int main(int argc, char **argv) {
 
     if (irc_manager_empty(manager)) {
         fprintf(stderr, "No IRC instances to manage\n");
-        raise(SIGINT);
+        irc_manager_destroy(manager);
+        return EXIT_FAILURE;
     }
 
     while (signal_empty())
