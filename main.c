@@ -165,6 +165,20 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
     if (fstat(*tmpfd, &b) == -1)
         return false;
 
+    /*
+     * Check the contents of the file to validate that it is indeed a
+     * restart file. This is done by checking the first bytes for
+     * 'Redroid\0'
+     *  12345678.
+     */
+    lseek(*tmpfd, 0, SEEK_SET);
+    char magic[8];
+    read(*tmpfd, magic, sizeof(magic));
+    if (strcmp(magic, "Redroid")) {
+        close(*tmpfd);
+        return false;
+    }
+
     return true;
 }
 
@@ -180,7 +194,7 @@ int main(int argc, char **argv) {
 
     int tmpfd = -1;
     if (signal_restarted(&argc, &argv, &tmpfd)) {
-        if (lseek(tmpfd, 0, SEEK_SET) != 0) {
+        if (lseek(tmpfd, 8, SEEK_SET) != 8) { /* 8 bytes to skip 'Redroid\0' */
             fprintf(stderr, "%s: restart failed (lseek failed) [%s]\n", *argv, strerror(errno));
             irc_manager_destroy(manager);
             return EXIT_FAILURE;
@@ -205,6 +219,7 @@ int main(int argc, char **argv) {
          * all entries are seperated by newlines.
          */
         size_t offset =
+            8              +         /* identifier strlen     */
             sizeof(size_t) +         /* infoline strlen       */
             infosize       +         /* infoline length       */
             sizeof(size_t) +         /* file descriptor count */
@@ -235,7 +250,7 @@ int main(int argc, char **argv) {
         list_t *config = config_load("config.ini");
 
         /* Now back to where sockets themselfs are stored */
-        lseek(tmpfd, sizeof(size_t) * 2 + infosize, SEEK_SET);
+        lseek(tmpfd, 8 + (sizeof(size_t) * 2) + infosize, SEEK_SET);
 
         list_iterator_t *it   = list_iterator_create(list);
         string_t        *name = NULL;
@@ -414,6 +429,9 @@ int main(int argc, char **argv) {
             fprintf(stderr, "%s: restart failed (no restart info)\n", *argv);
             return EXIT_FAILURE;
         }
+
+        /* Write the signature */
+        write(fd, "Redroid", 8);
 
         string_t *infoline = string_format("%s|%s|%s|%s|%s",
             restinfo->instance,
