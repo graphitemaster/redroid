@@ -1,10 +1,91 @@
 The restart file in Redroid has the following structure:
 
+    First size_t of the file contains the length of the info line.
+
+    The info line is a string containing pipe (|) delimited information
+of where and who invoked the restart. Currently the info line contains
+(in the following order) the following things.
+
+    1.  Instance name   -- the name of the instance the restart came from.
+    2.  Channel         -- the channel on which it occurred.
+    3.  User            -- the user on that channel who caused it.
+    4.  Old build date  -- the __DATE__ of the old running instance
+    5.  Old build time  -- the __TIME__ of the old running instance
+
+    The next size_t of the file after the info line is the count of instances
+that could be collected in the restart, i.e ones that can persist across
+a restart. This includes any ready instances (i.e joined to channels and
+accepting network IO) that aren't SSL instances.
+
+    The next N integers where N is the number of instances are file
+descriptors, i.e sockets of those instances.
+
+    The rest of the file is a new line separated list of strings containing
+the names of the instances in the same order as the integers. For example
+if there are two networks of name A and B, where A and B are on sockets
+4 and 5 respectfully; then the string table will contain "A\nB\n".
+
+    It's easier to visualize the restart file format as a pseudo-C structure
+with flexible array members (FAMs). Do note this is not a valid C structure
+as the fields within it are of variable size.
+
 struct {
     size_t infosize;
     char   infoline[infosize];
     size_t networks;
     ind    fds[networks];
-    char   stringtable[...]; // same order as fds newline seperated
+    char   stringtable[];
 };
 
+How the restart works:
+
+    When a user requests a bot restart the IRC instance name, his name
+and the channel it occurred on are recorded. Then a signal is raised.
+This signal causes poll to EINTR effectively breaking out of the
+wait-loop and into the processes busy-loop. The busy loop exits quickly
+once it notices the restart and prepares this file.
+
+    The preparation stage itself is similar to destruction stage except
+the file descriptor that represents the underlying socket of that instance
+isn't closed. Instead it's stored into a list along with the instance name.
+This information is then used to construct a temporary file with that
+restart state.
+
+    The file itself is created with a call to mkstemp which guarantees
+a unique file every time. The file descriptor returned from this is held
+onto while we populate the file with all the correct contents. While
+populating this file we also cleanup any resources we don't need anymore
+to ensure a clean restart this includes the freeing of the list of file
+descriptors and instance names when we're finished populating the file.
+
+    A call to execv is performed with argv containing -r<tempfilefd> where
+<tempfilefd> is the file descriptor of the mkstemp call. This call is
+a call to the same binary and thus overwrites the entire processes image.
+
+    When the new process is starting up a check for this -r in argv[1]
+is performed and the appropriate cal to sscanf to extract its contents.
+A call to fstat with this file descriptor occurs to validate that it
+actually is a valid file descriptor.
+
+    When it's determined and validated that we're indeed a restarted
+process lseek on that temporary file descriptor is called setting the
+position in the file back to 0. From here we read in the appropriate
+file and all contents while reconstructing the bots state.
+
+    The process of reconstructing the bot state includes using those
+instances names wrote to the string table to find the other information
+for that instance from the configuration file of the bot. From here it's
+as trivial as simply initializing the bot normally but never running
+the connect call for each IRC instance.
+
+    When finished the info line of that file is also used to write
+a message on the right channel for the right instance of the user who
+initiated the restart that the restart was successful. The build time
+stamp of the previous process is compared against the current process
+to provide additional information to the person who requested
+the restart if the restart is of a new binary, i.e recompile between
+restarts.
+
+    After this is all accomplished all resources are dealt with including
+the temporary file. This in turn effectively mimics a full bot restart
+without leaking resources.
