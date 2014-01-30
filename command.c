@@ -202,17 +202,17 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
 
     // a command timed out:
     pthread_mutex_lock(&channel->cmd_mutex);
-    if (!((channel->cmd_entry) ? channel->cmd_entry->instance : NULL)) {
+    module_t *instance = (channel->cmd_entry) ? channel->cmd_entry->instance : NULL;
+    if (!instance) {
         pthread_mutex_unlock(&channel->cmd_mutex);
         return;
-
     }
 
-    //module_mem_mutex_lock(instance);
+    module_mem_mutex_lock(instance);
     pthread_kill(channel->thread, SIGUSR2); // calls cmd_channel_signalhandle_quit
     pthread_join(channel->thread, NULL);
     pthread_mutex_unlock(&channel->cmd_mutex);
-    //module_mem_mutex_unlock(instance);
+    module_mem_mutex_unlock(instance);
 
     cmd_entry_t *entry = channel->cmd_entry;
     channel->cmd_entry = NULL;

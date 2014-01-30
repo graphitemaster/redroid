@@ -23,6 +23,12 @@
 #define SIGNAL_RESTART   (SIGRTMIN + 5)
 #define SIGNAL_DAEMONIZE (SIGRTMIN + 6)
 
+extern const char *build_date();
+extern const char *build_time();
+
+static bool signal_restart(bool restart);
+static bool signal_shutdown(bool shutdown);
+
 typedef struct {
     char *instance;
     char *channel;
@@ -56,15 +62,8 @@ static restart_info_t *restart_info_singleton(restart_info_t *info) {
 void restart(irc_t *irc, const char *channel, const char *user) {
     /* Install information and restart */
     restart_info_singleton(restart_info_create(irc->name, channel, user));
-    raise(SIGNAL_RESTART);
-}
-
-static const char *build_date() {
-    return __DATE__;
-}
-
-static const char *build_time() {
-    return __TIME__;
+    signal_restart(true); // raise(SIGNAL_RESTART);
+    irc_manager_wake(irc->manager);
 }
 
 static bool signal_restart(bool restart) {
@@ -82,7 +81,9 @@ static bool signal_shutdown(bool shutdown) {
 }
 
 static bool signal_empty(void) {
-    return signal_restart(false) && signal_shutdown(false);
+    if (!signal_restart(false))  return false;
+    if (!signal_shutdown(false)) return false;
+    return true;
 }
 
 static void signal_daemonize(bool closehandles) {
@@ -109,6 +110,7 @@ static void signal_daemonize(bool closehandles) {
 }
 
 static void signal_handle(int signal) {
+    static irc_manager_t *manager = NULL;
     bool (*handler)(bool) = NULL;
     const char *message = NULL;
 
@@ -126,19 +128,18 @@ static void signal_handle(int signal) {
         message = "Restarting";
     } else if (signal == SIGNAL_DAEMONIZE) {
         return signal_daemonize(true);
-    } else {
-        raise(SIGNAL_ERROR);
-        return;
-    }
-
-    if (!handler) {
-        raise(SIGNAL_ERROR);
-        return;
-    }
+    } else
+        goto signal_error;
+    if (!handler)
+        goto signal_error;
 
     handler(true);
     printf("%s ...\n", message);
     fflush(NULL);
+    return;
+
+signal_error:
+    raise(SIGNAL_ERROR);
 }
 
 static void signal_install(void) {
@@ -162,6 +163,8 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
 
     return true;
 }
+
+int irc_write_raw(irc_t *irc, const char *channel, const char *message);
 
 int main(int argc, char **argv) {
     irc_manager_t *manager = NULL;
@@ -299,8 +302,7 @@ int main(int argc, char **argv) {
         char *time     = strdup(strtok(NULL,     "|"));
 
         irc_t *update = irc_manager_find(manager, instance);
-        irc_write(update, channel, "%s: succesfully restarted\n",
-            user, date, time, build_date(), build_time());
+        irc_write(update, channel, "%s: succesfully restarted\n", user);
 
         if (strcmp(date, build_date()) || strcmp(time, build_time())) {
             irc_write(update, channel, "%s: last instance build timestamp %s %s", user, date, time);
@@ -392,13 +394,13 @@ int main(int argc, char **argv) {
         irc_manager_process(manager);
 
     if (!signal_restart(false)) {
-        list_t *fds = irc_manager_restart(manager); printf("G\n");
-
+        void irc_manager_wake(irc_manager_t *manager);
+        irc_manager_wake(manager);
+        list_t *fds = irc_manager_restart(manager);
         char unique[] = "redroid_XXXXXX";
         int fd = mkstemp(unique);
         if (fd == -1) {
             fprintf(stderr, "%s: restart failed (mkstemp failed) [%s]\n", *argv, strerror(errno));
-            irc_manager_destroy(manager);
             return EXIT_FAILURE;
         }
 
@@ -408,6 +410,11 @@ int main(int argc, char **argv) {
          * processes build date and time stamp.
          */
         restart_info_t *restinfo = restart_info_singleton(NULL);
+        if (!restinfo) {
+            fprintf(stderr, "%s: restart failed (no restart info)\n", *argv);
+            return EXIT_FAILURE;
+        }
+
         string_t *infoline = string_format("%s|%s|%s|%s|%s",
             restinfo->instance,
             restinfo->channel,
@@ -420,19 +427,19 @@ int main(int argc, char **argv) {
          * very first thing to the restart file. Then write the info
          * line to the file.
          */
-        size_t infosize = string_length(infoline) + 1;  printf("A\n");
-        write(fd, &infosize, sizeof(size_t));           printf("B\n");
-        write(fd, string_contents(infoline), infosize); printf("C\n");
-        string_destroy(infoline);                       printf("D\n");
-        restart_info_destroy(restinfo);                 printf("E\n");
+        size_t infosize = string_length(infoline) + 1;
+        write(fd, &infosize, sizeof(size_t));
+        write(fd, string_contents(infoline), infosize);
+        string_destroy(infoline);
+        restart_info_destroy(restinfo);
 
         /* String table will be stored at the end of the file */
-        string_t *stringtable = string_construct();     printf("F\n");
+        string_t *stringtable = string_construct();
 
         /* Store number of file descriptors */
-        size_t count = list_length(fds);                printf("H\n");
+        size_t count = list_length(fds);
 
-        write(fd, &count, sizeof(size_t));              printf("I\n");
+        write(fd, &count, sizeof(size_t));
         printf("Restart state with %zu network(s):\n", count);
 
         /* Now deal with the file descriptors */
@@ -455,9 +462,10 @@ int main(int argc, char **argv) {
 
         char buffer[1024];
         snprintf(buffer, sizeof(buffer), "-r%d", fd);
-        execv(*argv, (char *[]){ *argv, buffer, (char *)NULL });
+        return execv(*argv, (char *[]){ *argv, buffer, (char *)NULL });
+    } else {
+        irc_manager_destroy(manager);
+        return EXIT_SUCCESS;
     }
-
-    irc_manager_destroy(manager);
-    return EXIT_SUCCESS;
+    return EXIT_FAILURE;
 }

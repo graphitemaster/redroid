@@ -7,6 +7,8 @@
 #include "regexpr.h"
 #include "module.h"
 
+typedef struct irc_manager_s irc_manager_t;
+
 typedef struct irc_s {
     char             *name;         // irc instance name
     char             *nick;         // nick to use on this network
@@ -22,6 +24,7 @@ typedef struct irc_s {
     module_manager_t *moduleman;    // module manager
     database_t       *database;     // database for this IRC instance
     regexpr_cache_t  *regexprcache; // regular expression cache
+    irc_manager_t    *manager;      // the manager containing this module
 } irc_t;
 
 irc_t *irc_create(config_t *config);

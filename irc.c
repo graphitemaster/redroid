@@ -10,7 +10,6 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-static int irc_write_raw(irc_t *irc, const char *channel, const char *message);
 static int irc_action_raw(irc_t *irc, const char *channel, const char *message);
 static int irc_quit_raw(irc_t *irc, const char *channel, const char *message);
 static int irc_join_raw(irc_t *irc, const char *channel, const char *message);
@@ -85,7 +84,7 @@ static int irc_join_raw(irc_t *irc, const char *channel, const char *message) {
     return sock_sendf(irc->sock, "JOIN %s\r\n", message);
 }
 
-static int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
+int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
 }
 
@@ -225,7 +224,6 @@ bool irc_modules_unload(irc_t *irc, const char *name) {
 static bool irc_modules_list_sort(const void *a, const void *b) {
     return strcmp(a, b) >= 0;
 }
-
 
 list_t *irc_modules_list(irc_t *irc) {
     list_t          *list = list_create();

@@ -23,6 +23,9 @@ all: $(SOURCES) $(MODULE_OBJECTS) $(REDROID) whitelist
 $(REDROID): $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
+timestamp.o:
+	$(CC) $(CFLAGS) -c -o timestamp.o timestamp.c
+
 .c.o:
 	$(CC) -c $(CFLAGS) $< -o $@
 
@@ -49,3 +52,5 @@ cleanwhitelist:
 clean: cleanmodules cleanwlgen
 	rm -f $(OBJECTS)
 	rm -f $(REDROID)
+
+.PHONY: timestamp.o

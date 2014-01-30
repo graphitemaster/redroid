@@ -23,6 +23,8 @@ struct list_iterator_s {
 
 // iterator
 list_iterator_t *list_iterator_create(list_t *list) {
+    if (!list) return NULL;
+
     list_iterator_t *it = malloc(sizeof(*it));
 
     it->pointer = list->head;
@@ -35,19 +37,18 @@ void list_iterator_destroy(list_iterator_t *it) {
     free(it);
 }
 
-static void *list_iterator_walk(list_iterator_t *it, size_t offset) {
-    if (!it->pointer) return NULL;
-    void *ret = it->pointer->element;
-    it->pointer = *(void **)(((unsigned char *)it->pointer) + offset);
-    return ret;
-}
-
 void *list_iterator_next(list_iterator_t *it) {
-    return list_iterator_walk(it, offsetof(list_node_t, next));
+    if (!it->pointer) return NULL;
+    void *ptr = it->pointer->element;
+    it->pointer = it->pointer->next;
+    return ptr;
 }
 
 void *list_iterator_prev(list_iterator_t *it) {
-    return list_iterator_walk(it, offsetof(list_node_t, prev));
+    if (!it->pointer) return NULL;
+    void *ptr = it->pointer->element;
+    it->pointer = it->pointer->prev;
+    return ptr;
 }
 
 void list_iterator_reset(list_iterator_t *it) {
