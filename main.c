@@ -59,10 +59,15 @@ static restart_info_t *restart_info_singleton(restart_info_t *info) {
     return rest;
 }
 
-void restart(irc_t *irc, const char *channel, const char *user) {
+void redroid_restart(irc_t *irc, const char *channel, const char *user) {
     /* Install information and restart */
     restart_info_singleton(restart_info_create(irc->name, channel, user));
     signal_restart(true);
+    irc_manager_wake(irc->manager);
+}
+
+void redroid_shutdown(irc_t *irc, const char *channel, const char *user) {
+    signal_shutdown(true);
     irc_manager_wake(irc->manager);
 }
 
@@ -146,7 +151,6 @@ static void signal_install(void) {
     signal(SIGTERM,          &signal_handle);
     signal(SIGINT,           &signal_handle);
     signal(SIGNAL_ERROR,     &signal_handle);
-    signal(SIGNAL_RESTART,   &signal_handle);
     signal(SIGNAL_DAEMONIZE, &signal_handle);
 }
 

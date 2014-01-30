@@ -567,5 +567,8 @@ int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
 const char *irc_nick(irc_t *irc);
 list_t *irc_modules(irc_t *irc);
-void restart(irc_t *irc, const char *channel, const char *user);
+
+void redroid_restart(irc_t *irc, const char *channel, const char *user);
+void redroid_shutdown(irc_t *irc, const char *channel, const char *user);
+list_t *redroid_instances(irc_t *irc);
 #endif

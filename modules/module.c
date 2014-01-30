@@ -25,12 +25,42 @@ static void mod_reload(irc_t *irc, const char *channel, const char *user, const 
     irc_write(irc, channel, "%s: Ok, module %s reloaded", user, module);
 }
 
+static void mod_reload_all(irc_t *irc, const char *channel, const char *user) {
+    list_t *fail = list_create();
+    list_t *list = irc_modules_list(irc);
+    for (list_iterator_t *it = list_iterator_create(list); !list_iterator_end(it); ) {
+        char *name = list_iterator_next(it);
+        if (!irc_modules_reload(irc, name))
+            list_push(fail, name);
+    }
+    irc_write(irc, channel, "%s: Ok, reloaded all modules", user);
+    for (list_iterator_t *it = list_iterator_create(fail); !list_iterator_end(it); ) {
+        const char *name = list_iterator_next(it);
+        irc_write(irc, channel, "%s: module %s couldn't be reloaded", user, name);
+    }
+}
+
 static void mod_unload(irc_t *irc, const char *channel, const char *user, const char *module) {
     if (!irc_modules_unload(irc, module)) {
         irc_write(irc, channel, "%s: failed to unload module %s", user, module);
         return;
     }
     irc_write(irc, channel, "%s: Ok, module %s unloaded", user, module);
+}
+
+static void mod_unload_all(irc_t *irc, const char *channel, const char *user) {
+    list_t *fail = list_create();
+    list_t *list = irc_modules_list(irc);
+    for (list_iterator_t *it = list_iterator_create(list); !list_iterator_end(it); ) {
+        char *name = list_iterator_next(it);
+        if (!irc_modules_unload(irc, name))
+            list_push(fail, name);
+    }
+    irc_write(irc, channel, "%s: Ok, unloaded all modules", user);
+    for (list_iterator_t *it = list_iterator_create(fail); !list_iterator_end(it); ) {
+        const char *name = list_iterator_next(it);
+        irc_write(irc, channel, "%s: module %s couldn't be unloaded", user, name);
+    }
 }
 
 static void mod_list(irc_t *irc, const char *channel, const char *user) {
@@ -56,11 +86,13 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     const char *method = list_shift(split);
     const char *module = list_shift(split);
 
-    if (!strcmp(method, "-load"))   return mod_load(irc, channel, user, module);
-    if (!strcmp(method, "-reload")) return mod_reload(irc, channel, user, module);
-    if (!strcmp(method, "-unload")) return mod_unload(irc, channel, user, module);
-    if (!strcmp(method, "-list"))   return mod_list(irc, channel, user);
-    if (!strcmp(method, "-help"))   return mod_help(irc, channel, user);
+    if (!strcmp(method, "-load"))       return mod_load(irc, channel, user, module);
+    if (!strcmp(method, "-reload"))     return mod_reload(irc, channel, user, module);
+    if (!strcmp(method, "-reload-all")) return mod_reload_all(irc, channel, user);
+    if (!strcmp(method, "-unload"))     return mod_unload(irc, channel, user, module);
+    if (!strcmp(method, "-unload-all")) return mod_unload_all(irc, channel, user);
+    if (!strcmp(method, "-list"))       return mod_list(irc, channel, user);
+    if (!strcmp(method, "-help"))       return mod_help(irc, channel, user);
 
     return mod_help(irc, channel, user);
 }

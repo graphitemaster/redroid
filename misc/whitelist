@@ -157,4 +157,5 @@ database_statement_bind
 database_request
 database_request_count
 database_row_pop_integer
-restart
+redroid_restart
+redroid_shutdown
