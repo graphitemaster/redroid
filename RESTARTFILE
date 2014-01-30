@@ -62,30 +62,29 @@ descriptors and instance names when we're finished populating the file.
 <tempfilefd> is the file descriptor of the mkstemp call. This call is
 a call to the same binary and thus overwrites the entire processes image.
 
-    When the new process is starting up a check for this -r in argv[1]
-is performed and the appropriate cal to sscanf to extract its contents.
-A call to fstat with this file descriptor occurs to validate that it
-actually is a valid file descriptor.
+    When the new process is starting up, a check for this -r in argv[1]
+is performed and the appropriate call to sscanf to extract its contents.
+A call to fstat with this file descriptor is then performed to validate
+that it actually is a valid file descriptor.
 
     When it's determined and validated that we're indeed a restarted
-process lseek on that temporary file descriptor is called setting the
-position in the file back to 0. From here we read in the appropriate
-file and all contents while reconstructing the bots state.
+process. An lseek on that temporary file descriptor is performed, setting
+the position in the file back to 0. From here we read in the appropriate
+contents of that temporary file while reconstructing the bots state.
 
-    The process of reconstructing the bot state includes using those
+    The process of reconstructing the bot state includes using the
 instances names wrote to the string table to find the other information
 for that instance from the configuration file of the bot. From here it's
-as trivial as simply initializing the bot normally but never running
-the connect call for each IRC instance.
+as trivial as simply initializing the bot normally but never calling the
+connect function for each IRC instance.
 
-    When finished the info line of that file is also used to write
-a message on the right channel for the right instance of the user who
-initiated the restart that the restart was successful. The build time
-stamp of the previous process is compared against the current process
-to provide additional information to the person who requested
-the restart if the restart is of a new binary, i.e recompile between
-restarts.
+    When finished, the info line of that file is also used to write
+a message highlighting the user who initiated the restart; that the
+restart itself was successful. The build time stamp of the previous
+process is compared against the current process to provide additional
+information to the person who requested the restart if the restart is of
+a new binary, i.e recompile between restarts.
 
     After this is all accomplished all resources are dealt with including
 the temporary file. This in turn effectively mimics a full bot restart
-without leaking resources.
+without leaking resources and without ever disconnecting from IRC.
