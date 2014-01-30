@@ -62,7 +62,7 @@ static restart_info_t *restart_info_singleton(restart_info_t *info) {
 void restart(irc_t *irc, const char *channel, const char *user) {
     /* Install information and restart */
     restart_info_singleton(restart_info_create(irc->name, channel, user));
-    signal_restart(true); // raise(SIGNAL_RESTART);
+    signal_restart(true);
     irc_manager_wake(irc->manager);
 }
 
@@ -163,8 +163,6 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
 
     return true;
 }
-
-int irc_write_raw(irc_t *irc, const char *channel, const char *message);
 
 int main(int argc, char **argv) {
     irc_manager_t *manager = NULL;
@@ -394,8 +392,6 @@ int main(int argc, char **argv) {
         irc_manager_process(manager);
 
     if (!signal_restart(false)) {
-        void irc_manager_wake(irc_manager_t *manager);
-        irc_manager_wake(manager);
         list_t *fds = irc_manager_restart(manager);
         char unique[] = "redroid_XXXXXX";
         int fd = mkstemp(unique);

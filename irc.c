@@ -80,11 +80,10 @@ static int irc_quit_raw(irc_t *irc, const char *channel, const char *message) {
 }
 
 static int irc_join_raw(irc_t *irc, const char *channel, const char *message) {
-    (void)channel;
     return sock_sendf(irc->sock, "JOIN %s\r\n", message);
 }
 
-int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
+static int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
 }
 
