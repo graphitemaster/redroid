@@ -214,18 +214,27 @@ int main(int argc, char **argv) {
 
         printf("Restart state contains %zu network(s)\n", networks);
 
-        /*
-         * Grab the string table from the file and create a list from it;
-         * all entries are seperated by newlines.
-         */
-        size_t offset =
-            8              +         /* identifier strlen     */
-            sizeof(size_t) +         /* infoline strlen       */
-            infosize       +         /* infoline length       */
-            sizeof(size_t) +         /* file descriptor count */
-            sizeof(int) * networks;  /* file descriptors      */
+        /* Calculate the string table offset */
+        size_t strtabof = 0;
 
-        lseek(tmpfd, offset, SEEK_SET);
+        strtabof += 8;              /* 'Redroid\0'       */
+        strtabof += sizeof(size_t); /* infoline size     */
+        strtabof += infosize;       /* infoline itself   */
+        strtabof += sizeof(size_t); /* number of sockets */
+
+        for (size_t i = 0; i < networks; i++) {
+            int    ignorefd;
+            size_t size;
+
+            read(tmpfd, &ignorefd, sizeof(int));
+            read(tmpfd, &size,     sizeof(size_t));
+
+            strtabof += sizeof(int);    /* skip the file descriptor */
+            strtabof += sizeof(size_t); /* possible ssl data        */
+            strtabof += size;           /* SSL state                */
+        }
+
+        lseek(tmpfd, strtabof, SEEK_SET);
 
         list_t   *list   = list_create();
         string_t *string = string_construct();
@@ -257,9 +266,21 @@ int main(int argc, char **argv) {
         int              sock = 0;
 
         for (size_t i = 0; i < networks; i++) {
+            size_t size = 0;
+
+            read(tmpfd, &sock, sizeof(int));    // socket
+            read(tmpfd, &size, sizeof(size_t)); // possible ssl data
+
             name = list_iterator_next(it);
-            read(tmpfd, &sock, sizeof(int));
-            printf("    Network %s on socket %d will be restored\n", string_contents(name), sock);
+            printf("    Network %s on socket %d will be restored", string_contents(name), sock);
+            printf((size != 0) ? " (SSL)\n" : "\n");
+
+            /* skip the data for now */
+            char *sslstate = NULL;
+            if (size) {
+                sslstate = malloc(size);
+                read(tmpfd, sslstate, size);
+            }
 
             /* Find configuration for that instance */
             config_t        *entry = NULL;
@@ -287,13 +308,17 @@ int main(int argc, char **argv) {
                 irc_channels_add(instance, (const char *)list_iterator_next(jt));
             list_iterator_destroy(jt);
 
-            /*
-             * Readying status make it such that it assumes it's connected
-             * then add it to the manager to be processed. We also reinstate
-             * the connection.
-             */
-            if (!irc_reinstate(instance, entry->host, entry->port, entry->ssl, sock)) {
-                /* Something went terribly wrong in the reinstate process
+            /* Prepare the restart data */
+            sock_restart_t restdata = {
+                .ssl  = entry->ssl,
+                .fd   = sock,
+                .data = sslstate,
+                .size = size
+            };
+
+            if (!irc_reinstate(instance, entry->host, entry->port, &restdata)) {
+                /*
+                 * Something went terribly wrong in the reinstate process
                  * TODO: handle it some how
                  */
                 abort();
@@ -475,14 +500,12 @@ int main(int argc, char **argv) {
              * indicate that we don't have any SSL state or rather we're
              * not an SSL socket.
              */
-            #if 0
             if (e->ssl) {
                 write(fd, &e->size, sizeof(size_t));
                 write(fd, e->data, e->size);
             } else {
                 write(fd, &(size_t){0}, sizeof(size_t));
             }
-            #endif
 
             /* Apeend to string table seperated by newlines */
             string_catf(stringtable, "%s\n", e->name);

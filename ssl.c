@@ -78,16 +78,17 @@ ssl_create_error:
 static bool ssl_destroy(ssl_t *ssl, sock_restart_t *restart) {
     if (ssl->ssl) {
         if (restart) {
-            SSL_SESSION *session = SSL_get1_session(ssl->ssl);
-
+            SSL_SESSION *session = SSL_get_session(ssl->ssl);
             restart->size = i2d_SSL_SESSION(session, NULL);
             restart->data = malloc(restart->size);
             restart->ssl  = true;
             restart->fd   = ssl->fd;
 
             unsigned char *copy = restart->data;
-            if (i2d_SSL_SESSION(session, &copy) != restart->size)
+            if (i2d_SSL_SESSION(session, &copy) != restart->size) {
                 fprintf(stderr, "   ssl      => failed to save session information\n");
+                free(restart->data);
+            }
 
         }
         SSL_free(ssl->ssl);
@@ -125,7 +126,7 @@ static int ssl_getfd(ssl_t *ssl) {
     return ssl->fd;
 }
 
-sock_t *ssl_create(int fd) {
+sock_t *ssl_create(int fd, sock_restart_t *restart) {
     ssl_t *ssl = ssl_ctx_create(fd);
     if (!ssl) {
         fprintf(stderr, "   ssl      => failed creating context\n");
@@ -140,21 +141,36 @@ sock_t *ssl_create(int fd) {
     sock->destroy = (sock_destroy_func)&ssl_destroy;
     sock->ssl     = true;
 
+    if (restart) {
+        const unsigned char *copy = restart->data;
+        //SSL_SESSION *reinstate = SSL_SESSION_new();
+        SSL_SESSION *reinstate = d2i_SSL_SESSION(NULL, &copy, restart->size);
+        if (!reinstate)
+            goto cleanup;
+        if (!SSL_set_session(ssl->ssl, reinstate))
+            goto cleanup;
+    }
     if (!SSL_set_fd(ssl->ssl, fd))
         goto cleanup;
 
-    if (SSL_connect(ssl->ssl) != 1)
-        goto cleanup;
+    if (!restart) {
+        if (SSL_connect(ssl->ssl) != 1)
+            goto cleanup;
+    }
 
     if (!ssl_certificate_check(ssl))
         goto cleanup;
 
+    SSL_SESSION_print_fp(stderr, SSL_get1_session(ssl->ssl));
     printf("    ssl      => connected with %s encryption\n", SSL_get_cipher(ssl->ssl));
     sock_nonblock(fd);
 
     return sock;
 
 cleanup:
+    if (restart && restart->data)
+        free(restart->data);
+
     fprintf(stderr, "    ssl      => failed creating SSL\n");
     free(sock);
     ssl_destroy(ssl, NULL);

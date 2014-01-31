@@ -287,15 +287,18 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
 }
 
 bool irc_connect(irc_t *irc, const char *host, const char *port, bool ssl) {
-    sock_restart_t info = { .ssl = ssl, .fd = -1 };
+    sock_restart_t info = {
+        .ssl = ssl,
+        .fd  = -1
+    };
+
     if (!(irc->sock = sock_create(host, port, &info)))
         return false;
     return true;
 }
 
-bool irc_reinstate(irc_t *irc, const char *host, const char *port, bool ssl, int oldfd) {
-    sock_restart_t info = { .ssl = ssl, .fd = oldfd };
-    if (!(irc->sock = sock_create(host, port, &info)))
+bool irc_reinstate(irc_t *irc, const char *host, const char *port, sock_restart_t *restart) {
+    if (!(irc->sock = sock_create(host, port, restart)))
         return false;
     return true;
 }
@@ -331,6 +334,8 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     char *line = irc->buffer;
     if (!line || !*line)
         return;
+
+    printf(">> %s\n", line);
 
     //
     // when to know that the IRC server is ready to accept commands from

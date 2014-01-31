@@ -33,7 +33,7 @@ int irc_process(irc_t *irc, void *data);
 const char *irc_name(irc_t *irc);
 
 bool irc_connect(irc_t *irc, const char *host, const char *port, bool ssl);
-bool irc_reinstate(irc_t *irc, const char *host, const char *port, bool ssl, int oldfd);
+bool irc_reinstate(irc_t *irc, const char *host, const char *port, sock_restart_t *restart);
 
 list_t *irc_modules_list(irc_t *irc);
 bool irc_modules_add(irc_t *irc, const char *file);

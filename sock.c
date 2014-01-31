@@ -142,15 +142,24 @@ static sock_t *sock_standard_create(int fd) {
 
 // exposed interface
 sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart) {
-    sock_t *(*create)(int fd) = &sock_standard_create;
-    int fd = (restart && restart->fd != -1) ? restart->fd : sock_connection(host, port);
+    if (restart->fd != -1) {
+#ifdef HAS_SSL
+        if (restart->ssl)
+            return ssl_create(restart->fd, restart);
+#endif
+        return sock_standard_create(restart->fd);
+    }
+
+    int fd = sock_connection(host, port);
     if (fd == -1)
         return NULL;
+
 #ifdef HAS_SSL
     if (restart->ssl)
-        create = &ssl_create;
+        return ssl_create(fd, NULL);
 #endif
-    return create(fd);
+
+    return sock_standard_create(fd);
 }
 
 int sock_sendf(sock_t *socket, const char *fmt, ...) {
