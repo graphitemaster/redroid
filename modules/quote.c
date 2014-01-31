@@ -208,7 +208,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!message)
         return quote_entry_random(irc, channel, user);
 
-    list_t     *list   = strnsplit(strdup(message), " ", 3);
+    list_t     *list   = strnsplit(message, " ", 3);
     const char *method = list_shift(list);
 
     if (!strcmp(method, "-help"))     return quote_help(irc, channel, user);
