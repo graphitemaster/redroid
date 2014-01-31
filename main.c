@@ -23,6 +23,8 @@
 #define SIGNAL_RESTART   (SIGRTMIN + 5)
 #define SIGNAL_DAEMONIZE (SIGRTMIN + 6)
 
+#define RESTART_FILESIZE sizeof("redroid_XXXXXX")
+
 extern const char *build_date();
 extern const char *build_time();
 
@@ -200,6 +202,9 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
+        char tmpfilename[RESTART_FILESIZE];
+        read(tmpfd, tmpfilename, sizeof(tmpfilename));
+
         /*
          * Read the info line containing all the information about who
          * restarted this instance.
@@ -218,6 +223,7 @@ int main(int argc, char **argv) {
         size_t strtabof = 0;
 
         strtabof += 8;                      /* 'Redroid\0'       */
+        strtabof += sizeof(tmpfilename);    /* this filename     */
         strtabof += sizeof(size_t);         /* infoline size     */
         strtabof += infosize;               /* infoline itself   */
         strtabof += sizeof(size_t);         /* number of sockets */
@@ -250,7 +256,7 @@ int main(int argc, char **argv) {
         list_t *config = config_load("config.ini");
 
         /* Now back to where sockets themselfs are stored */
-        lseek(tmpfd, 8 + (sizeof(size_t) * 2) + infosize, SEEK_SET);
+        lseek(tmpfd, 8 + RESTART_FILESIZE + (sizeof(size_t) * 2) + infosize, SEEK_SET);
 
         list_iterator_t *it   = list_iterator_create(list);
         string_t        *name = NULL;
@@ -330,6 +336,8 @@ int main(int argc, char **argv) {
         } else {
             irc_write(update, channel, "%s: this instance is the same binary as last instance", user);
         }
+
+        unlink(tmpfilename);
 
         free(time);
         free(date);
@@ -416,7 +424,7 @@ int main(int argc, char **argv) {
 
     if (!signal_restart(false)) {
         list_t *fds = irc_manager_restart(manager);
-        char unique[] = "redroid_XXXXXX";
+        char unique[RESTART_FILESIZE] = "redroid_XXXXXX";
         int fd = mkstemp(unique);
         if (fd == -1) {
             fprintf(stderr, "%s: restart failed (mkstemp failed) [%s]\n", *argv, strerror(errno));
@@ -436,6 +444,9 @@ int main(int argc, char **argv) {
 
         /* Write the signature */
         write(fd, "Redroid", 8);
+
+        /* Write the filename */
+        write(fd, unique, sizeof(unique));
 
         string_t *infoline = string_format("%s|%s|%s|%s|%s",
             restinfo->instance,
