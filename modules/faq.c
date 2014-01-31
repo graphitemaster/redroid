@@ -176,7 +176,7 @@ static void faq_author(irc_t *irc, const char *channel, const char *user, list_t
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    list_t     *list   = strnsplit(strdup(message), " ", 2);
+    list_t     *list   = strnsplit(message, " ", 2);
     const char *method = list_shift(list);
 
     if (!strcmp(method, "-help"))    return faq_help(irc, channel, user);

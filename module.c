@@ -501,53 +501,73 @@ char *module_strdup(const char *str) {
     return dup;
 }
 
-list_t* module_strsplit(char *str, char *delim) {
+list_t* module_strsplit(const char *str_, const char *delim) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
+
     list_t *list = list_create();
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
-    char *saveptr;
-    char *tok = strtok_r(str, delim, &saveptr);
-    while (tok) {
-        list_push(list, tok);
-        tok = strtok_r(NULL, delim, &saveptr);
+
+    if (str_ && *str_) {
+        char *str = strdup(str_);
+        module_mem_push(module, str, &free);
+
+        char *saveptr;
+        char *tok = strtok_r(str, delim, &saveptr);
+        while (tok) {
+            list_push(list, tok);
+            tok = strtok_r(NULL, delim, &saveptr);
+        }
     }
+
     module_mem_mutex_unlock(module);
     return list;
 }
 
-list_t* module_strnsplit_impl(char *str, char *delim, size_t count) {
+list_t* module_strnsplit_impl(char *str, const char *delim, size_t count) {
     list_t *list = list_create();
     if (count < 2) {
         while (*str && strchr(delim, *str))
             ++str;
         if (*str)
             list_push(list, str);
+        return list;
     }
-    else {
-        char *saveptr;
-        char *tok = strtok_r(str, delim, &saveptr);
-        while (tok) {
-            list_push(list, tok);
-            if (!--count) {
-                tok += strlen(tok)+1;
-                while (*tok && strchr(delim, *tok))
-                    ++tok;
-                if (*tok)
-                    list_push(list, tok);
+    char *saveptr;
+    char *end = str + strlen(str);
+    char *tok = strtok_r(str, delim, &saveptr);
+    while (tok) {
+        list_push(list, tok);
+        if (!--count) {
+            tok += strlen(tok);
+            if (tok == end)
                 return list;
-            }
-            tok = strtok_r(NULL, delim, &saveptr);
+            for (++tok; *tok && strchr(delim, *tok);)
+                ++tok;
+            if (*tok)
+                list_push(list, tok);
+            return list;
         }
+        tok = strtok_r(NULL, delim, &saveptr);
     }
     return list;
 }
 
-list_t* module_strnsplit(char *str, char *delim, size_t count) {
+list_t* module_strnsplit(const char *str_, const char *delim, size_t count) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
-    list_t *list = module_strnsplit_impl(str, delim, count);
+
+    list_t *list;
+    if (str_ && *str_) {
+        char *str = strdup(str_);
+        module_mem_push(module, str, &free);
+        list = module_strnsplit_impl(str, delim, count);
+    }
+    else
+        list = list_create();
+
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
+
     module_mem_mutex_unlock(module);
     return list;
 }

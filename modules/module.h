@@ -320,10 +320,10 @@ static inline char *strdup(const char *string) {
     return MODULE_GC_CALL(strdup)(string);
 }
 
-static inline list_t *strsplit(char *string, char *delimiter) {
+static inline list_t *strsplit(const char *string, const char *delimiter) {
     return MODULE_GC_CALL(strsplit)(string, delimiter);
 }
-static inline list_t *strnsplit(char *string, char *delimiter, size_t count) {
+static inline list_t *strnsplit(const char *string, const char *delimiter, size_t count) {
     return MODULE_GC_CALL(strnsplit)(string, delimiter, count);
 }
 
