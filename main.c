@@ -217,22 +217,11 @@ int main(int argc, char **argv) {
         /* Calculate the string table offset */
         size_t strtabof = 0;
 
-        strtabof += 8;              /* 'Redroid\0'       */
-        strtabof += sizeof(size_t); /* infoline size     */
-        strtabof += infosize;       /* infoline itself   */
-        strtabof += sizeof(size_t); /* number of sockets */
-
-        for (size_t i = 0; i < networks; i++) {
-            int    ignorefd;
-            size_t size;
-
-            read(tmpfd, &ignorefd, sizeof(int));
-            read(tmpfd, &size,     sizeof(size_t));
-
-            strtabof += sizeof(int);    /* skip the file descriptor */
-            strtabof += sizeof(size_t); /* possible ssl data        */
-            strtabof += size;           /* SSL state                */
-        }
+        strtabof += 8;                      /* 'Redroid\0'       */
+        strtabof += sizeof(size_t);         /* infoline size     */
+        strtabof += infosize;               /* infoline itself   */
+        strtabof += sizeof(size_t);         /* number of sockets */
+        strtabof += sizeof(int) * networks; /* all the sockets   */
 
         lseek(tmpfd, strtabof, SEEK_SET);
 
@@ -266,21 +255,10 @@ int main(int argc, char **argv) {
         int              sock = 0;
 
         for (size_t i = 0; i < networks; i++) {
-            size_t size = 0;
-
             read(tmpfd, &sock, sizeof(int));    // socket
-            read(tmpfd, &size, sizeof(size_t)); // possible ssl data
 
             name = list_iterator_next(it);
-            printf("    Network %s on socket %d will be restored", string_contents(name), sock);
-            printf((size != 0) ? " (SSL)\n" : "\n");
-
-            /* skip the data for now */
-            char *sslstate = NULL;
-            if (size) {
-                sslstate = malloc(size);
-                read(tmpfd, sslstate, size);
-            }
+            printf("    Network %s on socket %d will be restored\n", string_contents(name), sock);
 
             /* Find configuration for that instance */
             config_t        *entry = NULL;
@@ -312,8 +290,6 @@ int main(int argc, char **argv) {
             sock_restart_t restdata = {
                 .ssl  = entry->ssl,
                 .fd   = sock,
-                .data = sslstate,
-                .size = size
             };
 
             if (!irc_reinstate(instance, entry->host, entry->port, &restdata)) {
@@ -493,19 +469,6 @@ int main(int argc, char **argv) {
                 e->name, e->fd, e->ssl ? "SSL" : "normal");
 
             write(fd, &e->fd, sizeof(int));
-
-            /*
-             * Write the SSL session data if there is any right after
-             * the file descriptor. Otherwise we write a zero to
-             * indicate that we don't have any SSL state or rather we're
-             * not an SSL socket.
-             */
-            if (e->ssl) {
-                write(fd, &e->size, sizeof(size_t));
-                write(fd, e->data, e->size);
-            } else {
-                write(fd, &(size_t){0}, sizeof(size_t));
-            }
 
             /* Apeend to string table seperated by newlines */
             string_catf(stringtable, "%s\n", e->name);

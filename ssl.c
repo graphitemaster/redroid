@@ -76,23 +76,8 @@ ssl_create_error:
 }
 
 static bool ssl_destroy(ssl_t *ssl, sock_restart_t *restart) {
-    if (ssl->ssl) {
-        if (restart) {
-            SSL_SESSION *session = SSL_get_session(ssl->ssl);
-            restart->size = i2d_SSL_SESSION(session, NULL);
-            restart->data = malloc(restart->size);
-            restart->ssl  = true;
-            restart->fd   = ssl->fd;
-
-            unsigned char *copy = restart->data;
-            if (i2d_SSL_SESSION(session, &copy) != restart->size) {
-                fprintf(stderr, "   ssl      => failed to save session information\n");
-                free(restart->data);
-            }
-
-        }
+    if (ssl->ssl)
         SSL_free(ssl->ssl);
-    }
 
     SSL_CTX_free(ssl->ctx);
     bool succeed = (close(ssl->fd) == 0);
@@ -141,29 +126,15 @@ sock_t *ssl_create(int fd, sock_restart_t *restart) {
     sock->destroy = (sock_destroy_func)&ssl_destroy;
     sock->ssl     = true;
 
-    if (restart) {
-        const unsigned char *copy = restart->data;
-        //SSL_SESSION *reinstate = SSL_SESSION_new();
-        SSL_SESSION *reinstate = d2i_SSL_SESSION(NULL, &copy, restart->size);
-        if (!reinstate)
-            goto cleanup;
-        if (!SSL_CTX_add_session(ssl->ctx, reinstate))
-            goto cleanup;
-        ERR_print_errors_fp(stderr);
-        return sock;
-    }
-    if (!restart) {
-        if (!SSL_set_fd(ssl->ssl, fd))
-            goto cleanup;
+    if (!SSL_set_fd(ssl->ssl, fd))
+        goto cleanup;
 
-        if (SSL_connect(ssl->ssl) != 1)
-            goto cleanup;
-    }
+    if (SSL_connect(ssl->ssl) != 1)
+        goto cleanup;
 
     if (!ssl_certificate_check(ssl))
         goto cleanup;
 
-    SSL_SESSION_print_fp(stderr, SSL_get1_session(ssl->ssl));
     printf("    ssl      => connected with %s encryption\n", SSL_get_cipher(ssl->ssl));
     sock_nonblock(fd);
 
