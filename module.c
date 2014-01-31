@@ -505,17 +505,21 @@ list_t* module_strsplit(const char *str_, const char *delim) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
 
-    char *str = strdup(str_);
-    module_mem_push(module, str, &free);
-
     list_t *list = list_create();
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
-    char *saveptr;
-    char *tok = strtok_r(str, delim, &saveptr);
-    while (tok) {
-        list_push(list, tok);
-        tok = strtok_r(NULL, delim, &saveptr);
+
+    if (str_ && *str_) {
+        char *str = strdup(str_);
+        module_mem_push(module, str, &free);
+
+        char *saveptr;
+        char *tok = strtok_r(str, delim, &saveptr);
+        while (tok) {
+            list_push(list, tok);
+            tok = strtok_r(NULL, delim, &saveptr);
+        }
     }
+
     module_mem_mutex_unlock(module);
     return list;
 }
@@ -553,10 +557,15 @@ list_t* module_strnsplit(const char *str_, const char *delim, size_t count) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
 
-    char *str = strdup(str_);
-    module_mem_push(module, str, &free);
+    list_t *list;
+    if (str_ && *str_) {
+        char *str = strdup(str_);
+        module_mem_push(module, str, &free);
+        list = module_strnsplit_impl(str, delim, count);
+    }
+    else
+        list = list_create();
 
-    list_t *list = module_strnsplit_impl(str, delim, count);
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
 
     module_mem_mutex_unlock(module);
