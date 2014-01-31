@@ -390,7 +390,7 @@ int main(int argc, char **argv) {
             list_iterator_destroy(jt);
 
             if (!irc_connect(irc, entry->host, entry->port, entry->ssl)) {
-                irc_destroy(irc, false);
+                irc_destroy(irc, NULL, NULL);
                 fprintf(stderr, "    irc      => cannot connect (ignoring instance)\n");
                 continue;
             }
@@ -464,12 +464,30 @@ int main(int argc, char **argv) {
         list_iterator_t *it = list_iterator_create(fds);
         while (!list_iterator_end(it)) {
             irc_manager_restart_t *e = list_iterator_next(it);
-            printf("    Network %s on socket %d stored\n", e->name, e->fd);
+            printf("    Network %s on socket %d stored (%s socket)\n",
+                e->name, e->fd, e->ssl ? "SSL" : "normal");
+
             write(fd, &e->fd, sizeof(int));
+
+            /*
+             * Write the SSL session data if there is any right after
+             * the file descriptor. Otherwise we write a zero to
+             * indicate that we don't have any SSL state or rather we're
+             * not an SSL socket.
+             */
+            #if 0
+            if (e->ssl) {
+                write(fd, &e->size, sizeof(size_t));
+                write(fd, e->data, e->size);
+            } else {
+                write(fd, &(size_t){0}, sizeof(size_t));
+            }
+            #endif
 
             /* Apeend to string table seperated by newlines */
             string_catf(stringtable, "%s\n", e->name);
 
+            free(e->data);
             free(e->name);
             free(e);
         }

@@ -4,8 +4,11 @@
 #include "irc.h"
 
 typedef struct {
-    int   fd;
-    char *name;
+    int    fd;
+    char  *name;
+    bool   ssl;
+    size_t size;
+    char  *data;
 } irc_manager_restart_t;
 
 typedef struct irc_manager_s irc_manager_t;

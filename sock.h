@@ -28,7 +28,7 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
 int sock_send(sock_t *socket, const char *message, size_t size);
 int sock_sendf(sock_t *socket, const char *format, ...);
 int sock_recv(sock_t *socket, char *buffer, size_t buffersize);
-bool sock_destroy(sock_t *socket, bool restart);
+bool sock_destroy(sock_t *socket, sock_restart_t *restart);
 int sock_getfd(sock_t *socket);
 void sock_nonblock(int fd);
 

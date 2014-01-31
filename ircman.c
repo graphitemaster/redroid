@@ -35,18 +35,32 @@ static irc_instances_t *irc_instances_create(void) {
 }
 
 static list_t *irc_instances_destroy(irc_instances_t *instances, bool restart) {
-    list_t *list = NULL;
-    if (restart)
-        list = list_create();
+    list_t *list = (restart) ? list_create() : NULL;
+
     for (size_t i = 0; i < instances->size; i++) {
-        if (restart && instances->data[i]->ready) {
-            irc_manager_restart_t *r = malloc(sizeof(*r));
-            r->fd   = sock_getfd(instances->data[i]->sock);
-            r->name = strdup(instances->data[i]->name);
-            list_push(list, r);
+        if (!instances->data[i]->ready) {
+            irc_destroy(instances->data[i], NULL, NULL);
+            continue;
         }
-        irc_destroy(instances->data[i], restart);
+
+        if (restart) {
+            irc_manager_restart_t *restdata = malloc(sizeof(*restdata));
+            char                  *restname = NULL;
+            sock_restart_t         restinfo = {0};
+
+            irc_destroy(instances->data[i], &restinfo, &restname);
+
+            restdata->fd   = restinfo.fd;
+            restdata->name = restname;
+            restdata->ssl  = restinfo.ssl;
+            restdata->size = restinfo.size;
+            restdata->data = restinfo.data;
+            list_push(list, restdata);
+        } else {
+            irc_destroy(instances->data[i], NULL, NULL);
+        }
     }
+
     free(instances->data);
     free(instances);
     return list;

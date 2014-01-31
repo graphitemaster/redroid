@@ -85,7 +85,8 @@ static bool ssl_destroy(ssl_t *ssl, sock_restart_t *restart) {
             restart->ssl  = true;
             restart->fd   = ssl->fd;
 
-            if (i2d_SSL_SESSION(session, &restart->data) != restart->size)
+            unsigned char *copy = restart->data;
+            if (i2d_SSL_SESSION(session, &copy) != restart->size)
                 fprintf(stderr, "   ssl      => failed to save session information\n");
 
         }

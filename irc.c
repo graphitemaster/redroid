@@ -252,9 +252,12 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
     return true;
 }
 
-void irc_destroy(irc_t *irc, bool restart) {
+void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     if (irc->sock && !restart)
         irc_quit_raw(irc, NULL, "Shutting down");
+
+    if (name)
+        *name = strdup(irc->name);
 
     irc_queue_destroy(irc);
 

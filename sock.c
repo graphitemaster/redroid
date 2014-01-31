@@ -106,6 +106,11 @@ static int sock_standard_send(sock_ctx_t *ctx, const char *data, size_t size) {
 
 static bool sock_standard_destroy(sock_ctx_t *ctx, sock_restart_t *restart) {
     if (restart) {
+        restart->fd   = ctx->fd;
+        restart->ssl  = false;
+        restart->data = NULL;
+        restart->size = 0;
+
         free(ctx);
         return true;
     }
@@ -183,13 +188,10 @@ int sock_getfd(sock_t *socket) {
     return socket->getfd(socket->data);
 }
 
-static void sock_restart_dump(sock_restart_t *restart) {
-    printf("Restart state of socket:\n");
-    printf("    Socket: %d\n",  restart->fd);
-    printf("    Size:   %zu\n", restart->size);
-    printf("    Data:   %p\n",  restart->data);
 
-    unsigned char buffer[17];
+static void sock_restart_dump(sock_restart_t *restart) {
+#ifndef _NDEBUG
+    unsigned char buffer[17] = "";
     size_t i;
     for (i = 0; i < restart->size; i++) {
         if (i % 16 == 0) {
@@ -209,27 +211,20 @@ static void sock_restart_dump(sock_restart_t *restart) {
 
     while ((i % 16) != 0)
         printf("   "), i++;
-
-    printf("  %s\n", buffer);
+    if (*buffer)
+        printf("  %s\n", buffer);
+#endif
 }
 
-bool sock_destroy(sock_t *socket, bool restart) {
+bool sock_destroy(sock_t *socket, sock_restart_t *restart) {
     if (!socket)
         return false;
 
-    /* Restart data if we restart a socket */
-    sock_restart_t restartdata = {
-        .fd   = -1,
-        .ssl  = false,
-        .data = NULL,
-        .size = 0
-    };
-
     bool succeed = false;
-    socket->destroy(socket->data, restart ? &restartdata : NULL);
+    socket->destroy(socket->data, restart);
 
-    if (restart && restartdata.fd != -1)
-        sock_restart_dump(&restartdata);
+    if (restart && restart->fd != -1)
+        sock_restart_dump(restart);
 
     free(socket);
     return succeed;
