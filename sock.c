@@ -198,43 +198,12 @@ int sock_getfd(sock_t *socket) {
 }
 
 
-static void sock_restart_dump(sock_restart_t *restart) {
-#ifndef _NDEBUG
-    unsigned char buffer[17] = "";
-    size_t i;
-    for (i = 0; i < restart->size; i++) {
-        if (i % 16 == 0) {
-            if (i != 0)
-                printf("  %s\n", buffer);
-            printf("  %04x ", i);
-        }
-
-        printf(" %02x", restart->data[i]);
-
-        if (restart->data[i] < 0x20 || restart->data[i] > 0x7E)
-            buffer[i % 16] = '.';
-        else
-            buffer[i % 16] = restart->data[i];
-        buffer[(i % 16) + 1] = 0;
-    }
-
-    while ((i % 16) != 0)
-        printf("   "), i++;
-    if (*buffer)
-        printf("  %s\n", buffer);
-#endif
-}
-
 bool sock_destroy(sock_t *socket, sock_restart_t *restart) {
     if (!socket)
         return false;
 
     bool succeed = false;
     socket->destroy(socket->data, restart);
-
-    if (restart && restart->fd != -1)
-        sock_restart_dump(restart);
-
     free(socket);
     return succeed;
 }
