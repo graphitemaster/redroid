@@ -232,8 +232,10 @@ int main(int argc, char **argv) {
             char ch;
             /* Read to EOF */
             int r;
-            if ((r = read(tmpfd, &ch, 1)) == -1 || r == 0)
+            if ((r = read(tmpfd, &ch, 1)) == -1 || r == 0) {
+                string_destroy(string);
                 break;
+            }
 
             if (ch == '\n') {
                 list_push(list, string);
@@ -334,6 +336,7 @@ int main(int argc, char **argv) {
         free(user);
         free(channel);
         free(instance);
+        free(infoline);
 
         config_unload(config);
         list_iterator_destroy(it);
@@ -485,9 +488,8 @@ int main(int argc, char **argv) {
         char buffer[1024];
         snprintf(buffer, sizeof(buffer), "-r%d", fd);
         return execv(*argv, (char *[]){ *argv, buffer, (char *)NULL });
-    } else {
-        irc_manager_destroy(manager);
-        return EXIT_SUCCESS;
     }
-    return EXIT_FAILURE;
+
+    irc_manager_destroy(manager);
+    return EXIT_SUCCESS;
 }
