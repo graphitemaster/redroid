@@ -23,11 +23,19 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         return redroid_restart(irc, channel, user);
     }
 
+    if (!strcmp(message, "-timeout")) {
+        /*
+         * TODO: check if user is an administrator and can perform the
+         *       timeout test.
+         */
+        for (;;) ;
+    }
+
     if (!strcmp(message, "-version")) {
         irc_write(irc, channel, "%s: %s", user, build_version());
         return;
     }
 
 help:
-    irc_write(irc, channel, "%s: system <-shutdown|-restart|-version>", user);
+    irc_write(irc, channel, "%s: system <-shutdown|-restart|-timeout|-version>", user);
 }

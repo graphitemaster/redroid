@@ -49,7 +49,7 @@ static const char *calc_jokes[] = {
     "In modern mathematics, algebra has become so important that numbers will soon only have symbolic meaning.",
     "A circle is a round straight line with a hole in the middle.",
     "In the topologic hell the beer is packed in Klein's bottles.",
-    "A statistician can have his head in an oven and his feet in ice, and he will say that on the average he feels fine.",
+    "A statistician can have his head in an oven and his feet in ice, and he will say that on average he feels fine.",
     "Math and Alcohol don't mix, so... PLEASE DON'T DRINK AND DERIVE"
 };
 
