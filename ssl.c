@@ -6,7 +6,7 @@
 
 #include <unistd.h>
 
-#include "sock.h"
+#include "ssl.h"
 
 static struct {
     bool   init;
@@ -75,9 +75,23 @@ ssl_create_error:
     return NULL;
 }
 
-static bool ssl_destroy(ssl_t *ssl) {
-    if (ssl->ssl)
+static bool ssl_destroy(ssl_t *ssl, sock_restart_t *restart) {
+    if (ssl->ssl) {
+        if (restart) {
+            SSL_SESSION *session = SSL_get1_session(ssl->ssl);
+
+            restart->size = i2d_SSL_SESSION(session, NULL);
+            restart->data = malloc(restart->size);
+            restart->ssl  = true;
+            restart->fd   = ssl->fd;
+
+            if (i2d_SSL_SESSION(session, &restart->data) != restart->size)
+                fprintf(stderr, "   ssl      => failed to save session information\n");
+
+        }
         SSL_free(ssl->ssl);
+    }
+
     SSL_CTX_free(ssl->ctx);
     bool succeed = (close(ssl->fd) == 0);
     free(ssl);
@@ -110,7 +124,7 @@ static int ssl_getfd(ssl_t *ssl) {
     return ssl->fd;
 }
 
-sock_t *ssl_create(int fd, int oldfd) {
+sock_t *ssl_create(int fd) {
     ssl_t *ssl = ssl_ctx_create(fd);
     if (!ssl) {
         fprintf(stderr, "   ssl      => failed creating context\n");
@@ -123,11 +137,7 @@ sock_t *ssl_create(int fd, int oldfd) {
     sock->recv    = (sock_recv_func)&ssl_recv;
     sock->send    = (sock_send_func)&ssl_send;
     sock->destroy = (sock_destroy_func)&ssl_destroy;
-
-    if (oldfd != -1) {
-        /* There is no way to do this aparently */
-        close(oldfd);
-    }
+    sock->ssl     = true;
 
     if (!SSL_set_fd(ssl->ssl, fd))
         goto cleanup;
@@ -146,7 +156,7 @@ sock_t *ssl_create(int fd, int oldfd) {
 cleanup:
     fprintf(stderr, "    ssl      => failed creating SSL\n");
     free(sock);
-    ssl_destroy(ssl);
+    ssl_destroy(ssl, NULL);
     return NULL;
 }
 

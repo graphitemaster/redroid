@@ -319,7 +319,7 @@ int main(int argc, char **argv) {
         char *time     = strdup(strtok(NULL,     "|"));
 
         irc_t *update = irc_manager_find(manager, instance);
-        irc_write(update, channel, "%s: succesfully restarted\n", user);
+        irc_write(update, channel, "%s: successfully restarted\n", user);
 
         if (strcmp(date, build_date()) || strcmp(time, build_time())) {
             irc_write(update, channel, "%s: last instance build timestamp %s %s", user, date, time);

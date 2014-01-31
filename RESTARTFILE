@@ -1,6 +1,8 @@
 The restart file in Redroid has the following structure:
 
-    First size_t of the file contains the length of the info line.
+    The first 8 bytes contain 'Redroid\0'
+
+    Then the file contains a size_t of the length of the info line.
 
     The info line is a string containing pipe (|) delimited information
 of where and who invoked the restart. Currently the info line contains

@@ -2,6 +2,6 @@
 #define REDROID_SSL_HDR
 #include "sock.h"
 
-sock_t *ssl_create(int fd, int oldfd);
+sock_t *ssl_create(int fd);
 
 #endif

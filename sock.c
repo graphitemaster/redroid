@@ -104,7 +104,12 @@ static int sock_standard_send(sock_ctx_t *ctx, const char *data, size_t size) {
     return (int)written;
 }
 
-static bool sock_standard_destroy(sock_ctx_t *ctx) {
+static bool sock_standard_destroy(sock_ctx_t *ctx, sock_restart_t *restart) {
+    if (restart) {
+        free(ctx);
+        return true;
+    }
+
     bool succeed = (close(ctx->fd) == 0);
     free(ctx);
     return succeed;
@@ -124,21 +129,23 @@ static sock_t *sock_standard_create(int fd) {
     socket->send    = (sock_send_func)&sock_standard_send;
     socket->recv    = (sock_recv_func)&sock_standard_recv;
     socket->destroy = (sock_destroy_func)&sock_standard_destroy;
+    socket->ssl     = false;
 
     sock_nonblock(fd);
     return socket;
 }
 
 // exposed interface
-sock_t *sock_create(const char *host, const char *port, bool ssl, int oldfd) {
-    int fd = (oldfd != -1) ? oldfd : sock_connection(host, port);
+sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart) {
+    sock_t *(*create)(int fd) = &sock_standard_create;
+    int fd = (restart && restart->fd != -1) ? restart->fd : sock_connection(host, port);
     if (fd == -1)
         return NULL;
 #ifdef HAS_SSL
-    if (ssl)
-        return ssl_create(fd, oldfd);
+    if (restart->ssl)
+        create = &ssl_create;
 #endif
-    return sock_standard_create(fd);
+    return create(fd);
 }
 
 int sock_sendf(sock_t *socket, const char *fmt, ...) {
@@ -176,11 +183,54 @@ int sock_getfd(sock_t *socket) {
     return socket->getfd(socket->data);
 }
 
-bool sock_destroy(sock_t *socket) {
+static void sock_restart_dump(sock_restart_t *restart) {
+    printf("Restart state of socket:\n");
+    printf("    Socket: %d\n",  restart->fd);
+    printf("    Size:   %zu\n", restart->size);
+    printf("    Data:   %p\n",  restart->data);
+
+    unsigned char buffer[17];
+    size_t i;
+    for (i = 0; i < restart->size; i++) {
+        if (i % 16 == 0) {
+            if (i != 0)
+                printf("  %s\n", buffer);
+            printf("  %04x ", i);
+        }
+
+        printf(" %02x", restart->data[i]);
+
+        if (restart->data[i] < 0x20 || restart->data[i] > 0x7E)
+            buffer[i % 16] = '.';
+        else
+            buffer[i % 16] = restart->data[i];
+        buffer[(i % 16) + 1] = 0;
+    }
+
+    while ((i % 16) != 0)
+        printf("   "), i++;
+
+    printf("  %s\n", buffer);
+}
+
+bool sock_destroy(sock_t *socket, bool restart) {
     if (!socket)
         return false;
 
-    bool succeed = socket->destroy(socket->data);
+    /* Restart data if we restart a socket */
+    sock_restart_t restartdata = {
+        .fd   = -1,
+        .ssl  = false,
+        .data = NULL,
+        .size = 0
+    };
+
+    bool succeed = false;
+    socket->destroy(socket->data, restart ? &restartdata : NULL);
+
+    if (restart && restartdata.fd != -1)
+        sock_restart_dump(&restartdata);
+
     free(socket);
     return succeed;
 }

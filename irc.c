@@ -278,21 +278,21 @@ void irc_destroy(irc_t *irc, bool restart) {
     free(irc->name);
     free(irc->pattern);
 
-    // hold onto the socket for restarts
-    if (!restart)
-        sock_destroy(irc->sock);
+    sock_destroy(irc->sock, restart);
 
     free(irc);
 }
 
 bool irc_connect(irc_t *irc, const char *host, const char *port, bool ssl) {
-    if (!(irc->sock = sock_create(host, port, ssl, -1)))
+    sock_restart_t info = { .ssl = ssl, .fd = -1 };
+    if (!(irc->sock = sock_create(host, port, &info)))
         return false;
     return true;
 }
 
 bool irc_reinstate(irc_t *irc, const char *host, const char *port, bool ssl, int oldfd) {
-    if (!(irc->sock = sock_create(host, port, ssl, oldfd)))
+    sock_restart_t info = { .ssl = ssl, .fd = oldfd };
+    if (!(irc->sock = sock_create(host, port, &info)))
         return false;
     return true;
 }
