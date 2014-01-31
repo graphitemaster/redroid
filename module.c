@@ -685,7 +685,7 @@ static svn_entry_t *module_svnlog_read_entry(FILE *handle) {
         if (nl)
             *nl = '\0';
 
-        string_catf(message, line);
+        string_catf(message, "%s", line);
     }
 
     string_destroy(message);
