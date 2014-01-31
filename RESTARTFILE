@@ -34,6 +34,8 @@ with flexible array members (FAMs). Do note this is not a valid C structure
 as the fields within it are of variable size.
 
 struct {
+    char   redroid[8];           // 'Redroid\0'
+    char   filename[15];         // 'redroid_XXXXXX\0' restart filename
     size_t infosize;
     char   infoline[infosize];
     size_t networks;
