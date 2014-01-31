@@ -113,6 +113,7 @@ static void quote_stats(irc_t *irc, const char *channel, const char *user, list_
         int request = database_request_count(irc, "QUOTES");
 
         irc_write(irc, channel, "%s: quote stats -> %d quotes -> requested %d times", user, count, request);
+        return;
     }
 
     int count = 0;

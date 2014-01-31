@@ -134,6 +134,7 @@ mktime
 inet_ntop
 raise
 strncasecmp
+strcasecmp
 
 list_iterator_next
 list_iterator_prev
