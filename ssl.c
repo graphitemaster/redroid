@@ -147,13 +147,15 @@ sock_t *ssl_create(int fd, sock_restart_t *restart) {
         SSL_SESSION *reinstate = d2i_SSL_SESSION(NULL, &copy, restart->size);
         if (!reinstate)
             goto cleanup;
-        if (!SSL_set_session(ssl->ssl, reinstate))
+        if (!SSL_CTX_add_session(ssl->ctx, reinstate))
             goto cleanup;
+        ERR_print_errors_fp(stderr);
+        return sock;
     }
-    if (!SSL_set_fd(ssl->ssl, fd))
-        goto cleanup;
-
     if (!restart) {
+        if (!SSL_set_fd(ssl->ssl, fd))
+            goto cleanup;
+
         if (SSL_connect(ssl->ssl) != 1)
             goto cleanup;
     }
@@ -172,6 +174,7 @@ cleanup:
         free(restart->data);
 
     fprintf(stderr, "    ssl      => failed creating SSL\n");
+    ERR_print_errors_fp(stderr);
     free(sock);
     ssl_destroy(ssl, NULL);
     return NULL;
