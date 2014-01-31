@@ -98,10 +98,14 @@ static void family_add_replace(irc_t *irc, const char *channel, const char *user
                                                 : database_statement_create("INSERT INTO FAMILY (NAME, CONTENT) VALUES ( ?, ? )");
     if (!statement)
         return;
-    if (replace && !database_statement_bind(statement, "ss", status, member))
-        return;
-    if (!database_statement_bind(statement, "ss", member, status))
-        return;
+
+    if (replace)
+        if (!database_statement_bind(statement, "ss", status, member))
+            return;
+    else
+        if (!database_statement_bind(statement, "ss", member, status))
+            return;
+
     if (!database_statement_complete(statement))
         return;
 
