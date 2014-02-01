@@ -1,6 +1,7 @@
 #include "list.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct list_node_s list_node_t;
 
@@ -10,10 +11,20 @@ struct list_node_s {
     list_node_t *prev;
 };
 
+typedef struct {
+    list_node_t **data;
+    size_t        size;
+    size_t        cursor;
+    size_t        headdirt;
+    size_t        taildirt;
+    bool          dirty;
+} list_atcache_t;
+
 struct list_s {
-    size_t       length;
-    list_node_t *head;
-    list_node_t *tail;
+    size_t         length;
+    list_node_t   *head;
+    list_node_t   *tail;
+    list_atcache_t atcache;
 };
 
 struct list_iterator_s {
@@ -79,13 +90,62 @@ static void list_node_scrub(list_node_t **node) {
     *node = NULL;
 }
 
+static void list_atcache_create(list_t *list) {
+    list->atcache.data     = calloc(16, sizeof(list_node_t));
+    list->atcache.size     = 16;
+    list->atcache.dirty    = false;
+    list->atcache.taildirt = 0;
+    list->atcache.headdirt = 0;
+}
+
+static void list_atcache_destroy(list_t *list) {
+    free(list->atcache.data);
+}
+
+static void list_atcache_resize(list_t *list) {
+    size_t last = list->atcache.size;
+
+    list->atcache.size *= 2;
+    list->atcache.data  = realloc(list->atcache.data, sizeof(list_node_t*) * list->atcache.size);
+
+    memset(&list->atcache.data[last], 0, sizeof(list_node_t*) * (list->atcache.size - last));
+}
+
+static void list_atcache_thrash(list_t *list) {
+    memset(list->atcache.data, 0, sizeof(list_node_t*) * list->atcache.size);
+    list->atcache.headdirt = 0;
+    list->atcache.taildirt = 0;
+}
+
+static void list_atcache_check(list_t *list) {
+    if (list->atcache.taildirt > 0 && list->atcache.headdirt == 0) {
+        memset(&list->atcache.data[list->length - list->atcache.taildirt + 1],
+            0, sizeof(list_node_t *) * list->atcache.taildirt);
+        return;
+    }
+
+    /* thrash it all */
+    if (list->atcache.headdirt > 0)
+        list_atcache_thrash(list);
+}
+
+static void list_atcache_cache(list_t *list, list_node_t *node) {
+    list_atcache_check(list);
+
+    if (list->length > list->atcache.size)
+        list_atcache_resize(list);
+
+    list->atcache.data[list->length] = node;
+}
+
 // list
 list_t *list_create(void) {
-    list_t *list = malloc(sizeof(*list));
-    list->length = 0;
-    list->head   = NULL;
-    list->tail   = NULL;
+    list_t *list    = malloc(sizeof(*list));
+    list->length    = 0;
+    list->head      = NULL;
+    list->tail      = NULL;
 
+    list_atcache_create(list);
     return list;
 }
 
@@ -96,6 +156,7 @@ void list_destroy(list_t *list) {
         list_node_destroy(node);
         node = temp;
     }
+    list_atcache_destroy(list);
     free(list);
 }
 
@@ -107,7 +168,9 @@ void list_push(list_t *list, void *element) {
         list->tail->next = node;
         node->prev       = list->tail;
     }
+
     list->tail = node;
+    list_atcache_cache(list, node);
     list->length++;
 }
 
@@ -119,6 +182,7 @@ void *list_pop(list_t *list) {
     list->tail = list->tail->prev;
     list_node_scrub((list->tail) ? &list->tail->next : &list->head);
     list->length--;
+    list->atcache.taildirt++;
     return element;
 }
 
@@ -130,7 +194,35 @@ void *list_shift(list_t *list) {
     list->head = list->head->next;
     list_node_scrub((list->head) ? &list->head->prev : &list->tail);
     list->length--;
+    list->atcache.headdirt++;
     return element;
+}
+
+void *list_at(list_t *list, size_t index) {
+    list_atcache_check(list);
+
+    if (list->atcache.data[index])
+        return list->atcache.data[index]->element;
+    if (index > list->length)
+        return NULL;
+
+    list_node_t *node = NULL;
+    if (index > list->length / 2) {
+        node = list->tail;
+        for (size_t i = list->length / 2; i < index; i++)
+            node = node->prev;
+    } else {
+        node = list->head;
+        for (size_t i = 0; i < index; i++)
+            node = node->next;
+    }
+
+    if (node) {
+        list_atcache_cache(list, node);
+        return node->element;
+    }
+
+    return NULL;
 }
 
 list_t *list_copy(list_t *list) {
@@ -160,6 +252,7 @@ bool list_erase(list_t *list, void *element) {
 
         list_node_destroy(curr);
         list->length--;
+        list_atcache_thrash(list);
         return true;
     }
     return false;
@@ -200,4 +293,5 @@ static list_node_t *list_sort_impl(list_node_t *begin, bool (*predicate)(const v
 
 void list_sort(list_t *list, bool (*predicate)(const void *, const void *)) {
     list->head = list_sort_impl(list->head, predicate);
+    list_atcache_thrash(list);
 }

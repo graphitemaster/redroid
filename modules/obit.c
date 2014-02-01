@@ -25,8 +25,9 @@ static void obit_help(irc_t *irc, const char *channel, const char *user) {
 }
 
 static bool obit_select_find(const char *thing, const char *content) {
-    database_statement_t *statement = database_statement_create("SELECT COUNT(*) FROM ? WHERE CONTENT=?");
-    if (!database_statement_bind(statement, "ss", thing, content))
+    string_t *string = string_format("SELECT COUNT(*) FROM %s WHERE CONTENT=?", thing);
+    database_statement_t *statement = database_statement_create(string_contents(string));
+    if (!database_statement_bind(statement, "s", content))
         return false;
 
     database_row_t *grab = database_row_extract(statement, "i");
@@ -55,7 +56,7 @@ static void obit_add(irc_t *irc, const char *channel, const char *user, list_t *
     if (!database_statement_complete(statement))
         return;
 
-    irc_write(irc, channel, "%s: Ok, added %s %s", user, thing, content);
+    irc_write(irc, channel, "%s: Ok, added %s to %s list", user, content, thing);
 }
 
 static void obit_forget(irc_t *irc, const char *channel, const char *user, list_t *list) {
@@ -70,14 +71,14 @@ static void obit_forget(irc_t *irc, const char *channel, const char *user, list_
         return;
     }
 
-    string_t *string = string_format("DELETE * FROM %s WHERE CONTENT=?", thing);
+    string_t *string = string_format("DELETE FROM %s WHERE CONTENT=?", thing);
     database_statement_t *statement = database_statement_create(string_contents(string));
     if (!database_statement_bind(statement, "s", content))
         return;
     if (!database_statement_complete(statement))
         return;
 
-    irc_write(irc, channel, "%s: Ok, removed %s %s", user, thing, content);
+    irc_write(irc, channel, "%s: Ok, removed %s from %s list", user, content, thing);
 }
 
 static int obit_count(const char *thing) {
@@ -108,7 +109,7 @@ static void obit_stats(irc_t *irc, const char *channel, const char *user) {
         user, killed, objects, suicides, styles, frags);
 }
 
-static void obit_random(irc_t *irc, const char *channel, const char *user, list_t *list) {
+static void obit_random(irc_t *irc, const char *channel, const char *user, const char *victim) {
     database_statement_t *killed  = database_statement_create("SELECT * FROM KILLED ORDER BY RANDOM() LIMIT 1");
     database_statement_t *object  = database_statement_create("SELECT * FROM OBJECT ORDER BY RANDOM() LIMIT 1");
     database_row_t       *krow    = database_row_extract(killed, "s");
@@ -119,7 +120,6 @@ static void obit_random(irc_t *irc, const char *channel, const char *user, list_
     if (!mkilled || !mobject)
         return;
 
-    const char *victim = list_shift(list);
     if (!strcmp(victim, user)) {
         database_statement_t *suicide  = database_statement_create("SELECT * FROM SUICIDE ORDER BY RANDOM() LIMIT 1");
         database_row_t       *row      = database_row_extract(suicide, "s");
@@ -158,6 +158,5 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!strcmp(method, "-stats"))  return obit_stats(irc, channel, user);
 
     /* Put the method back into the list and do me some random */
-    list_push(list, method);
-    obit_random(irc, channel, user, list);
+    obit_random(irc, channel, user, message);
 }

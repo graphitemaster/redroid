@@ -258,14 +258,13 @@ int main(int argc, char **argv) {
         /* Now back to where sockets themselfs are stored */
         lseek(tmpfd, 8 + RESTART_FILESIZE + (sizeof(size_t) * 2) + infosize, SEEK_SET);
 
-        list_iterator_t *it   = list_iterator_create(list);
-        string_t        *name = NULL;
-        int              sock = 0;
+        string_t *name = NULL;
+        int       sock = 0;
 
         for (size_t i = 0; i < networks; i++) {
             read(tmpfd, &sock, sizeof(int));    // socket
 
-            name = list_iterator_next(it);
+            name = list_at(list, i);
             printf("    Network %s on socket %d will be restored\n", string_contents(name), sock);
 
             /* Find configuration for that instance */
@@ -347,7 +346,6 @@ int main(int argc, char **argv) {
         free(infoline);
 
         config_unload(config);
-        list_iterator_destroy(it);
         list_destroy(list);
 
     } else {

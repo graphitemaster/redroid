@@ -18,6 +18,7 @@ void list_destroy(list_t *list);
 void list_push(list_t *list, void *element);
 void *list_pop(list_t *list);
 void *list_shift(list_t *list);
+void *list_at(list_t *list, size_t index);
 list_t *list_copy(list_t *list);
 size_t list_length(list_t *list);
 bool list_erase(list_t *list, void *element);
