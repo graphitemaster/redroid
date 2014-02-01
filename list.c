@@ -14,10 +14,8 @@ struct list_node_s {
 typedef struct {
     list_node_t **data;
     size_t        size;
-    size_t        cursor;
     size_t        headdirt;
     size_t        taildirt;
-    bool          dirty;
 } list_atcache_t;
 
 struct list_s {
@@ -93,7 +91,6 @@ static void list_node_scrub(list_node_t **node) {
 static void list_atcache_create(list_t *list) {
     list->atcache.data     = calloc(16, sizeof(list_node_t));
     list->atcache.size     = 16;
-    list->atcache.dirty    = false;
     list->atcache.taildirt = 0;
     list->atcache.headdirt = 0;
 }
