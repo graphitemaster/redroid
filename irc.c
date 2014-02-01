@@ -236,17 +236,15 @@ list_t *irc_modules_list(irc_t *irc) {
     return list;
 }
 
+static bool irc_channel_find(const void *a, const void *b) {
+    return !strcmp((const char *)a, (const char *)b);
+}
+
 bool irc_channels_add(irc_t *irc, const char *channel) {
-    // prevent adding channel twice
-    list_iterator_t *it = list_iterator_create(irc->channels);
-    while (!list_iterator_end(it)) {
-        if (!strcmp(list_iterator_next(it), channel)) {
-            list_iterator_destroy(it);
-            printf("    channel  => %s already exists\n", channel);
-            return false;
-        }
+    if (list_search(irc->channels, &irc_channel_find, channel)) {
+        printf("    channel  => %s already exists\n", channel);
+        return false;
     }
-    list_iterator_destroy(it);
     list_push(irc->channels, strdup(channel));
     printf("    channel  => %s added\n", channel);
     return true;

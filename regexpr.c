@@ -11,26 +11,18 @@ struct regexpr_s {
 };
 
 struct regexpr_cache_s {
-    list_iterator_t *iterator;
-    list_t          *cache;
+    list_t *cache;
 };
 
-static regexpr_t *regexpr_cache_find(regexpr_cache_t *cache, const char *string) {
-    list_iterator_t *it = cache->iterator;
-    list_iterator_reset(it);
-
-    while (!list_iterator_end(it)) {
-        regexpr_t *expr = list_iterator_next(it);
-        if (!strcmp(expr->match, string))
-            return expr;
-    }
-
-    return NULL;
+static bool regexpr_cache_find(const void *a, const void *b) {
+    const regexpr_t *expr = a;
+    if (!strcmp(expr->match, (const char *)b))
+        return true;
+    return false;
 }
 
 void regexpr_cache_destroy(regexpr_cache_t *cache) {
-    list_iterator_t *it = cache->iterator;
-    list_iterator_reset(it);
+    list_iterator_t *it = list_iterator_create(cache->cache);
 
     while (!list_iterator_end(it))
         regexpr_destroy(list_iterator_next(it));
@@ -42,10 +34,7 @@ void regexpr_cache_destroy(regexpr_cache_t *cache) {
 
 regexpr_cache_t *regexpr_cache_create(void) {
     regexpr_cache_t *cache = malloc(sizeof(*cache));
-
-    cache->cache    = list_create();
-    cache->iterator = list_iterator_create(cache->cache);
-
+    cache->cache = list_create();
     return cache;
 }
 
@@ -61,7 +50,7 @@ regexpr_t *regexpr_create(regexpr_cache_t *cache, const char *string, bool icase
     // which is quite common in an IRC channel.
     //
     regexpr_t *find;
-    if ((find = regexpr_cache_find(cache, string)))
+    if ((find = list_search(cache->cache, &regexpr_cache_find, string)))
         return find;
 
     regexpr_t *next = malloc(sizeof(*next));

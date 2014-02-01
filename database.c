@@ -20,7 +20,6 @@ struct database_statement_s {
 
 struct database_s {
     list_t          *statements;
-    list_iterator_t *cache;
     sqlite3         *handle;
 };
 
@@ -73,20 +72,11 @@ static void database_row_push_integer(database_row_t *row, int value) {
     row->tail          = row->tail->next;
 }
 
-static database_statement_t *database_statement_find(database_t *database, const char *string) {
-    list_iterator_t *it = database->cache;
-    list_iterator_reset(it);
-
-    size_t slot = 0;
-    while (!list_iterator_end(it)) {
-        database_statement_t *statement = list_iterator_next(it);
-        if (!strcmp(statement->string, string)) {
-            return statement;
-        }
-        slot++;
-    }
-
-    return NULL;
+static bool database_statement_find(const void *a, const void *b) {
+    const database_statement_t *statement = a;
+    if (!strcmp(statement->string, (const char *)b))
+        return true;
+    return false;
 }
 
 static void database_statement_destroy(database_statement_t *statement) {
@@ -96,7 +86,7 @@ static void database_statement_destroy(database_statement_t *statement) {
 }
 
 database_statement_t *database_statement_create(database_t *database, const char *string) {
-    database_statement_t *find = database_statement_find(database, string);
+    database_statement_t *find = list_search(database->statements, &database_statement_find, string);
     if (find) {
         if (sqlite3_reset(find->statement) != SQLITE_OK) {
             database_statement_destroy(find);
@@ -208,16 +198,12 @@ database_t *database_create(const char *file) {
         return NULL;
     }
     database->statements = list_create();
-    database->cache      = list_iterator_create(database->statements);
-
     return database;
 }
 
 void database_destroy(database_t *database) {
     // erase statements in cache
-    list_iterator_t *it = database->cache;
-    list_iterator_reset(it);
-
+    list_iterator_t *it = list_iterator_create(database->statements);
     while (!list_iterator_end(it))
         database_statement_destroy(list_iterator_next(it));
 

@@ -41,17 +41,15 @@ static void config_entry_destroy(config_t *entry) {
     free(entry);
 }
 
+static bool config_entry_check(const void *element, const void *passed) {
+    const config_t *entry = element;
+    if (!strcmp(entry->name, (const char *)passed))
+        return true;
+    return false;
+}
+
 static config_t *config_entry_find(list_t *list, const char *name) {
-    list_iterator_t *it = list_iterator_create(list);
-    for (; !list_iterator_end(it); ) {
-        config_t *entry = list_iterator_next(it);
-        if (!strcmp(entry->name, name)) {
-            list_iterator_destroy(it);
-            return entry;
-        }
-    }
-    list_iterator_destroy(it);
-    return NULL;
+    return list_search(list, &config_entry_check, name);
 }
 
 static bool config_entry_handler(void *user, const char *section, const char *name, const char *value) {

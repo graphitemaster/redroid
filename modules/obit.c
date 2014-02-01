@@ -157,6 +157,5 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!strcmp(method, "-forget")) return obit_forget(irc, channel, user, list);
     if (!strcmp(method, "-stats"))  return obit_stats(irc, channel, user);
 
-    /* Put the method back into the list and do me some random */
     obit_random(irc, channel, user, message);
 }

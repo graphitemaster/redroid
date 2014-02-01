@@ -126,13 +126,17 @@ static void list_atcache_check(list_t *list) {
         list_atcache_thrash(list);
 }
 
-static void list_atcache_cache(list_t *list, list_node_t *node) {
+static void list_atcache_cache_index(list_t *list, list_node_t *node, size_t index) {
     list_atcache_check(list);
 
     if (list->length > list->atcache.size)
         list_atcache_resize(list);
 
-    list->atcache.data[list->length] = node;
+    list->atcache.data[index] = node;
+}
+
+static void list_atcache_cache(list_t *list, list_node_t *node) {
+    return list_atcache_cache_index(list, node, list->length);
 }
 
 // list
@@ -253,6 +257,25 @@ bool list_erase(list_t *list, void *element) {
         return true;
     }
     return false;
+}
+
+bool list_find(list_t *list, const void *element) {
+    list_node_t *node = list->head;
+
+    list_atcache_thrash(list);
+    for(size_t index = 0; node && node->element != element; node = node->next, index++)
+        list_atcache_cache_index(list, node, index);
+    return !!node;
+}
+
+void *list_search(list_t *list, bool (*predicate)(const void *, const void *), const void *pass) {
+    list_node_t *node = list->head;
+
+    list_atcache_thrash(list);
+    for(size_t index = 0; node && !predicate(node->element, pass); node = node->next, index++)
+        list_atcache_cache_index(list, node, index);
+
+    return (node) ? node->element : NULL;
 }
 
 size_t list_length(list_t *list) {

@@ -589,9 +589,10 @@ static char *strdur(unsigned long long duration) {
     if (!duration)
         return strdup("0");
 
-    strdur_context_t ctx;
-    ctx.num = duration;
-    ctx.str = string_construct();
+    strdur_context_t ctx = {
+        .num = duration,
+        .str = string_construct()
+    };
 
                  strdur_step(&ctx, 60*60*24*7, "w");
     if (ctx.num) strdur_step(&ctx, 60*60*24,   "d");
