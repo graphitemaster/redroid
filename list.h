@@ -171,9 +171,9 @@ void *list_at(list_t *list, size_t index);
  *
  * Other uses:
  *  Using this function with element=NULL or an element which doesn't
- *  existed is a great way to syncronize the atcache of the list. It
+ *  exist is a great way to syncronize the atcache of the list. It
  *  will force all nodes to be visited thus filling the atcache with
- *  all the context it needs to make subsequent calls to list_at constant.
+ *  all the content it needs to make subsequent calls to list_at constant.
  */
 bool list_find(list_t *list, const void *element);
 
