@@ -53,7 +53,7 @@ static void faq_entry(irc_t *irc, const char *channel, const char *user, const c
         return;
     database_row_t *row = database_row_extract(statement, "s");
     if (!row) {
-        irc_write(irc, channel, "%s: Sorry, \"%s\" is not in my FAQ list.", faq);
+        irc_write(irc, channel, "%s: Sorry, \"%s\" is not in my FAQ list.", user, faq);
         return;
     }
 
