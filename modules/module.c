@@ -58,7 +58,7 @@ static bool mod_check(irc_t *irc, const char *channel, const char *user, const c
 }
 
 static void mod_help(irc_t *irc, const char *channel, const char *user) {
-    irc_write(irc, channel, "%s: module [<-load|-reload|-unload|-list> [name]]", user);
+    irc_write(irc, channel, "%s: module [<-load|-reload|-reload-all|-unload|-unload-all|-list> [name]]", user);
 }
 
 static void mod_load(irc_t *irc, const char *channel, const char *user, const char *module) {

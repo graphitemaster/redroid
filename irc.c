@@ -374,8 +374,10 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
     char *nick    = NULL;
     char *message = NULL;
     char *channel = NULL;
+    char *host    = NULL;
     bool  private = false;
     bool  kick    = false;
+    bool  join    = false;
 
     // Just raise internal error if the ircd errors
     if (!strncmp(line, "ERROR :", 7))
@@ -394,6 +396,7 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
         return;
 
     nick = strdup(ptr);
+    host = strdup(line + strlen(nick) + 2);
 
     while ((ptr = strtok(NULL, " "))) {
         if (!strcmp(ptr, "PRIVMSG")) {
@@ -401,6 +404,9 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
             break;
         } else if (!strcmp(ptr, "KICK")) {
             kick = true;
+            break;
+        } else if (!strcmp(ptr, "JOIN")) {
+            join = true;
             break;
         }
     }
@@ -416,21 +422,19 @@ static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
             message = strdup(ptr);
     }
 
-    if (kick && channel) {
-        irc_join_raw(irc, NULL, channel);
-
-        free(channel);
-
-        if (nick)
-            free(nick);
-        if (message)
-            free(message);
-
-        return;
+    if (join) {
+        printf("[JOIN] %s (%s) %s\n", nick, host, channel);
+        goto finish_private;
     }
 
     if (!channel)
         goto finish_channel;
+
+    if (kick) {
+        irc_join_raw(irc, NULL, channel);
+        goto finish_private;
+    }
+
     if (!private || strlen(nick) == 0)
         goto finish_private;
     if (strlen(message) == 0 || strncmp(message, irc->pattern, strlen(irc->pattern)))
@@ -487,6 +491,7 @@ finish_private: /* on channel */
 
 finish_channel: /* not on channel */
     if (nick)    free(nick);
+    if (host)    free(host);
     if (message) free(message);
 }
 
@@ -502,8 +507,8 @@ int irc_process(irc_t *irc, void *data) {
 
     for (size_t i = 0; i < read; ++i) {
         if (temp[i] != '\r' && temp[i] != '\n') {
-            if (strchr("\x13\x15\x1F\x16\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0B\x0C\x0E\x0F", temp[i]))
-                return 0;
+            if (!isprint(temp[i]))
+                continue;
             irc->buffer[irc->bufferpos] = temp[i];
             if (irc->bufferpos < sizeof(irc->buffer) - 1)
                 irc->bufferpos++;

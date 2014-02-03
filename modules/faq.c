@@ -88,8 +88,8 @@ static void faq_add(irc_t *irc, const char *channel, const char *user, list_t *l
         return;
     }
 
-    database_statement_t *statement = database_statement_create("INSERT INTO FAQ (NAME, CONTENT) VALUES ( ?, ? )");
-    if (!database_statement_bind(statement, "ss", faq, content))
+    database_statement_t *statement = database_statement_create("INSERT INTO FAQ (NAME, CONTENT, AUTHOR) VALUES ( ?, ?, ? )");
+    if (!database_statement_bind(statement, "sss", faq, content, user))
         return;
     if (!database_statement_complete(statement))
         return;
