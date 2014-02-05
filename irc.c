@@ -169,16 +169,19 @@ static void irc_onerror(irc_t *irc, irc_parser_data_t *data) {
 }
 
 static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) {
-    if (!strncmp(data->content, "PING", data->length))
-        irc->flags |= IRC_COMMAND_PING;
-    if (!strncmp(data->content, "ERROR", data->length))
-        irc->flags |= IRC_COMMAND_ERROR;
-    if (!strncmp(data->content, "KICK", data->length))
-        irc->flags |= IRC_COMMAND_KICK;
-    if (!strncmp(data->content, "JOIN", data->length))
-        irc->flags |= IRC_COMMAND_JOIN;
-    if (!strncmp(data->content, "LEAVE", data->length))
-        irc->flags |= IRC_COMMAND_LEAVE;
+    static const struct {
+        const char *name;
+        size_t      flag;
+    } commands[] = {
+        { "PING",  IRC_COMMAND_PING  },
+        { "ERROR", IRC_COMMAND_ERROR },
+        { "KICK",  IRC_COMMAND_KICK  },
+        { "JOIN",  IRC_COMMAND_JOIN  },
+        { "LEAVE", IRC_COMMAND_LEAVE }
+    };
+    for (size_t i = 0; i < sizeof(commands)/sizeof(*commands); i++)
+        if (!strcmp(data->content, commands[i].name))
+            irc->flags |= commands[i].flag;
 }
 
 static void irc_onend(irc_t *irc, irc_parser_data_t *data) {

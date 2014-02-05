@@ -6,6 +6,8 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#include <time.h>
+#include <stdio.h>
 
 #include <unistd.h>
 #include <poll.h>
@@ -202,9 +204,44 @@ void irc_manager_process(irc_manager_t *manager) {
         return;
 
     for (size_t i = 0; i < manager->instances->size; i++) {
+        irc_t *instance = manager->instances->data[i];
         if (manager->polls[1+i].revents & POLLIN ||
             manager->polls[1+i].revents & POLLOUT)
-            irc_process(manager->instances->data[i], manager->commander);
+            irc_process(instance, manager->commander);
+
+        /* Don't process modules if we're not ready */
+        if (!(instance->flags & IRC_STATE_READY) || !instance->message.channel)
+            continue;
+
+        /*
+         * Process all the 'always' and 'interval' modules. This could be done
+         * better presumably?. We need to consider a wake event to ensure these
+         * run always though.
+         */
+        list_iterator_t *it = list_iterator_create(instance->moduleman->modules);
+        while (!list_iterator_end(it)) {
+            module_t *module = list_iterator_next(it);
+            if (*module->match != '\0')
+                continue;
+
+            cmd_entry_t *entry = cmd_entry_create(
+                manager->commander,
+                module,
+                instance->message.channel,
+                instance->message.nick,
+                instance->message.content
+            );
+
+            if (module->interval == 0) {
+                cmd_channel_push(manager->commander, entry);
+                continue;
+            } else if (difftime(time(0), module->lastinterval) >= module->interval) {
+                fprintf(stderr, "    module   => %s interval met\n", module->name);
+                module->lastinterval = time(0);
+                cmd_channel_push(manager->commander, entry);
+            }
+        }
+        list_iterator_destroy(it);
     }
 }
 
