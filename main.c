@@ -307,8 +307,7 @@ int main(int argc, char **argv) {
                 abort();
             }
 
-            instance->ready    = true;
-            instance->readying = true;
+            instance->flags |= IRC_STATE_READY;
             irc_manager_add(manager, instance);
 
             list_iterator_destroy(ci);

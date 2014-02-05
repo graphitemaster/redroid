@@ -10,6 +10,12 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+/*
+ * Queue for IRC messages and the API to us esaid queue from modules
+ * and other things. The RAW api isn't buffered so use at your own
+ * peril (typically for things where you're not too worried about flood
+ * and need it out as soon as possible).
+ */
 static int irc_action_raw(irc_t *irc, const char *channel, const char *message);
 static int irc_quit_raw(irc_t *irc, const char *channel, const char *message);
 static int irc_join_raw(irc_t *irc, const char *channel, const char *message);
@@ -62,31 +68,21 @@ static void irc_queue_destroy(irc_t *irc) {
     list_destroy(irc->queue);
 }
 
-// Some utility functions
 static int irc_pong(irc_t *irc, const char *data) {
     return sock_sendf(irc->sock, "PONG :%s\r\n", data);
 }
-
 static int irc_register(irc_t *irc) {
-    if (irc->ready)
-        return -1;
-
     return sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
 }
-
 static int irc_quit_raw(irc_t *irc, const char *channel, const char *message) {
-    (void)channel;
     return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
 }
-
 static int irc_join_raw(irc_t *irc, const char *channel, const char *message) {
     return sock_sendf(irc->sock, "JOIN %s\r\n", message);
 }
-
 static int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
 }
-
 static int irc_action_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, data);
 }
@@ -97,12 +93,10 @@ int irc_quit(irc_t *irc, const char *message) {
     irc_queue_enqueue(irc, &irc_quit_raw, NULL, string_create(message)); // freed in irc_queue_dequeue
     return 1;
 }
-
 int irc_join(irc_t *irc, const char *channel) {
     irc_queue_enqueue(irc, &irc_join_raw, NULL, string_create(channel)); // freed in irc_queue_dequeue
     return 1;
 }
-
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
     string_t *string = string_construct();
     va_list va;
@@ -112,7 +106,6 @@ int irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
     irc_queue_enqueue(irc, &irc_action_raw, channel, string);
     return 1;
 }
-
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
     string_t *string = string_construct();
     va_list  va;
@@ -127,19 +120,121 @@ const char *irc_nick(irc_t *irc) {
     return irc->nick;
 }
 
+const char *irc_name(irc_t *irc) {
+    return irc->name;
+}
+
+#define D printf("[%s] %s\n", __func__, data->content);
+
+static void irc_onnick(irc_t *irc, irc_parser_data_t *data) { D
+    if (!strncmp(data->content, "NickServ", data->length) && !(irc->flags & IRC_STATE_NICKSERV)) {
+        irc_write(irc, "NickServ", "IDENTIFY %s %s", irc->nick, irc->auth);
+        irc->flags |= IRC_STATE_NICKSERV;
+    }
+
+    free(irc->message.nick);
+    irc->message.nick = strdup(data->content);
+}
+
+static void irc_onname(irc_t *irc, irc_parser_data_t *data) { D
+    free(irc->message.name);
+    irc->message.name = strdup(data->content);
+}
+
+static void irc_onhost(irc_t *irc, irc_parser_data_t *data) { D
+    free(irc->message.host);
+    irc->message.host = strdup(data->content);
+}
+
+static void irc_onparam(irc_t *irc, irc_parser_data_t *data) { D
+    if (!strncmp(data->content, "AUTH", data->length))
+        irc->flags |= IRC_STATE_AUTH;
+
+    /*
+     * Some IRCDs send the nick of the bot opposed to +i. Some also
+     * send MODE lines. Those are TODO
+     */
+    if (!strncmp(data->content, irc->nick, data->length))
+        irc->flags |= IRC_COMMAND_KICK;
+
+    /*
+     * RFC (2812): 1.3 Channels
+     *  Channel names are strings (beginning with a '&', '#', '+' or '!'
+     *  character).
+     */
+    if (strpbrk(data->content, "&#+!"))
+        irc->message.channel = strdup(data->content);
+}
+
+static void irc_onerror(irc_t *irc, irc_parser_data_t *data) { D
+    /* broadcast all errors and shut down */
+    list_iterator_t *it = list_iterator_create(irc->channels);
+    while (!list_iterator_end(it))
+        irc_write(irc, list_iterator_next(it), "error %s (shutting down)", data->content);
+    list_iterator_destroy(it);
+    raise(SIGUSR1);
+}
+
+static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) { D
+    if (!strncmp(data->content, "PING", data->length))
+        irc->flags |= IRC_COMMAND_PING;
+    if (!strncmp(data->content, "ERROR", data->length))
+        irc->flags |= IRC_COMMAND_ERROR;
+    if (!strncmp(data->content, "KICK", data->length))
+        irc->flags |= IRC_COMMAND_KICK;
+    if (!strncmp(data->content, "JOIN", data->length))
+        irc->flags |= IRC_COMMAND_JOIN;
+    if (!strncmp(data->content, "LEAVE", data->length))
+        irc->flags |= IRC_COMMAND_LEAVE;
+}
+
+static void irc_onend(irc_t *irc, irc_parser_data_t *data) { D
+    if (irc->flags & IRC_COMMAND_ERROR) {
+        fprintf(stderr, "    irc      => %s\n", data->content);
+        irc->flags &= ~IRC_COMMAND_ERROR;
+    }
+
+    if (irc->flags & IRC_STATE_AUTH) {
+        irc_register(irc);
+        irc->flags &= ~IRC_STATE_AUTH;
+    }
+
+    if (irc->flags & IRC_COMMAND_PING) {
+        irc_pong(irc, data->content);
+        irc->flags &= ~IRC_COMMAND_PING;
+    }
+
+    /*
+     * Some IRCds send +i. Others send "nick MODE nick :+i" The parser
+     * is going to need to learn the MODE stuff yet. For now we'll get
+     * away with checking the whole thing.
+     */
+    string_t *test = string_format("%s MODE %s :+i", irc->nick, irc->nick);
+
+    if (!strncmp(data->content, "+i", 2) || irc->flags & IRC_COMMAND_KICK) {
+        list_iterator_t *it = list_iterator_create(irc->channels);
+        while (!list_iterator_end(it))
+            irc_join(irc, list_iterator_next(it));
+        list_iterator_destroy(it);
+        irc->flags |= IRC_STATE_READY;
+        irc->flags &= ~IRC_COMMAND_KICK;
+    }
+
+    free(irc->message.content);
+    irc->message.content = strdup(data->content);
+    irc->flags |= IRC_STATE_END;
+
+    printf(" >> %s\n", data->content);
+}
+
+
 // Instance management
 irc_t *irc_create(config_t *entry) {
     irc_t *irc = malloc(sizeof(irc_t));
 
-    if (!irc)
-        return NULL;
-
-    if (!(irc->name = strdup(entry->name)))
-        goto error;
-    if (!(irc->nick = strdup(entry->nick)))
-        goto error;
-    if (!(irc->pattern = strdup(entry->pattern)))
-        goto error;
+    if (!(irc->name    = strdup(entry->name)))    goto error;
+    if (!(irc->nick    = strdup(entry->nick)))    goto error;
+    if (!(irc->pattern = strdup(entry->pattern))) goto error;
 
     if (entry->auth) {
         if (!(irc->auth = strdup(entry->auth)))
@@ -148,14 +243,18 @@ irc_t *irc_create(config_t *entry) {
         irc->auth = NULL;
     }
 
-    irc->ready        = false;
-    irc->readying     = false;
-    irc->bufferpos    = 0;
     irc->channels     = list_create();
     irc->queue        = list_create();
     irc->database     = database_create(entry->database);
     irc->regexprcache = regexpr_cache_create();
     irc->moduleman    = module_manager_create(irc);
+    irc->flags        = IRC_STATE_AUTH;
+
+    irc->message.nick    = NULL;
+    irc->message.name    = NULL;
+    irc->message.host    = NULL;
+    irc->message.channel = NULL;
+    irc->message.content = NULL;
 
     printf("instance: %s\n", irc->name);
     printf("    nick     => %s\n", irc->nick);
@@ -166,14 +265,27 @@ irc_t *irc_create(config_t *entry) {
     printf("    port     => %s\n", entry->port);
     printf("    ssl      => %s\n", entry->ssl ? "Yes" : "No");
 
+    irc_parser_init(&irc->parser, irc);
+
+    /* Register the callbacks */
+    irc->parser.callbacks[IRC_PARSER_STATE_NICK]      = &irc_onnick;
+    irc->parser.callbacks[IRC_PARSER_STATE_NAME]      = &irc_onname;
+    irc->parser.callbacks[IRC_PARSER_STATE_HOST]      = &irc_onhost;
+    irc->parser.callbacks[IRC_PARSER_STATE_COMMAND]   = &irc_oncommand;
+    irc->parser.callbacks[IRC_PARSER_STATE_PARMETERS] = &irc_onparam;
+    irc->parser.callbacks[IRC_PARSER_STATE_END]       = &irc_onend;
+    irc->parser.callbacks[IRC_PARSER_STATE_ERROR]     = &irc_onerror;
+
     return irc;
 
 error:
-    if (irc->name)     free(irc->name);
-    if (irc->nick)     free(irc->nick);
-    if (irc->pattern)  free(irc->pattern);
-    if (irc->auth)     free(irc->auth);
-    if (irc->database) database_destroy(irc->database);
+    free(irc->name);
+    free(irc->nick);
+    free(irc->pattern);
+    free(irc->auth);
+
+    if (irc->database)
+        database_destroy(irc->database);
     return NULL;
 }
 
@@ -191,14 +303,12 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     string_t *file = string_create("modules/");
     string_catf(file, "%s.so", name);
 
-    // prevent loading module twice
     if ((module = module_manager_module_search(irc->moduleman, string_contents(file), MMSEARCH_FILE))) {
         printf("    module   => %s [%s] already loaded\n", module->name, name);
         string_destroy(file);
         return false;
     }
 
-    // load the module
     if ((module = module_open(string_contents(file), irc->moduleman, &error))) {
         printf("    module   => %s [%s] loaded\n", module->name, module->file);
         string_destroy(file);
@@ -245,6 +355,7 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
         printf("    channel  => %s already exists\n", channel);
         return false;
     }
+
     list_push(irc->channels, strdup(channel));
     printf("    channel  => %s added\n", channel);
     return true;
@@ -258,23 +369,23 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
         *name = strdup(irc->name);
 
     irc_queue_destroy(irc);
-
     database_destroy(irc->database);
-
     regexpr_cache_destroy(irc->regexprcache);
-
     module_manager_destroy(irc->moduleman);
 
-    // destroy channels
+    // destroy channels and messages
     list_iterator_t *it;
     for (it = list_iterator_create(irc->channels); !list_iterator_end(it); )
         free(list_iterator_next(it));
     list_iterator_destroy(it);
     list_destroy(irc->channels);
 
-    if (irc->auth)
-        free(irc->auth);
-
+    free(irc->message.nick);
+    free(irc->message.name);
+    free(irc->message.host);
+    free(irc->message.channel);
+    free(irc->message.content);
+    free(irc->auth);
     free(irc->nick);
     free(irc->name);
     free(irc->pattern);
@@ -301,10 +412,6 @@ bool irc_reinstate(irc_t *irc, const char *host, const char *port, sock_restart_
     return true;
 }
 
-const char *irc_name(irc_t *irc) {
-    return irc->name;
-}
-
 static void irc_channels_join(irc_t *irc) {
     list_iterator_t *it = list_iterator_create(irc->channels);
     while (!list_iterator_end(it))
@@ -312,213 +419,51 @@ static void irc_channels_join(irc_t *irc) {
     list_iterator_destroy(it);
 }
 
-// trim leading and trailing whitespace from string
-static char *irc_process_trim(char *str) {
-    char *end;
-    while (isspace(*str)) str++;
-    if (!*str)
-        return str;
-
-    end = str + strlen(str) - 1;
-    while (end > str && isspace(*end))
-        end--;
-
-    *(end + 1) = '\0';
-
-    return str;
-}
-
-static void irc_process_line(irc_t *irc, cmd_channel_t *commander) {
-    char *line = irc->buffer;
-    if (!line || !*line)
-        return;
-
-    printf(">> %s\n", line);
-
-    //
-    // when to know that the IRC server is ready to accept commands from
-    // is two stages:
-    //  stage 1: readying up: i.e first NOTICE from the server
-    //  stage 2: waiting for the server to accept the ident and get 001 NICK
-    //
-    //  after these stages succeed we're ready to send other commands, such
-    //  as QUIT and JOIN
-    //
-    if (!irc->readying) {
-        if (strstr(line, "NOTICE") && !irc->ready) {
-            irc->readying = true;
-            irc_register(irc);
-        }
-    } else if (!irc->ready) {
-        char ready[512];
-        snprintf(ready, sizeof(ready), "001 %s", irc->nick);
-        if (strstr(line, ready)) {
-            irc->ready = true;
-            irc_channels_join(irc);
-        } else {
-            return;
-        }
-    }
-
-    if (!strncmp(line, "PING :", 6))
-        irc_pong(irc, line + 6);
-
-    // try identify (for nickserv) this is a hack
-    if (strstr(line, ":NickServ!NickServ@services. NOTICE") == &line[0] &&
-        strstr(line, ":This nickname is registered.")) {
-            string_t *fmt = string_format("identify %s", irc->auth);
-            irc_write_raw(irc, "NickServ", string_contents(fmt));
-            string_destroy(fmt);
-    }
-
-    char *nick    = NULL;
-    char *message = NULL;
-    char *channel = NULL;
-    char *host    = NULL;
-    bool  private = false;
-    bool  kick    = false;
-    bool  join    = false;
-
-    // Just raise internal error if the ircd errors
-    if (!strncmp(line, "ERROR :", 7))
-        raise(SIGUSR1);
-
-    // non message strings are ignored
-    if (strchr(line, 1))
-        return;
-
-    // parse the contents of the line
-    if (*line != ':')
-        return;
-
-    char *ptr = strtok(line + 1, "!");
-    if (!ptr)
-        return;
-
-    nick = strdup(ptr);
-    host = strdup(line + strlen(nick) + 2);
-
-    while ((ptr = strtok(NULL, " "))) {
-        if (!strcmp(ptr, "PRIVMSG")) {
-            private = true;
-            break;
-        } else if (!strcmp(ptr, "KICK")) {
-            kick = true;
-            break;
-        } else if (!strcmp(ptr, "JOIN")) {
-            join = true;
-            break;
-        }
-    }
-
-    if (private || kick) {
-        if ((ptr = strtok(NULL, ":"))) {
-            char *consume ;
-            channel = strdup(ptr);
-            if ((consume = strchr(channel, ' ')))
-                *consume = '\0';
-        }
-        if ((ptr = strtok(NULL, "")))
-            message = strdup(ptr);
-    }
-
-    if (join) {
-        printf("[JOIN] %s (%s) %s\n", nick, host, channel);
-        goto finish_private;
-    }
-
-    if (!channel)
-        goto finish_channel;
-
-    if (kick) {
-        irc_join_raw(irc, NULL, channel);
-        goto finish_private;
-    }
-
-    if (!private || strlen(nick) == 0)
-        goto finish_private;
-    if (strlen(message) == 0 || strncmp(message, irc->pattern, strlen(irc->pattern)))
-        goto finish_always_modules;
-
-    // get the command entry and call it
-    char *copy  = strdup(message + strlen(irc->pattern));
-    char *match = strchr(copy, ' ');
-    if (match)
-        *match = '\0';
-
-    module_t *module = module_manager_module_command(irc->moduleman, irc_process_trim(copy));
-
-    if (module) {
-        cmd_channel_push(
-            commander,
-            cmd_entry_create(
-                commander,
-                module,
-                channel,
-                nick,
-                irc_process_trim(message + strlen(irc->pattern) + strlen(copy))
-            )
-        );
-    } else {
-        // make it go to PRIVMSG
-        irc_write(irc, nick, "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", copy);
-    }
-    free(copy);
-
-finish_always_modules: /* always modules need to be run */
-    ;
-
-    list_iterator_t *it = list_iterator_create(irc->moduleman->modules);
-    while (!list_iterator_end(it)) {
-        module_t *module = list_iterator_next(it);
-        if (!strlen(module->match)) {
-            cmd_entry_t *entry = cmd_entry_create(commander, module, channel, nick, message);
-            if (module->interval == 0) {
-                cmd_channel_push(commander, entry);
-                continue;
-            }
-            if (difftime(time(0), module->lastinterval) >= module->interval) {
-                fprintf(stderr, "    module   => %s interval met\n", module->name);
-                module->lastinterval = time(0);
-                cmd_channel_push(commander, entry);
-            }
-        }
-    }
-    list_iterator_destroy(it);
-
-finish_private: /* on channel */
-    free(channel);
-
-finish_channel: /* not on channel */
-    if (nick)    free(nick);
-    if (host)    free(host);
-    if (message) free(message);
-}
-
 int irc_process(irc_t *irc, void *data) {
-    cmd_channel_t *commander = data;
-
-    char temp[128];
+    char buffer[513];
     int  read;
 
-    if ((read = sock_recv(irc->sock, temp, sizeof(temp) - 2)) <= 0)
+    if ((read = sock_recv(irc->sock, buffer, sizeof(buffer))) == -1)
         return -1;
-    temp[read] = '\0';
 
-    for (size_t i = 0; i < read; ++i) {
-        if (temp[i] != '\r' && temp[i] != '\n') {
-            if (!isprint(temp[i]))
-                continue;
-            irc->buffer[irc->bufferpos] = temp[i];
-            if (irc->bufferpos < sizeof(irc->buffer) - 1)
-                irc->bufferpos++;
-            continue;
-        }
+    irc_parser_next(&irc->parser, buffer, read);
 
-        irc->buffer[irc->bufferpos] = '\0';
-        irc->bufferpos              = 0;
-        irc_process_line(irc, commander);
+    /*
+     * Don't process commands unless the state of the line parser itself
+     * has reached the end.
+     */
+    if (!(irc->flags & IRC_STATE_END))
+        return read;
+
+    /* now deal with commands */
+    if (!(irc->message.channel && !strncmp(irc->message.content, irc->pattern, strlen(irc->pattern)))) {
+        irc->flags &= ~IRC_STATE_END;
+        return read;
     }
 
-    return 0;
+    char *beg = irc->message.content + strlen(irc->pattern);
+    char *end = strchr(beg, ' ');
+
+    if (end)
+        *end = 0;
+
+    module_t *find = module_manager_module_command(irc->moduleman, beg);
+    if (!find) {
+        irc_write(irc, irc->message.nick, "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", beg);
+        irc->flags &= ~IRC_STATE_END;
+        return read;
+    }
+
+    if (end && end[1]) {
+        beg = &end[1];
+        end = beg + strlen(beg) - 1;
+        while (end > beg && isspace(*end))
+            end--;
+        end[1] = 0;
+        end    = beg;
+    }
+
+    cmd_channel_push(data, cmd_entry_create(data, find, irc->message.channel, irc->message.nick, end));
+    irc->flags &= ~IRC_STATE_END;
+    return read;
 }

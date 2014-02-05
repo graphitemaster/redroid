@@ -6,25 +6,46 @@
 #include "config.h"
 #include "regexpr.h"
 #include "module.h"
+#include "ircparser.h"
 
 typedef struct irc_manager_s irc_manager_t;
 
+typedef enum {
+    IRC_COMMAND_PING   = 1 << 1, /* Set when pinged then unset when ponged        */
+    IRC_COMMAND_ERROR  = 1 << 2, /* Set when error then unsed when handled error  */
+    IRC_COMMAND_KICK   = 1 << 3, /* Set when kicked from channel unset on rejoin  */
+    IRC_COMMAND_JOIN   = 1 << 4, /* Set when user enters channel                  */
+    IRC_COMMAND_LEAVE  = 1 << 5, /* Set when user leaves channel                  */
+
+    IRC_STATE_AUTH     = 1 << 6, /* Unset when authenticated                      */
+    IRC_STATE_NICKSERV = 1 << 7, /* Set when auth'd with NickServ if there is any */
+    IRC_STATE_READY    = 1 << 8, /* Set when ready to send commands to the server */
+    IRC_STATE_END      = 1 << 9, /* Set when reached EOL from server              */
+} irc_flags_t;
+
+typedef struct {
+    char *nick;
+    char *name;
+    char *host;
+    char *channel;
+    char *content;
+} irc_message_t;
+
 typedef struct irc_s {
-    char             *name;         // irc instance name
-    char             *nick;         // nick to use on this network
-    char             *pattern;      // pattern bot uses to know a command
-    char             *auth;         // authenticaion (NickServ)
-    sock_t           *sock;         // network socket
-    bool              ready;        // ready
-    bool              readying;     // readying up
-    char              buffer[512];  // processing buffer
-    size_t            bufferpos;    // buffer position
-    list_t           *channels;     // list of channels for this instance
-    list_t           *queue;        // queue of IRC messages
-    module_manager_t *moduleman;    // module manager
-    database_t       *database;     // database for this IRC instance
-    regexpr_cache_t  *regexprcache; // regular expression cache
-    irc_manager_t    *manager;      // the manager containing this module
+    char             *name;
+    char             *nick;
+    char             *pattern;
+    char             *auth;
+    sock_t           *sock;
+    list_t           *channels;
+    list_t           *queue;
+    module_manager_t *moduleman;
+    database_t       *database;
+    regexpr_cache_t  *regexprcache;
+    irc_manager_t    *manager;
+    irc_parser_t      parser;
+    irc_message_t     message;
+    irc_flags_t       flags;
 } irc_t;
 
 irc_t *irc_create(config_t *config);
