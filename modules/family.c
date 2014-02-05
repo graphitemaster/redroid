@@ -99,12 +99,13 @@ static void family_add_replace(irc_t *irc, const char *channel, const char *user
     if (!statement)
         return;
 
-    if (replace)
+    if (replace) {
         if (!database_statement_bind(statement, "ss", status, member))
             return;
-    else
+    } else {
         if (!database_statement_bind(statement, "ss", member, status))
             return;
+    }
 
     if (!database_statement_complete(statement))
         return;

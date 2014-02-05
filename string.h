@@ -19,5 +19,4 @@ bool string_empty(string_t *string);
 char *const string_contents(string_t *string);
 char *string_move(string_t *string);
 char *string_end(string_t *string);
-
 #endif

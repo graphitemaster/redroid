@@ -56,7 +56,7 @@ static list_t *irc_instances_destroy(irc_instances_t *instances, bool restart) {
             restdata->name = restname;
             restdata->ssl  = restinfo.ssl;
             restdata->size = restinfo.size;
-            restdata->data = (unsigned char *)restinfo.data;
+            restdata->data = restinfo.data;
             list_push(list, restdata);
         } else {
             irc_destroy(instances->data[i], NULL, NULL);

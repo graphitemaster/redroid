@@ -2,7 +2,7 @@
 # Do not make changes here.
 
 CC               ?= clang
-CFLAGS            = -std=gnu99 -Wall -ggdb3 -DHAS_SSL
+CFLAGS            = -std=c11 -D_GNU_SOURCE -Wall -ggdb3 -DHAS_SSL
 LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lssl -lcrypto -Wl,--export-dynamic
 SOURCES           = $(shell echo *.c)
 OBJECTS           = $(SOURCES:.c=.o)

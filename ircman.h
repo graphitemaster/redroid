@@ -3,12 +3,17 @@
 #include <stdbool.h>
 #include "irc.h"
 
+/*
+ * Type: irc_manager_restart_t
+ *  Structure of information to hold restart state for a single IRC
+ *  instance.
+ */
 typedef struct {
-    int    fd;
-    char  *name;
-    bool   ssl;
-    size_t size;
-    char  *data;
+    int            fd;   /* Socket        */
+    char          *name; /* Instance name */
+    bool           ssl;  /* SSL/TLS?      */
+    size_t         size; /* Data size     */
+    unsigned char *data; /* Data          */
 } irc_manager_restart_t;
 
 typedef struct irc_manager_s irc_manager_t;

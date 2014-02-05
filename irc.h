@@ -17,7 +17,7 @@ typedef enum {
     IRC_COMMAND_JOIN   = 1 << 4, /* Set when user enters channel                  */
     IRC_COMMAND_LEAVE  = 1 << 5, /* Set when user leaves channel                  */
 
-    IRC_STATE_AUTH     = 1 << 6, /* Unset when authenticated                      */
+    IRC_STATE_AUTH     = 1 << 6, /* Set when authenticated (registered)           */
     IRC_STATE_NICKSERV = 1 << 7, /* Set when auth'd with NickServ if there is any */
     IRC_STATE_READY    = 1 << 8, /* Set when ready to send commands to the server */
     IRC_STATE_END      = 1 << 9, /* Set when reached EOL from server              */

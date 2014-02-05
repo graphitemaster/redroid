@@ -61,7 +61,7 @@ static void irc_parser_append(irc_parser_t *parser, char ch) {
 
 static void irc_parser_error(irc_parser_t *parser, irc_parser_error_t error) {
     parser->error = error;
-    parser->state = IRC_PARSER_ERROR_STATE;
+    parser->state = IRC_PARSER_STATE_ERROR;
 }
 
 static irc_consume_t irc_parser_interpret(irc_parser_t *parser, const char ch) {

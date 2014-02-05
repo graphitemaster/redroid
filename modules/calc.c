@@ -10,9 +10,9 @@ MODULE_DEFAULT(calc);
 
 static const double calc_cvalues[] = {
     42,
-    M_PI,
-    M_PI * 2,
-    M_E,
+    3.14159265358979323846,
+    3.14159265358979323846 * 2,
+    2.71828182845904523536,
     0
 };
 
@@ -158,6 +158,8 @@ static double eval_expr(calc_parser_t *p, calc_expr_t *e) {
                 case e_div:  return e->value * (d1 / d2);
                 case e_add:  return e->value * (d1 + d2);
                 case e_last: return e->value * d2;
+                default:
+                    break;
             }
         }
     }
