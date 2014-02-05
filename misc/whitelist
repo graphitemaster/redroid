@@ -153,6 +153,8 @@ irc_modules_unload
 irc_action
 irc_write
 irc_nick
+irc_join
+irc_part
 database_statement_complete
 database_statement_bind
 database_request

@@ -9,6 +9,7 @@
 MODULE_DEFAULT(calc);
 
 static const double calc_cvalues[] = {
+    1337,
     42,
     3.14159265358979323846,
     3.14159265358979323846 * 2,
@@ -17,6 +18,7 @@ static const double calc_cvalues[] = {
 };
 
 static const char *const calc_cnames[] = {
+    "kitten",
     "theanswertolifetheuniverseandeverything",
     "PI",
     "TAU",

@@ -80,6 +80,9 @@ static int irc_quit_raw(irc_t *irc, const char *channel, const char *message) {
 static int irc_join_raw(irc_t *irc, const char *channel, const char *message) {
     return sock_sendf(irc->sock, "JOIN %s\r\n", message);
 }
+static int irc_part_raw(irc_t *irc, const char *channel, const char *message) {
+    return sock_sendf(irc->sock, "PART %s\r\n", message);
+}
 static int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
 }
@@ -95,6 +98,10 @@ int irc_quit(irc_t *irc, const char *message) {
 }
 int irc_join(irc_t *irc, const char *channel) {
     irc_queue_enqueue(irc, &irc_join_raw, NULL, string_create(channel)); // freed in irc_queue_dequeue
+    return 1;
+}
+int irc_part(irc_t *irc, const char *channel) {
+    irc_queue_enqueue(irc, &irc_part_raw, NULL, string_create(channel));
     return 1;
 }
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
