@@ -124,9 +124,7 @@ const char *irc_name(irc_t *irc) {
     return irc->name;
 }
 
-#define D printf("[%s] %s\n", __func__, data->content);
-
-static void irc_onnick(irc_t *irc, irc_parser_data_t *data) { D
+static void irc_onnick(irc_t *irc, irc_parser_data_t *data) {
     if (!strncmp(data->content, "NickServ", data->length) && !(irc->flags & IRC_STATE_NICKSERV)) {
         irc_write(irc, "NickServ", "IDENTIFY %s %s", irc->nick, irc->auth);
         irc->flags |= IRC_STATE_NICKSERV;
@@ -136,24 +134,19 @@ static void irc_onnick(irc_t *irc, irc_parser_data_t *data) { D
     irc->message.nick = strdup(data->content);
 }
 
-static void irc_onname(irc_t *irc, irc_parser_data_t *data) { D
+static void irc_onname(irc_t *irc, irc_parser_data_t *data) {
     free(irc->message.name);
     irc->message.name = strdup(data->content);
 }
 
-static void irc_onhost(irc_t *irc, irc_parser_data_t *data) { D
+static void irc_onhost(irc_t *irc, irc_parser_data_t *data) {
     free(irc->message.host);
     irc->message.host = strdup(data->content);
 }
 
-static void irc_onparam(irc_t *irc, irc_parser_data_t *data) { D
+static void irc_onparam(irc_t *irc, irc_parser_data_t *data) {
     if (!strncmp(data->content, "AUTH", data->length))
         irc->flags |= IRC_STATE_AUTH;
-
-    /*
-     * Some IRCDs send the nick of the bot opposed to +i. Some also
-     * send MODE lines. Those are TODO
-     */
     if (!strncmp(data->content, irc->nick, data->length))
         irc->flags |= IRC_COMMAND_KICK;
 
@@ -166,7 +159,7 @@ static void irc_onparam(irc_t *irc, irc_parser_data_t *data) { D
         irc->message.channel = strdup(data->content);
 }
 
-static void irc_onerror(irc_t *irc, irc_parser_data_t *data) { D
+static void irc_onerror(irc_t *irc, irc_parser_data_t *data) {
     /* broadcast all errors and shut down */
     list_iterator_t *it = list_iterator_create(irc->channels);
     while (!list_iterator_end(it))
@@ -175,7 +168,7 @@ static void irc_onerror(irc_t *irc, irc_parser_data_t *data) { D
     raise(SIGUSR1);
 }
 
-static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) { D
+static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) {
     if (!strncmp(data->content, "PING", data->length))
         irc->flags |= IRC_COMMAND_PING;
     if (!strncmp(data->content, "ERROR", data->length))
@@ -188,15 +181,15 @@ static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) { D
         irc->flags |= IRC_COMMAND_LEAVE;
 }
 
-static void irc_onend(irc_t *irc, irc_parser_data_t *data) { D
+static void irc_onend(irc_t *irc, irc_parser_data_t *data) {
     if (irc->flags & IRC_COMMAND_ERROR) {
         fprintf(stderr, "    irc      => %s\n", data->content);
         irc->flags &= ~IRC_COMMAND_ERROR;
     }
 
-    if (irc->flags & IRC_STATE_AUTH) {
+    if (!(irc->flags & IRC_STATE_AUTH)) {
         irc_register(irc);
-        irc->flags &= ~IRC_STATE_AUTH;
+        irc->flags |= IRC_STATE_AUTH;
     }
 
     if (irc->flags & IRC_COMMAND_PING) {
@@ -204,14 +197,7 @@ static void irc_onend(irc_t *irc, irc_parser_data_t *data) { D
         irc->flags &= ~IRC_COMMAND_PING;
     }
 
-    /*
-     * Some IRCds send +i. Others send "nick MODE nick :+i" The parser
-     * is going to need to learn the MODE stuff yet. For now we'll get
-     * away with checking the whole thing.
-     */
-    string_t *test = string_format("%s MODE %s :+i", irc->nick, irc->nick);
-
-    if (!strncmp(data->content, "+i", 2) || irc->flags & IRC_COMMAND_KICK) {
+    if (irc->flags & IRC_COMMAND_KICK) {
         list_iterator_t *it = list_iterator_create(irc->channels);
         while (!list_iterator_end(it))
             irc_join(irc, list_iterator_next(it));
@@ -223,8 +209,6 @@ static void irc_onend(irc_t *irc, irc_parser_data_t *data) { D
     free(irc->message.content);
     irc->message.content = strdup(data->content);
     irc->flags |= IRC_STATE_END;
-
-    printf(" >> %s\n", data->content);
 }
 
 
@@ -248,7 +232,7 @@ irc_t *irc_create(config_t *entry) {
     irc->database     = database_create(entry->database);
     irc->regexprcache = regexpr_cache_create();
     irc->moduleman    = module_manager_create(irc);
-    irc->flags        = IRC_STATE_AUTH;
+    irc->flags        = 0;
 
     irc->message.nick    = NULL;
     irc->message.name    = NULL;
