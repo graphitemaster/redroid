@@ -117,7 +117,6 @@ static void signal_daemonize(bool closehandles) {
 }
 
 static void signal_handle(int signal) {
-    static irc_manager_t *manager = NULL;
     bool (*handler)(bool) = NULL;
     const char *message = NULL;
 

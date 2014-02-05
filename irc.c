@@ -168,6 +168,13 @@ static void irc_onerror(irc_t *irc, irc_parser_data_t *data) {
     raise(SIGUSR1);
 }
 
+static void irc_channels_join(irc_t *irc) {
+    list_iterator_t *it = list_iterator_create(irc->channels);
+    while (!list_iterator_end(it))
+        irc_join_raw(irc, NULL, list_iterator_next(it));
+    list_iterator_destroy(it);
+}
+
 static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) {
     static const struct {
         const char *name;
@@ -201,10 +208,7 @@ static void irc_onend(irc_t *irc, irc_parser_data_t *data) {
     }
 
     if (irc->flags & IRC_COMMAND_KICK) {
-        list_iterator_t *it = list_iterator_create(irc->channels);
-        while (!list_iterator_end(it))
-            irc_join(irc, list_iterator_next(it));
-        list_iterator_destroy(it);
+        irc_channels_join(irc);
         irc->flags |= IRC_STATE_READY;
         irc->flags &= ~IRC_COMMAND_KICK;
     }
@@ -397,13 +401,6 @@ bool irc_reinstate(irc_t *irc, const char *host, const char *port, sock_restart_
     if (!(irc->sock = sock_create(host, port, restart)))
         return false;
     return true;
-}
-
-static void irc_channels_join(irc_t *irc) {
-    list_iterator_t *it = list_iterator_create(irc->channels);
-    while (!list_iterator_end(it))
-        irc_join_raw(irc, NULL, list_iterator_next(it));
-    list_iterator_destroy(it);
 }
 
 int irc_process(irc_t *irc, void *data) {

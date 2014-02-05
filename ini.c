@@ -1,9 +1,9 @@
 #include "ini.h"
 
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>
 #include <stdio.h>
-
 
 static char *rstrip(char* s) {
     char* p = s + strlen(s);
