@@ -63,6 +63,9 @@ static int youtube_count(void) {
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
+    if (!message)
+        return;
+
     if (strstr(message, "-stats") == &message[0])
         goto last;
 

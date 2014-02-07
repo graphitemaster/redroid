@@ -484,6 +484,19 @@ list_t *module_irc_modules_list(irc_t *irc) {
     return ret;
 }
 
+list_t *module_irc_users(irc_t *irc, const char *channel) {
+    module_t *module = *module_get();
+    module_mem_mutex_lock(module);
+    list_t *ret = irc_users(irc, channel);
+    if (!ret) {
+        module_mem_mutex_unlock(module);
+        return NULL;
+    }
+    module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
+    module_mem_mutex_unlock(module);
+    return ret;
+}
+
 void module_list_push(list_t *list, void *element) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);

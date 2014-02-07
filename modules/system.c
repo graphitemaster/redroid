@@ -59,6 +59,22 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         return;
     }
 
+    if (!strcmp(message, "-users")) {
+        string_t *string = string_construct();
+        list_t   *users  = irc_users(irc, channel);
+
+        for (list_iterator_t *it = list_iterator_create(users); !list_iterator_end(it); )
+            string_catf(string, "%s, ", list_iterator_next(it));
+
+        irc_write(irc, channel, "%s: %s", user, string_contents(string));
+        return;
+    }
+
+    if (!strcmp(message, "-topic")) {
+        irc_write(irc, channel, "%s: %s", user, irc_topic(irc, channel));
+        return;
+    }
+
 help:
-    irc_write(irc, channel, "%s: system <-shutdown|-restart|-timeout|-version>|<-join|-part> <channel>", user);
+    irc_write(irc, channel, "%s: system <-shutdown|-restart|-timeout|-topic|-version>|<-join|-part> <channel>", user);
 }

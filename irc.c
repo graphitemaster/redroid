@@ -72,6 +72,8 @@ static int irc_pong(irc_t *irc, const char *data) {
     return sock_sendf(irc->sock, "PONG :%s\r\n", data);
 }
 static int irc_register(irc_t *irc) {
+    if (irc->flags & IRC_STATE_AUTH)
+        return -1;
     return sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
 }
 static int irc_quit_raw(irc_t *irc, const char *channel, const char *message) {
@@ -131,6 +133,27 @@ const char *irc_name(irc_t *irc) {
     return irc->name;
 }
 
+static void irc_channels_join(irc_t *irc) {
+    list_iterator_t *it = list_iterator_create(irc->channels);
+    while (!list_iterator_end(it)) {
+        irc_channel_t *channel = list_iterator_next(it);
+        irc_join_raw(irc, NULL, channel->channel);
+    }
+    list_iterator_destroy(it);
+}
+
+static bool irc_channel_find_name(const void *a, const void *b) {
+    const irc_channel_t *ca = a;
+    const char          *cb = b;
+
+    return !strcmp(ca->channel, cb);
+}
+
+static bool irc_channel_find(const void *a, const void *b) {
+    return irc_channel_find_name(a, ((irc_channel_t*)b)->channel);
+}
+
+
 static void irc_onnick(irc_t *irc, irc_parser_data_t *data) {
     if (!strncmp(data->content, "NickServ", data->length) && !(irc->flags & IRC_STATE_NICKSERV)) {
         irc_write(irc, "NickServ", "IDENTIFY %s %s", irc->nick, irc->auth);
@@ -152,8 +175,8 @@ static void irc_onhost(irc_t *irc, irc_parser_data_t *data) {
 }
 
 static void irc_onparam(irc_t *irc, irc_parser_data_t *data) {
-    if (!strncmp(data->content, "AUTH", data->length))
-        irc->flags |= IRC_STATE_AUTH;
+    if (!strncmp(data->content, "AUTH", 4))
+        irc->flags |= IRC_COMMAND_AUTH;
     if (!strncmp(data->content, irc->nick, data->length))
         irc->flags |= IRC_COMMAND_KICK;
 
@@ -162,24 +185,21 @@ static void irc_onparam(irc_t *irc, irc_parser_data_t *data) {
      *  Channel names are strings (beginning with a '&', '#', '+' or '!'
      *  character).
      */
-    if (strpbrk(data->content, "&#+!"))
+    if (strpbrk(data->content, "&#+!")) {
+        free(irc->message.channel);
         irc->message.channel = strdup(data->content);
+    }
 }
 
 static void irc_onerror(irc_t *irc, irc_parser_data_t *data) {
     /* broadcast all errors and shut down */
     list_iterator_t *it = list_iterator_create(irc->channels);
-    while (!list_iterator_end(it))
-        irc_write(irc, list_iterator_next(it), "error %s (shutting down)", data->content);
+    while (!list_iterator_end(it)) {
+        irc_channel_t *channel = list_iterator_next(it);
+        irc_write(irc, channel->channel, "error %s (shutting down)", data->content);
+    }
     list_iterator_destroy(it);
     raise(SIGUSR1);
-}
-
-static void irc_channels_join(irc_t *irc) {
-    list_iterator_t *it = list_iterator_create(irc->channels);
-    while (!list_iterator_end(it))
-        irc_join_raw(irc, NULL, list_iterator_next(it));
-    list_iterator_destroy(it);
 }
 
 static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) {
@@ -187,25 +207,78 @@ static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) {
         const char *name;
         size_t      flag;
     } commands[] = {
-        { "PING",  IRC_COMMAND_PING  },
-        { "ERROR", IRC_COMMAND_ERROR },
-        { "KICK",  IRC_COMMAND_KICK  },
-        { "JOIN",  IRC_COMMAND_JOIN  },
-        { "LEAVE", IRC_COMMAND_LEAVE }
+        { "PING",    IRC_COMMAND_PING    },
+        { "ERROR",   IRC_COMMAND_ERROR   },
+        { "KICK",    IRC_COMMAND_KICK    },
+        { "JOIN",    IRC_COMMAND_JOIN    },
+        { "LEAVE",   IRC_COMMAND_LEAVE   },
+        { "NOTICE",  IRC_COMMAND_NOTICE  },
+        { "PRIVMSG", IRC_COMMAND_PRIVMSG }
     };
+
     for (size_t i = 0; i < sizeof(commands)/sizeof(*commands); i++)
         if (!strcmp(data->content, commands[i].name))
             irc->flags |= commands[i].flag;
 }
 
 static void irc_onend(irc_t *irc, irc_parser_data_t *data) {
+    if (irc->flags & IRC_COMMAND_PRIVMSG) {
+        irc->flags &= ~IRC_COMMAND_PRIVMSG;
+        irc->flags |= IRC_STATE_END;
+        free(irc->message.content);
+        irc->message.content = strdup(data->content);
+        return;
+    }
+
+    /* Deal with server numerics and NOTICES */
+    char *space = strchr(data->content, ' ');
+    if (space && space[1]) {
+        space++;
+        if (!strncmp(space, "NOTICE", 6) && !(irc->flags & IRC_STATE_AUTH))
+            irc->flags |= IRC_COMMAND_REGISTER;
+
+        /* Get channel topic */
+        if (!strncmp(space, "332", 3)) {
+            strtok(space, " ");
+            strtok(NULL,  " ");
+
+            char *chan = strtok(NULL, " ");
+            irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chan);
+            if (!channel)
+                return;
+
+            free(channel->topic);
+            channel->topic = strdup(strchr(&chan[strlen(chan) + 1], ':') + 1);
+            return;
+        }
+
+        /* Get channel users */
+        if (!strncmp(space, "353", 3)) {
+            char *chanbeg = strchr(space,   '@') + 2;
+            char *chanend = strchr(chanbeg, ':') - 2;
+
+            chanend[1] = 0;
+            irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chanbeg);
+            if (!channel)
+                return;
+
+            char *user = strtok(&chanend[3], " ");
+            while (user) {
+                list_push(channel->users, strdup(user));
+                user = strtok(NULL, " ");
+            }
+            return;
+        }
+    }
+
     if (irc->flags & IRC_COMMAND_ERROR) {
         fprintf(stderr, "    irc      => %s\n", data->content);
         irc->flags &= ~IRC_COMMAND_ERROR;
     }
 
-    if (!(irc->flags & IRC_STATE_AUTH)) {
+    if (irc->flags & IRC_COMMAND_REGISTER) {
         irc_register(irc);
+        irc->flags &= ~IRC_COMMAND_REGISTER;
         irc->flags |= IRC_STATE_AUTH;
     }
 
@@ -218,11 +291,8 @@ static void irc_onend(irc_t *irc, irc_parser_data_t *data) {
         irc_channels_join(irc);
         irc->flags |= IRC_STATE_READY;
         irc->flags &= ~IRC_COMMAND_KICK;
+        printf("    irc     => ready\n");
     }
-
-    free(irc->message.content);
-    irc->message.content = strdup(data->content);
-    irc->flags |= IRC_STATE_END;
 }
 
 
@@ -344,8 +414,22 @@ list_t *irc_modules_list(irc_t *irc) {
     return list;
 }
 
-static bool irc_channel_find(const void *a, const void *b) {
-    return !strcmp((const char *)a, (const char *)b);
+list_t *irc_users(irc_t *irc, const char *chan) {
+    irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chan);
+    if (!channel)
+        return NULL;
+
+    list_t *copy = list_copy(channel->users);
+    list_sort(copy, &irc_modules_list_sort);
+    return copy;
+}
+
+const char *irc_topic(irc_t *irc, const char *chan) {
+    irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chan);
+    if (!channel)
+        return NULL;
+
+    return channel->topic;
 }
 
 bool irc_channels_add(irc_t *irc, const char *channel) {
@@ -354,7 +438,11 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
         return false;
     }
 
-    list_push(irc->channels, strdup(channel));
+    irc_channel_t *ch = malloc(sizeof(*ch));
+    ch->users   = list_create();
+    ch->channel = strdup(channel);
+
+    list_push(irc->channels, ch);
     printf("    channel  => %s added\n", channel);
     return true;
 }
@@ -372,9 +460,17 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     module_manager_destroy(irc->moduleman);
 
     // destroy channels and messages
-    list_iterator_t *it;
-    for (it = list_iterator_create(irc->channels); !list_iterator_end(it); )
-        free(list_iterator_next(it));
+    list_iterator_t *it = list_iterator_create(irc->channels);
+    while (!list_iterator_end(it)) {
+        irc_channel_t   *ch = list_iterator_next(it);
+        list_iterator_t *ut = list_iterator_create(ch->users);
+        while (!list_iterator_end(ut))
+            free(list_iterator_next(ut));
+        list_iterator_destroy(ut);
+        list_destroy(ch->users);
+        free(ch->topic);
+        free(ch);
+    }
     list_iterator_destroy(it);
     list_destroy(irc->channels);
 

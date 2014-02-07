@@ -219,7 +219,7 @@ void *list_at(list_t *list, size_t index) {
     }
 
     if (node) {
-        list_atcache_cache(list, node);
+        list_atcache_cache_index(list, node, index);
         return node->element;
     }
 

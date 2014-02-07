@@ -1,5 +1,6 @@
 #include <module.h>
 #include <string.h>
+#include <strings.h>
 
 MODULE_DEFAULT(obit);
 

@@ -91,6 +91,25 @@ static inline list_t *irc_modules_list(irc_t *irc) {
 }
 
 /*
+ * Function: irc_users
+ *  Obtain a list of the users on a current channel.
+ *
+ * Returns:
+ *  A list of character pointers to string containing the names of
+ *  the channel for a given IRC instance.
+ *
+ * Parameters:
+ *  irc     - IRC instance
+ *  channel - The channel to get the user list from
+ *
+ * Remarks:
+ *  The list this function returns is garbage collected.
+ */
+static inline list_t *irc_users(irc_t *irc, const char *channel) {
+    return MODULE_GC_CALL(irc_users)(irc, channel);
+}
+
+/*
  * Function: malloc
  *  Allocate a block of memory.
  *
@@ -566,6 +585,7 @@ bool irc_modules_add(irc_t *irc, const char *file);
 int irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 int irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
 const char *irc_nick(irc_t *irc);
+const char *irc_topic(irc_t *irc, const char *channel);
 list_t *irc_modules(irc_t *irc);
 
 void irc_part(irc_t *irc, const char *channel);
