@@ -143,6 +143,8 @@ list_pop
 list_shift
 list_length
 list_sort
+list_search
+list_at
 string_contents
 string_length
 string_catf

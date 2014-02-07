@@ -122,8 +122,10 @@ static void stfu_random(irc_t *irc, const char *channel, const char *user, const
     if (!minsert || !mobject || !morifice)
         return;
 
-    // TODO: when no victim, or victim is the user then randomly select
-    // someone from the channel as the attacker.
+    if (!victim || !strcmp(user, victim)) {
+        list_t *users = irc_users(irc, channel);
+        victim = list_at(users, urand() % list_length(users));
+    }
 
     irc_write(irc, channel,
         "%s %s %s into %s's %s and tells them to shut the fuck up",

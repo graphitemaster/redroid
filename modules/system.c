@@ -63,9 +63,16 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         string_t *string = string_construct();
         list_t   *users  = irc_users(irc, channel);
 
-        for (list_iterator_t *it = list_iterator_create(users); !list_iterator_end(it); )
-            string_catf(string, "%s, ", list_iterator_next(it));
+        for (list_iterator_t *it = list_iterator_create(users); !list_iterator_end(it); ) {
+            char *copy = strdup(list_iterator_next(it));
+            copy[urand() % strlen(copy)] = '*';
+            if (!list_iterator_end(it))
+                string_catf(string, "%s, ", copy);
+            else
+                string_catf(string, "%s", copy);
+        }
 
+        irc_write(irc, channel, "%s: to preventing highlighting the nicks will contain '*'", user);
         irc_write(irc, channel, "%s: %s", user, string_contents(string));
         return;
     }

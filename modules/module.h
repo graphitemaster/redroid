@@ -513,6 +513,10 @@ size_t list_length(list_t *list);
  */
 void list_sort(list_t *list, bool (*predicate)(const void *, const void *));
 
+void *list_search(list_t *list, bool (*predicate)(const void *, const void *), const void *pass);
+
+void *list_at(list_t *list, size_t index);
+
 /*
  * Function: string_catf
  *  Concatenate a formatted string to a managed string

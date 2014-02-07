@@ -151,7 +151,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     list_t *list   = strnsplit(message, " ", 2);
     char   *method = list_shift(list);
 
-    if (!method || !strcmp(method, "-help"))
+    if (method && !strcmp(method, "-help"))
         return obit_help(irc, channel, user);
 
     if (!strcmp(method, "-add"))    return obit_add(irc, channel, user, list);
