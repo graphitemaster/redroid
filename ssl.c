@@ -135,8 +135,10 @@ sock_t *ssl_create(int fd, sock_restart_t *restart) {
     if (!ssl_certificate_check(ssl))
         goto cleanup;
 
+    if (!sock_nonblock(fd))
+        goto cleanup;
+
     printf("    ssl      => connected with %s encryption\n", SSL_get_cipher(ssl->ssl));
-    sock_nonblock(fd);
 
     return sock;
 

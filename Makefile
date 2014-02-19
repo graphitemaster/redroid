@@ -7,7 +7,7 @@ LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lssl -lcrypto -Wl,--export-dy
 SOURCES           = $(shell echo *.c)
 OBJECTS           = $(SOURCES:.c=.o)
 REDROID           = redroid
-MODULE_CFLAGS     = -fPIC -std=gnu99 -Imodules/ -ggdb3
+MODULE_CFLAGS     = -fPIC -fno-asm -fno-builtin -std=c99 -D_POSIX_SOURCE -Imodules/ -ggdb3
 MODULE_LDFLAGS    = -shared -rdynamic -lm
 MODULE_SOURCES    = $(shell echo modules/*.c)
 MODULE_OBJECTS    = $(MODULE_SOURCES:.c=.so)
@@ -15,10 +15,11 @@ WHITELIST_CFLAGS  = -std=gnu99 -ggdb3
 WHITELIST_LDFLAGS = -lsqlite3
 WHITELIST_SOURCES = misc/whitelist.c
 WHITELIST_OBJECTS = $(WHITELIST_SOURCES:.c=.o)
+STRIP             = $(shell strip)
 
 -include config.mak
 
-all: $(SOURCES) $(MODULE_OBJECTS) $(REDROID) whitelist
+all: modules $(REDROID) whitelist
 
 $(REDROID): $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@

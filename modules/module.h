@@ -602,4 +602,5 @@ list_t *redroid_instances(irc_t *irc);
 const char *build_date(void);
 const char *build_time(void);
 const char *build_version(void);
+
 #endif

@@ -17,8 +17,52 @@
 #include <netdb.h>
 #include <fcntl.h>
 
-void sock_nonblock(int fd) {
-    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+bool sock_nonblock(int fd) {
+    int flags = fcntl(fd, F_GETFL);
+    if (flags == -1)
+        return false;
+    flags |= O_NONBLOCK;
+    if (fcntl(fd, F_SETFL, flags) == -1)
+        return false;
+    return true;
+}
+
+static int sock_listen(const char *port) {
+    int sock;
+    if ((sock = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+        return -1;
+
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1)
+        goto sock_listen_error;
+
+    struct sockaddr_in host = {
+        .sin_family      = AF_INET,
+        .sin_port        = htons(atoi(port)),
+        .sin_addr.s_addr = INADDR_ANY
+    };
+
+    memset(&host.sin_zero, 0, 8);
+
+    /*
+     * Try binding the listen socket connection now. If this fails the
+     * port is likely in use.
+     */
+    if (bind(sock, (struct sockaddr *)&host, sizeof(struct sockaddr)) == -1)
+        goto sock_listen_error;
+
+    /*
+     * Begin listening for connections now.
+     *  We'll limit ourselfs to a total of 16 backlogged for established
+     *  sockets to be accepted.
+     */
+    if (listen(sock, 16) == -1)
+        goto sock_listen_error;
+
+    return sock;
+
+sock_listen_error:
+    close(sock);
+    return -1;
 }
 
 static int sock_connection(const char *host, const char *port) {
@@ -124,7 +168,7 @@ static int sock_standard_getfd(sock_ctx_t *ctx) {
     return ctx->fd;
 }
 
-static sock_t *sock_standard_create(int fd) {
+static sock_t *sock_standard_create(int fd, bool listen) {
     sock_t     *socket = malloc(sizeof(*socket));
     sock_ctx_t *data   = malloc(sizeof(*data));
 
@@ -135,31 +179,46 @@ static sock_t *sock_standard_create(int fd) {
     socket->recv    = (sock_recv_func)&sock_standard_recv;
     socket->destroy = (sock_destroy_func)&sock_standard_destroy;
     socket->ssl     = false;
+    socket->listen  = listen;
 
-    sock_nonblock(fd);
+    if (!sock_nonblock(fd)) {
+        free(socket);
+        free(data);
+        return NULL;
+    }
+
     return socket;
 }
 
 // exposed interface
 sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart) {
+    bool listen = !strcmp(host, "::listen");
+
+    /* Listen servers can be restarted as well */
     if (restart->fd != -1) {
 #ifdef HAS_SSL
         if (restart->ssl)
             return ssl_create(restart->fd, restart);
 #endif
-        return sock_standard_create(restart->fd);
+        return sock_standard_create(restart->fd, true);
     }
 
-    int fd = sock_connection(host, port);
+    int fd = listen ? sock_listen(port) : sock_connection(host, port);
     if (fd == -1)
         return NULL;
 
 #ifdef HAS_SSL
-    if (restart->ssl)
+    if (restart->ssl) {
+        /* No support for listen servers using SSL. */
+        if (listen) {
+            close(fd);
+            return NULL;
+        }
         return ssl_create(fd, NULL);
+    }
 #endif
 
-    return sock_standard_create(fd);
+    return sock_standard_create(fd, listen);
 }
 
 int sock_sendf(sock_t *socket, const char *fmt, ...) {
@@ -197,6 +256,22 @@ int sock_getfd(sock_t *socket) {
     return socket->getfd(socket->data);
 }
 
+sock_t *sock_accept(sock_t *socket) {
+    /* Can only accept on listening sockets */
+    if (!socket->listen)
+        return NULL;
+
+    struct sockaddr_in clientaddr;
+    struct sockaddr   *client = (struct sockaddr *)&clientaddr;
+
+    int hostfd   = sock_getfd(socket);
+    int clientfd = accept(hostfd, client, &(socklen_t){sizeof(struct sockaddr_in)});
+
+    if (clientfd == -1)
+        return NULL;
+
+    return sock_standard_create(clientfd, false);
+}
 
 bool sock_destroy(sock_t *socket, sock_restart_t *restart) {
     if (!socket)

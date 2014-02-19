@@ -415,8 +415,10 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    while (signal_empty())
+    while (signal_empty()) {
         irc_manager_process(manager);
+
+    }
 
     if (!signal_restart(false)) {
         list_t *fds = irc_manager_restart(manager);
