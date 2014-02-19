@@ -65,7 +65,7 @@ sock_listen_error:
     return -1;
 }
 
-static int sock_connection(const char *host, const char *port) {
+static int sock_connection(const char *host, const char *port, char **resolved) {
     int status;
     int sock;
 
@@ -107,8 +107,9 @@ static int sock_connection(const char *host, const char *port) {
                 fprintf(stderr, "failed to connect: %s:%s %s\n", host, ipbuffer, strerror(errno));
             failed = true;
         } else {
-            result = current;
-            failed = false;
+            result    = current;
+            failed    = false;
+            *resolved = strdup(ipbuffer);
             break;
         }
     }
@@ -168,7 +169,7 @@ static int sock_standard_getfd(sock_ctx_t *ctx) {
     return ctx->fd;
 }
 
-static sock_t *sock_standard_create(int fd, bool listen) {
+static sock_t *sock_standard_create(int fd, bool listen, const char *host) {
     sock_t     *socket = malloc(sizeof(*socket));
     sock_ctx_t *data   = malloc(sizeof(*data));
 
@@ -180,6 +181,7 @@ static sock_t *sock_standard_create(int fd, bool listen) {
     socket->destroy = (sock_destroy_func)&sock_standard_destroy;
     socket->ssl     = false;
     socket->listen  = listen;
+    socket->host    = strdup(host);
 
     if (!sock_nonblock(fd)) {
         free(socket);
@@ -200,29 +202,59 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
         if (restart->ssl)
             return ssl_create(restart->fd, restart);
 #endif
-        return sock_standard_create(restart->fd, true);
+        /*
+         * We'll need to re-resolve the peer name as the restart file
+         * doesn't contain that information.
+         */
+        struct sockaddr_storage addr;
+        socklen_t               size = sizeof(addr);
+        char                    resolved[INET6_ADDRSTRLEN];
+
+        /*
+         * Can't resolve after restart means the client or the host is
+         * without internet.
+         */
+        if (getpeername(restart->fd, (struct sockaddr*)&addr, &size) == -1)
+            return NULL;
+
+
+        if (addr.ss_family == AF_INET) {
+            struct sockaddr_in *ipv4 = (struct sockaddr_in*)&addr;
+            inet_ntop(AF_INET, &ipv4->sin_addr, resolved, sizeof(resolved));
+        } else {
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6*)&addr;
+            inet_ntop(AF_INET6, &ipv6->sin6_addr, resolved, sizeof(resolved));
+        }
+
+        return sock_standard_create(restart->fd, true, resolved);
     }
 
-    int fd = listen ? sock_listen(port) : sock_connection(host, port);
+    /*
+     * Listen sockets act a little different than connection sockets.
+     * We make those discinctions here.
+     */
+    int fd = -1;
+    if (listen) {
+        fd = sock_listen(port);
+        if (fd == -1)
+            return NULL;
+
+        /* Listen servers cannot SSL */
+        return sock_standard_create(fd, true, host);
+    }
+
+    char *resolved = NULL;
+    fd = sock_connection(host, port, &resolved);
     if (fd == -1)
         return NULL;
 
-#ifdef HAS_SSL
-    if (restart->ssl) {
-        /* No support for listen servers using SSL. */
-        if (listen) {
-            close(fd);
-            return NULL;
-        }
-        return ssl_create(fd, NULL);
-    }
-#endif
-
-    return sock_standard_create(fd, listen);
+    sock_t *sock = sock_standard_create(fd, false, resolved);
+    free(resolved);
+    return sock;
 }
 
 int sock_sendf(sock_t *socket, const char *fmt, ...) {
-    char    buffer[512];
+    char    buffer[4096];
     int     length;
     va_list args;
 
@@ -270,7 +302,8 @@ sock_t *sock_accept(sock_t *socket) {
     if (clientfd == -1)
         return NULL;
 
-    return sock_standard_create(clientfd, false);
+    /* Resolved client host is saved for sessions */
+    return sock_standard_create(clientfd, false, inet_ntoa(clientaddr.sin_addr));
 }
 
 bool sock_destroy(sock_t *socket, sock_restart_t *restart) {
@@ -279,6 +312,7 @@ bool sock_destroy(sock_t *socket, sock_restart_t *restart) {
 
     bool succeed = false;
     socket->destroy(socket->data, restart);
+    free(socket->host);
     free(socket);
     return succeed;
 }
