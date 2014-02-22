@@ -381,8 +381,8 @@ void http_process(http_t *http) {
     it = list_iterator_create(http->clients);
     while (!list_iterator_end(it)) {
         http_client_t *client = list_iterator_next(it);
-        /* After 5 seconds destroy clients */
-        if (difftime(client->time, time(0)) >= 5)
+        /* After two minutes destroy clients */
+        if (difftime(client->time, time(0)) >= 60 * 2)
             http_client_destroy(http, client);
     }
     list_iterator_destroy(it);

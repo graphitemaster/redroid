@@ -21,6 +21,16 @@ static void string_reallocate(string_t *string) {
     string->allocated = size;
 }
 
+static void string_reassociate(string_t *oldstr, string_t *newstr) {
+    string_clear(oldstr);
+
+    oldstr->buffer    = newstr->buffer;
+    oldstr->allocated = newstr->allocated;
+    oldstr->length    = newstr->length;
+
+    free(newstr);
+}
+
 void string_vcatf(string_t *string, const char *fmt, va_list varg) {
     va_list va;
     for (;;) {
@@ -87,8 +97,7 @@ string_t *string_format(const char *fmt, ...) {
 }
 
 void string_clear(string_t *string) {
-    if (string->buffer)
-        free(string->buffer);
+    free(string->buffer);
     string->buffer    = NULL;
     string->allocated = 0;
     string->length    = 0;
@@ -122,4 +131,23 @@ char *string_end(string_t *string) {
     char *data = string_move(string);
     string_destroy(string);
     return data;
+}
+
+void string_replace(string_t *string, const char *search, const char *replace) {
+    string_t *modified = string_construct();
+    char     *content  = string_contents(string);
+    char     *find     = strstr(content, search);
+
+    if (!find)
+        return;
+
+    while (find) {
+        *find = '\0';
+        string_catf(modified, "%s%s", content, replace);
+
+        content = &find[strlen(search)];
+        find    = strstr(content, search);
+    }
+
+    string_reassociate(string, modified);
 }
