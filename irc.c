@@ -291,7 +291,7 @@ static void irc_onend(irc_t *irc, irc_parser_data_t *data) {
         irc_channels_join(irc);
         irc->flags |= IRC_STATE_READY;
         irc->flags &= ~IRC_COMMAND_KICK;
-        printf("    irc     => ready\n");
+        printf("    irc      => ready\n");
     }
 }
 

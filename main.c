@@ -9,6 +9,7 @@
 #include "config.h"
 #include "sock.h"
 #include "list.h"
+#include "web.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -20,8 +21,6 @@
 #include <unistd.h>
 
 #define SIGNAL_ERROR     (SIGRTMIN + 4)
-#define SIGNAL_RESTART   (SIGRTMIN + 5)
-#define SIGNAL_DAEMONIZE (SIGRTMIN + 6)
 
 #define RESTART_FILESIZE sizeof("redroid_XXXXXX")
 
@@ -128,12 +127,6 @@ static void signal_handle(int signal) {
         printf("Recieved internal error\n");
         handler = &signal_shutdown;
         message = "Shutting down";
-    } else if (signal == SIGNAL_RESTART) {
-        printf("Recieved restart\n");
-        handler = &signal_restart;
-        message = "Restarting";
-    } else if (signal == SIGNAL_DAEMONIZE) {
-        return signal_daemonize(true);
     } else
         goto signal_error;
     if (!handler)
@@ -152,7 +145,6 @@ static void signal_install(void) {
     signal(SIGTERM,          &signal_handle);
     signal(SIGINT,           &signal_handle);
     signal(SIGNAL_ERROR,     &signal_handle);
-    signal(SIGNAL_DAEMONIZE, &signal_handle);
 }
 
 static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
@@ -185,11 +177,19 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
 
 int main(int argc, char **argv) {
     irc_manager_t *manager = NULL;
+    web_t         *web     = NULL;
+
     signal_install();
     srand(time(0));
 
     if (!(manager = irc_manager_create())) {
         fprintf(stderr, "failed creating irc manager\n");
+        return EXIT_FAILURE;
+    }
+
+    if (!(web = web_create())) {
+        fprintf(stderr, "failed creating webfront server\n");
+        irc_manager_destroy(manager);
         return EXIT_FAILURE;
     }
 
@@ -412,12 +412,15 @@ int main(int argc, char **argv) {
     if (irc_manager_empty(manager)) {
         fprintf(stderr, "No IRC instances to manage\n");
         irc_manager_destroy(manager);
+        web_destroy(web);
         return EXIT_FAILURE;
     }
 
+    /* Start the web server process */
+    web_begin(web);
+
     while (signal_empty()) {
         irc_manager_process(manager);
-
     }
 
     if (!signal_restart(false)) {
@@ -500,5 +503,6 @@ int main(int argc, char **argv) {
     }
 
     irc_manager_destroy(manager);
+    web_destroy(web);
     return EXIT_SUCCESS;
 }

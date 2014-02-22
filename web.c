@@ -1,3 +1,4 @@
+#include "web.h"
 #include "http.h"
 #include "mt.h"
 #include "ripemd.h"
@@ -5,15 +6,22 @@
 #include "string.h"
 
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
+#include <signal.h>
+#include <pthread.h>
 
-typedef struct {
-    mt_t       *rand;
-    ripemd_t   *ripemd;
-    database_t *database;
-} web_t;
+struct web_s {
+    mt_t           *rand;
+    ripemd_t       *ripemd;
+    database_t     *database;
+    http_t         *server;
+    pthread_t       thread;
+    pthread_mutex_t mutex;
+};
 
-void web_login(sock_t *client, list_t *post, void *data) {
+static void web_login(sock_t *client, list_t *post, void *data) {
     web_t *web = data;
 
     const char *username = http_post_find(post, "username");
@@ -59,23 +67,67 @@ void web_login(sock_t *client, list_t *post, void *data) {
     database_row_destroy(row);
 }
 
-#if TEST
-int main() {
-    http_t *server = http_create("5050");
+/*
+ * Will return true if the mutex is to be unlocked. Which is also
+ * used to imply the termination of the web thread.
+ */
+static bool web_thread_quit(pthread_mutex_t *mutex) {
+    switch (pthread_mutex_trylock(mutex)) {
+        case 0:
+            pthread_mutex_unlock(mutex);
+            return 1;
+        case EBUSY:
+            return 0;
+    }
 
-    web_t web = {
-        .rand     = mt_create(),
-        .ripemd   = ripemd_create(),
-        .database = database_create("web.db")
-    };
-
-    http_handles_register(server, "::login", &web_login, &web);
-
-    while (1)
-        http_process(server);
-
-    http_destroy(server);
-    mt_destroy(web.rand);
-    ripemd_destroy(web.ripemd);
+    return 1;
 }
-#endif
+
+static void *web_thread(void *data) {
+    web_t *web = data;
+    while (!web_thread_quit(&web->mutex))
+        http_process(web->server);
+
+    return NULL;
+}
+
+web_t *web_create(void) {
+    http_t *server;
+    if (!(server = http_create("5050")))
+        return NULL;
+
+    web_t *web    = malloc(sizeof(*web));
+    web->rand     = mt_create();
+    web->ripemd   = ripemd_create();
+    web->database = database_create("web.db");
+    web->server   = server;
+
+    /* register the webclient handlers for POST */
+    http_handles_register(server, "::login", &web_login, web);
+
+    /*
+     * The thread will keep running for as long as the mutex is locked.
+     * The destruction is a simple unlock + join.  This is just a binary
+     * semaphore. No need to wait.
+     */
+    pthread_mutex_init(&web->mutex, NULL);
+    pthread_mutex_lock(&web->mutex);
+
+    return web;
+}
+
+void web_destroy(web_t *web) {
+    /* Unlock to terminate the thread and join. */
+    pthread_mutex_unlock(&web->mutex);
+    pthread_join(web->thread, NULL);
+
+    mt_destroy(web->rand);
+    ripemd_destroy(web->ripemd);
+    database_destroy(web->database);
+    http_destroy(web->server);
+    free(web);
+}
+
+void web_begin(web_t *web) {
+    pthread_create(&web->thread, NULL, &web_thread, (void*)web);
+}

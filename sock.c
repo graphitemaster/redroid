@@ -21,9 +21,11 @@ bool sock_nonblock(int fd) {
     int flags = fcntl(fd, F_GETFL);
     if (flags == -1)
         return false;
+
     flags |= O_NONBLOCK;
     if (fcntl(fd, F_SETFL, flags) == -1)
         return false;
+
     return true;
 }
 
