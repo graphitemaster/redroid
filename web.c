@@ -47,12 +47,16 @@ static bool web_session_search(const void *a, const void *b) {
     return !strcmp(sa->host, sb->host);
 }
 
-static void web_session(web_t *web, sock_t *client) {
+static void web_session_control(web_t *web, sock_t *client, bool add) {
     /* Check if there isn't already a session for the client first */
-    if (list_search(web->sessions, &web_session_search, client))
+    web_session_t *session = list_search(web->sessions, &web_session_search, client);
+    if (add && session)
         return;
 
-    list_push(web->sessions, web_session_create(web, client));
+    if (add)
+        list_push(web->sessions, web_session_create(web, client));
+    else if (session)
+        session->valid = false;
 }
 
 /* web string template engine */
@@ -206,21 +210,16 @@ static void web_template_change(web_t *web, const char *file, const char *search
 }
 
 /* web hooks */
-static void web_hook_admin(sock_t *client, void *data) {
+static void web_hook_redirect(sock_t *client, void *data) {
     web_t         *web     = data;
     web_session_t *session = list_search(web->sessions, &web_session_search, client);
 
     if (session && session->valid)
         return web_template_send(web, client, "admin.html");
-
-    http_send_plain(client, "404 File not found");
-}
-
-static void web_hook_redirect(sock_t *client, void *data) {
     return http_send_file(client, "login.html");
 }
 
-static void web_hook_login(sock_t *client, list_t *post, void *data) {
+static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
     web_t *web = data;
 
     const char *username = http_post_find(post, "username");
@@ -266,7 +265,7 @@ static void web_hook_login(sock_t *client, list_t *post, void *data) {
 
     if (database_row_pop_integer(row) != 0) {
         if (remember)
-            web_session(web, client);
+            web_session_control(web, client, true);
         web_template_send(web, client, "admin.html");
     } else {
         web_template_change(web, "login.html", "ERROR", "<h2>Invalid username or password</h2>");
@@ -275,6 +274,21 @@ static void web_hook_login(sock_t *client, list_t *post, void *data) {
 
     database_statement_complete(statement);
     database_row_destroy(row);
+}
+
+static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
+    const char *control = http_post_find(post, "control");
+    if (!control)
+        http_send_plain(client, "301 Operation not supported");
+
+    if (!strcmp(control, "Logout")) {
+        web_session_control(data, client, false);
+        http_send_file(client, "login.html");
+    } else if (!strcmp(control, "Settings")) {
+        http_send_plain(client, "TODO: settings");
+    } else {
+        http_send_unimplemented(client);
+    }
 }
 
 /*
@@ -315,11 +329,19 @@ web_t *web_create(void) {
     web->templates = list_create();
 
     /* register intercepts for post POST */
-    http_intercept_post(server, "::login", &web_hook_login, web);
+    http_intercept_post(server, "::login", &web_hook_postlogin, web);
+    http_intercept_post(server, "::admin", &web_hook_postadmin, web);
 
-    /* register intercepts for GET */
-    http_intercept_get(server, "",           &web_hook_redirect, web);
-    http_intercept_get(server, "admin.html", &web_hook_admin,    web);
+    /* Register common landing page redirects */
+    static const char *common_lands[] = { "admin", "index", "login", "home", "" };
+    static const char *common_exts[]  = { "htm",   "html",  "HTM",   "HTML", "" };
+    for (size_t i = 0; i < sizeof(common_lands)/sizeof(*common_lands); i++) {
+        for (size_t j = 0; j < sizeof(common_exts)/sizeof(*common_exts); j++) {
+            string_t *string = string_format("%s%s", common_lands[i], common_exts[j]);
+            http_intercept_get(server, string_contents(string), &web_hook_redirect, web);
+            string_destroy(string);
+        }
+    }
 
     /* register some templates */
     web_template_register(web, "admin.html", 1, "INSTANCES");

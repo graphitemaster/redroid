@@ -16,6 +16,7 @@ void http_send_file(sock_t *client, const char *file);
 void http_send_plain(sock_t *client, const char *data);
 void http_send_redirect(sock_t *client, const char *where);
 void http_send_html(sock_t *client, const char *html);
+void http_send_unimplemented(sock_t *client);
 
 const char *http_post_find(list_t *values, const char *key);
 

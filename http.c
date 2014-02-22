@@ -204,7 +204,7 @@ static void http_send_header(sock_t *client, size_t length, const char *type) {
     sock_sendf(client, "Connection: close\r\n\r\n");
 }
 
-static void http_send_unimplemented(sock_t *client) {
+void http_send_unimplemented(sock_t *client) {
     sock_sendf(client, "HTTP/1.1 501 Internal Server Error\n");
     sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
 }
