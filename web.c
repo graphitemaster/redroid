@@ -12,6 +12,11 @@
 #include <signal.h>
 #include <pthread.h>
 
+typedef struct {
+    char    *host;
+    bool     valid;
+} web_session_t;
+
 struct web_s {
     mt_t           *rand;
     ripemd_t       *ripemd;
@@ -19,7 +24,42 @@ struct web_s {
     http_t         *server;
     pthread_t       thread;
     pthread_mutex_t mutex;
+    list_t         *sessions;
 };
+
+static web_session_t *web_session_create(web_t *web, sock_t *client) {
+    web_session_t *session = malloc(sizeof(*session));
+    session->host  = strdup(client->host);
+    session->valid = true;
+    return session;
+}
+
+static void web_session_destroy(web_session_t *session) {
+    free(session->host);
+    free(session);
+}
+
+static bool web_session_search(const void *a, const void *b) {
+    const web_session_t *const sa = a;
+    const sock_t        *const sb = b;
+
+    return !strcmp(sa->host, sb->host);
+}
+
+static void web_session(web_t *web, sock_t *client) {
+    /* Check if there isn't already a session for the client first */
+    if (list_search(web->sessions, &web_session_search, client))
+        return;
+
+    list_push(web->sessions, web_session_create(web, client));
+}
+
+static bool web_check_admin(sock_t *client, void *data) {
+    web_t         *web     = data;
+    web_session_t *session = list_search(web->sessions, &web_session_search, client->host);
+
+    return !!(session && session->valid);
+}
 
 static void web_login(sock_t *client, list_t *post, void *data) {
     web_t *web = data;
@@ -28,14 +68,14 @@ static void web_login(sock_t *client, list_t *post, void *data) {
     const char *password = http_post_find(post, "password");
 
     database_statement_t *statement = database_statement_create(web->database, "SELECT SALT FROM USERS WHERE USERNAME=?");
-    database_row_t       *row;
+    database_row_t       *row       = NULL;
 
     if (!statement)
-        return http_send_redirect(client, "site/invalid.html");
+        return http_send_file(client, "invalid.html");
     if (!database_statement_bind(statement, "s", username))
-        return http_send_redirect(client, "site/invalid.html");
+        return http_send_file(client, "invalid.html");
     if (!(row = database_row_extract(statement, "s")))
-        return http_send_redirect(client, "site/invalid.html");
+        return http_send_file(client, "invalid.html");
 
     const char    *getsalt         = database_row_pop_string(row);
     string_t      *saltpassword    = string_format("%s%s", getsalt, password);
@@ -50,6 +90,7 @@ static void web_login(sock_t *client, list_t *post, void *data) {
         string_catf(hashpassword, "%02x", ripemdpass[i]);
 
     statement = database_statement_create(web->database, "SELECT COUNT(*) FROM USERS WHERE USERNAME=? AND PASSWORD=?");
+
     if (!statement)
         return string_destroy(hashpassword);
     if (!database_statement_bind(statement, "sS", username, hashpassword))
@@ -59,10 +100,12 @@ static void web_login(sock_t *client, list_t *post, void *data) {
 
     string_destroy(hashpassword);
 
-    if (database_row_pop_integer(row) != 0)
-        http_send_plain(client, "valid username and password");
-    else
-        http_send_plain(client, "invalid username or password");
+    if (database_row_pop_integer(row) != 0) {
+        web_session(web, client);
+        http_send_file(client, "admin.html");
+    } else {
+        http_send_file(client, "invalid.html");
+    }
 
     database_row_destroy(row);
 }
@@ -101,9 +144,14 @@ web_t *web_create(void) {
     web->ripemd   = ripemd_create();
     web->database = database_create("web.db");
     web->server   = server;
+    web->sessions = list_create();
 
-    /* register the webclient handlers for POST */
-    http_handles_register(server, "::login", &web_login, web);
+    /* register intercepts for post POST */
+    http_intercept_post(server, "::login", &web_login, web);
+
+    /* register intercepts for GET */
+    http_intercept_get(server, "",           "login.html", NULL,             web);
+    http_intercept_get(server, "admin.html", "login.html", &web_check_admin, web);
 
     /*
      * The thread will keep running for as long as the mutex is locked.
@@ -125,6 +173,13 @@ void web_destroy(web_t *web) {
     ripemd_destroy(web->ripemd);
     database_destroy(web->database);
     http_destroy(web->server);
+
+    /* destroy sessions */
+    web_session_t *session;
+    while ((session = list_pop(web->sessions)))
+        web_session_destroy(session);
+    list_destroy(web->sessions);
+
     free(web);
 }
 

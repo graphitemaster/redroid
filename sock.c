@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -162,7 +163,8 @@ static bool sock_standard_destroy(sock_ctx_t *ctx, sock_restart_t *restart) {
         return true;
     }
 
-    bool succeed = (close(ctx->fd) == 0);
+
+    bool succeed = (shutdown(ctx->fd, SHUT_WR) == 0);
     free(ctx);
     return succeed;
 }

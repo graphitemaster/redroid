@@ -193,6 +193,10 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
+    /* Start the web server process */
+    web_begin(web);
+    for (;;) ;
+
     int tmpfd = -1;
     if (signal_restarted(&argc, &argv, &tmpfd)) {
         if (lseek(tmpfd, 8, SEEK_SET) != 8) { /* 8 bytes to skip 'Redroid\0' */
@@ -415,9 +419,6 @@ int main(int argc, char **argv) {
         web_destroy(web);
         return EXIT_FAILURE;
     }
-
-    /* Start the web server process */
-    web_begin(web);
 
     while (signal_empty()) {
         irc_manager_process(manager);

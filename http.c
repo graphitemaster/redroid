@@ -1,20 +1,28 @@
 #include "http.h"
+#include "string.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
 
-struct http_handle_s {
+#include <unistd.h>
+
+typedef struct {
+    bool        post;
     void       *data;
     const char *match;
-    void      (*callback)(sock_t *client, list_t *kvs, void *data);
-};
+    const char *redirect;
+    union {
+        void  (*post)(sock_t *client, list_t *kvs, void *data);
+        bool  (*get)(sock_t *client, void *data);
+    } callback;
+} http_intercept_t;
 
 struct http_s {
     sock_t *host;
     list_t *clients;
-    list_t *handles;
+    list_t *intercepts;
 };
 
 #define HTTP_BUFFERSIZE 8096
@@ -131,29 +139,53 @@ http_t *http_create(const char *port) {
         return NULL;
     }
 
-    http->clients = list_create();
-    http->handles = list_create();
+    http->clients    = list_create();
+    http->intercepts = list_create();
     return http;
 }
 
-void http_handles_register(http_t *http, const char *match, void (*callback)(sock_t *client, list_t *kvs, void *data), void *data) {
-    http_handle_t *handle = malloc(sizeof(*handle));
+void http_intercept_post(
+    http_t     *http,
+    const char *match,
+    void      (*callback)(sock_t *client, list_t *kvs, void *data),
+    void       *data
+) {
+    http_intercept_t *intercept = malloc(sizeof(*intercept));
 
-    handle->match    = match;
-    handle->callback = callback;
-    handle->data     = data;
+    intercept->post          = true;
+    intercept->match         = match;
+    intercept->callback.post = callback;
+    intercept->data          = data;
 
-    list_push(http->handles, handle);
+    list_push(http->intercepts, intercept);
 }
 
-static bool http_handles_search(const void *a, const void *b) {
-    const http_handle_t *const ha = a;
+void http_intercept_get(
+    http_t     *http,
+    const char *match,
+    const char *redirect,
+    bool      (*callback)(sock_t *client, void *data),
+    void       *data
+) {
+    http_intercept_t *intercept = malloc(sizeof(*intercept));
+
+    intercept->post         = false;
+    intercept->match        = match;
+    intercept->callback.get = callback;
+    intercept->data         = data;
+    intercept->redirect     = redirect;
+
+    list_push(http->intercepts, intercept);
+}
+
+static bool http_intercept_search(const void *a, const void *b) {
+    const http_intercept_t *const ha = a;
     return !strcmp(ha->match, (const char *)b);
 }
 
-static void http_handles_destroy(http_t *http) {
-    http_handle_t *handle;
-    while ((handle = list_pop(http->handles)))
+static void http_intercepts_destroy(http_t *http) {
+    http_intercept_t *handle;
+    while ((handle = list_pop(http->intercepts)))
         free(handle);
 }
 
@@ -165,12 +197,12 @@ static void http_clients_destroy(http_t *http) {
 
 void http_destroy(http_t *http) {
     http_clients_destroy(http);
-    http_handles_destroy(http);
+    http_intercepts_destroy(http);
 
     sock_destroy(http->host, NULL);
 
     list_destroy(http->clients);
-    list_destroy(http->handles);
+    list_destroy(http->intercepts);
 
     free(http);
 }
@@ -184,6 +216,11 @@ static void http_send_header(sock_t *client, size_t length, const char *type) {
     sock_sendf(client, "Connection: close\r\n\r\n");
 }
 
+static void http_send_unimplemented(sock_t *client) {
+    sock_sendf(client, "HTTP/1.1 501 Internal Server Error\n");
+    sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
+}
+
 void http_send_plain(sock_t *client, const char *plain) {
     size_t length = strlen(plain);
     http_send_header(client, length, "text/plain");
@@ -193,14 +230,17 @@ void http_send_plain(sock_t *client, const char *plain) {
 void http_send_redirect(sock_t *client, const char *where) {
     sock_sendf(client, "HTTP/1.1 301 Moved Permanently\n");
     sock_sendf(client, "Server: Redroid HTTP\n");
+    sock_sendf(client, "Connection: close\n");
     sock_sendf(client, "Location: %s", where);
 }
 
 void http_send_file(sock_t *client, const char *file) {
-    FILE   *fp    = fopen(file, "r");
-    char   *data  = NULL;
-    size_t  size  = 0;
+    string_t *mount = string_format("site/%s", file);
+    FILE     *fp    = fopen(string_contents(mount), "r");
+    char     *data  = NULL;
+    size_t    size  = 0;
 
+    string_destroy(mount);
     if (!fp)
         return http_send_plain(client, "404 File not found");
 
@@ -229,7 +269,7 @@ static void http_client_accept(http_t *http) {
     list_push(http->clients, client);
 }
 
-static void http_client_process(list_t *handles, sock_t *client) {
+static void http_client_process(http_t *http, sock_t *client) {
     char buffer[HTTP_BUFFERSIZE];
     int  count;
 
@@ -249,7 +289,14 @@ static void http_client_process(list_t *handles, sock_t *client) {
             return;
 
         *file_end = '\0';
-        http_send_file(client, file_beg);
+        http_intercept_t *predicate = list_search(http->intercepts, &http_intercept_search, file_beg);
+        if (!predicate || predicate->post)
+            return http_send_file(client, file_beg);
+
+        if (predicate->callback.get && predicate->callback.get(client, predicate->data))
+            return http_send_file(client, file_beg);
+
+        return http_send_file(client, predicate->redirect);
     } else if (!strncmp(buffer, "POST /", 6)) {
         char *post_beg  = &buffer[6];
         char *post_end  = strchr(post_beg, ' ');
@@ -266,18 +313,18 @@ static void http_client_process(list_t *handles, sock_t *client) {
         if (post_data)
             post_data += 4;
 
-        /* Find the post handler */
-        http_handle_t *handle = list_search(handles, &http_handles_search, post_beg);
-        if (!handle) {
-            http_send_plain(client, post_beg);
-            return;
-        }
+        /* Find the post intercept */
+        http_intercept_t *intercept = list_search(http->intercepts, &http_intercept_search, post_beg);
+        if (!intercept || !intercept->post)
+            return http_send_plain(client, post_beg);
 
         list_t *postdata = http_post_extract(post_data);
         list_t *safedata = list_copy(postdata);
-        handle->callback(client, safedata, handle->data);
+        intercept->callback.post(client, safedata, intercept->data);
         http_post_cleanup(postdata);
         list_destroy(safedata);
+    } else {
+        http_send_unimplemented(client);
     }
 }
 
@@ -288,7 +335,7 @@ void http_process(http_t *http) {
     list_iterator_t *it = list_iterator_create(http->clients);
     while (!list_iterator_end(it)) {
         sock_t *client = list_iterator_next(it);
-        http_client_process(http->handles, client);
+        http_client_process(http, client);
     }
     list_iterator_destroy(it);
 
