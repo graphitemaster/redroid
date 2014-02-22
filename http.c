@@ -14,10 +14,9 @@ typedef struct {
     bool        post;
     void       *data;
     const char *match;
-    const char *redirect;
     union {
         void  (*post)(sock_t *client, list_t *kvs, void *data);
-        bool  (*get)(sock_t *client, void *data);
+        void  (*get)(sock_t *client, void *data);
     } callback;
 } http_intercept_t;
 
@@ -172,8 +171,7 @@ void http_intercept_post(
 void http_intercept_get(
     http_t     *http,
     const char *match,
-    const char *redirect,
-    bool      (*callback)(sock_t *client, void *data),
+    void      (*callback)(sock_t *client, void *data),
     void       *data
 ) {
     http_intercept_t *intercept = malloc(sizeof(*intercept));
@@ -182,7 +180,6 @@ void http_intercept_get(
     intercept->match        = match;
     intercept->callback.get = callback;
     intercept->data         = data;
-    intercept->redirect     = redirect;
 
     list_push(http->intercepts, intercept);
 }
@@ -221,6 +218,12 @@ static void http_send_header(sock_t *client, size_t length, const char *type) {
 static void http_send_unimplemented(sock_t *client) {
     sock_sendf(client, "HTTP/1.1 501 Internal Server Error\n");
     sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
+}
+
+void http_send_html(sock_t *client, const char *html) {
+    size_t length = strlen(html);
+    http_send_header(client, length, "text/html");
+    sock_send(client, html, length);
 }
 
 void http_send_plain(sock_t *client, const char *plain) {
@@ -331,10 +334,7 @@ static void http_client_process(http_t *http, sock_t *client) {
         if (!predicate || predicate->post)
             return http_send_file(client, file_beg);
 
-        if (predicate->callback.get && predicate->callback.get(client, predicate->data))
-            return http_send_file(client, file_beg);
-
-        return http_send_file(client, predicate->redirect);
+        predicate->callback.get(client, predicate->data);
     } else if (!strncmp(buffer, "POST /", 6)) {
         char *post_beg  = &buffer[6];
         char *post_end  = strchr(post_beg, ' ');

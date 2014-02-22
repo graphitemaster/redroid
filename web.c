@@ -25,6 +25,7 @@ struct web_s {
     pthread_t       thread;
     pthread_mutex_t mutex;
     list_t         *sessions;
+    list_t         *templates;
 };
 
 static web_session_t *web_session_create(web_t *web, sock_t *client) {
@@ -54,14 +55,117 @@ static void web_session(web_t *web, sock_t *client) {
     list_push(web->sessions, web_session_create(web, client));
 }
 
-static bool web_check_admin(sock_t *client, void *data) {
+/* web string template engine */
+typedef struct {
+    string_t   *search;
+    const char *file;
+    const char *replace;
+    char       *raw;
+    string_t   *formatted;
+} web_template_t;
+
+static void web_template_destroy(web_template_t *template) {
+    free(template->raw);
+
+    string_destroy(template->search);
+    string_destroy(template->formatted);
+
+    free(template);
+}
+
+static web_template_t *web_template_create(const char *infile, const char *search, const char *replace) {
+    string_t *file = string_format("site/%s", infile);
+    FILE     *fp;
+
+    if (!(fp = fopen(string_contents(file), "r"))) {
+        printf("file not found!\n");
+        return NULL;
+    }
+
+    string_destroy(file);
+
+    fseek(fp, 0, SEEK_END);
+    size_t size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    web_template_t *tmpl = malloc(sizeof(*tmpl));
+
+    tmpl->raw       = malloc(size + 1);
+    tmpl->search    = string_format("$[[%s]]", search);
+    tmpl->file      = infile;
+    tmpl->replace   = replace;
+
+    if (fread(tmpl->raw, size, 1, fp) != 1)
+        goto web_template_error;
+
+    tmpl->raw[size] = '\0';
+    tmpl->formatted = string_create(tmpl->raw);
+
+    fclose(fp);
+    return tmpl;
+
+web_template_error:
+    fclose(fp);
+    web_template_destroy(tmpl);
+    return NULL;
+}
+
+static void web_template_update(web_template_t *template) {
+    string_destroy(template->formatted);
+    template->formatted = string_create(template->raw);
+
+    string_replace (
+        template->formatted,
+        string_contents(template->search),
+        template->replace
+    );
+}
+
+static bool web_template_search(const void *a, const void *b) {
+    const web_template_t *const wa = a;
+    const char           *const aa = wa->file;
+    const char           *const bb = (const char *const)b;
+
+    return !strcmp(aa, bb);
+}
+
+static web_template_t *web_template_find(web_t *web, const char *name) {
+    return list_search(web->templates, &web_template_search, name);
+}
+
+static void web_template_add(web_t *web, const char *file, const char *search, const char *replace) {
+    web_template_t *tmpl = web_template_create(file, search, replace);
+    if (!tmpl)
+        return;
+
+    list_push(web->templates, tmpl);
+}
+
+static void web_template_send(web_t *web, sock_t *client, const char *tmpl) {
+    web_template_t *find = web_template_find(web, tmpl);
+    if (!find)
+        return http_send_plain(client, "404 File not found");
+
+    web_template_update(find);
+    http_send_html(client, string_contents(find->formatted));
+}
+
+/* web hooks */
+static void web_hook_admin(sock_t *client, void *data) {
     web_t         *web     = data;
     web_session_t *session = list_search(web->sessions, &web_session_search, client);
 
-    return !!(session && session->valid);
+    if (session && session->valid)
+        return web_template_send(web, client, "admin.html");
+
+    http_send_plain(client, "404 File not found");
 }
 
-static void web_login(sock_t *client, list_t *post, void *data) {
+static void web_hook_redirect(sock_t *client, void *data) {
+    return http_send_file(client, "login.html");
+}
+
+static void web_hook_login(sock_t *client, list_t *post, void *data) {
     web_t *web = data;
 
     const char *username = http_post_find(post, "username");
@@ -105,7 +209,7 @@ static void web_login(sock_t *client, list_t *post, void *data) {
 
     if (database_row_pop_integer(row) != 0) {
         web_session(web, client);
-        http_send_file(client, "admin.html");
+        web_template_send(web, client, "admin.html");
     } else {
         http_send_file(client, "invalid.html");
     }
@@ -143,19 +247,23 @@ web_t *web_create(void) {
     if (!(server = http_create("5050")))
         return NULL;
 
-    web_t *web    = malloc(sizeof(*web));
-    web->rand     = mt_create();
-    web->ripemd   = ripemd_create();
-    web->database = database_create("web.db");
-    web->server   = server;
-    web->sessions = list_create();
+    web_t *web     = malloc(sizeof(*web));
+    web->rand      = mt_create();
+    web->ripemd    = ripemd_create();
+    web->database  = database_create("web.db");
+    web->server    = server;
+    web->sessions  = list_create();
+    web->templates = list_create();
 
     /* register intercepts for post POST */
-    http_intercept_post(server, "::login", &web_login, web);
+    http_intercept_post(server, "::login", &web_hook_login, web);
 
     /* register intercepts for GET */
-    http_intercept_get(server, "",           "login.html", NULL,             web);
-    http_intercept_get(server, "admin.html", "login.html", &web_check_admin, web);
+    http_intercept_get(server, "",           &web_hook_redirect, web);
+    http_intercept_get(server, "admin.html", &web_hook_admin,    web);
+
+    /* register some templates */
+    web_template_add(web, "admin.html", "INSTANCES", "stuff");
 
     /*
      * The thread will keep running for as long as the mutex is locked.
@@ -183,6 +291,12 @@ void web_destroy(web_t *web) {
     while ((session = list_pop(web->sessions)))
         web_session_destroy(session);
     list_destroy(web->sessions);
+
+    /* destroy templates */
+    web_template_t *template;
+    while ((template = list_pop(web->templates)))
+        web_template_destroy(template);
+    list_destroy(web->templates);
 
     free(web);
 }
