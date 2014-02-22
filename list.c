@@ -116,8 +116,14 @@ static void list_atcache_thrash(list_t *list) {
 
 static void list_atcache_check(list_t *list) {
     if (list->atcache.taildirt > 0 && list->atcache.headdirt == 0) {
-        memset(&list->atcache.data[list->length - list->atcache.taildirt + 1],
-            0, sizeof(list_node_t *) * list->atcache.taildirt);
+        size_t index = list->length - (list->atcache.taildirt + 1);
+        if (index >= list->atcache.size) {
+            list_atcache_thrash(list);
+            return;
+        }
+
+        for (size_t i = index; i < list->atcache.taildirt; i++)
+            list->atcache.data[index] = NULL;
         return;
     }
 

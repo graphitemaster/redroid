@@ -1,374 +1,297 @@
-#include "sock.h"
-#include "list.h"
-#include "config.h"
+#include "http.h"
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
 
-/* For testing */
-#ifndef HTTP_MAIN
-#   define HTTP_MAIN http_main
-#endif
+struct http_handle_s {
+    void       *data;
+    const char *match;
+    void      (*callback)(sock_t *client, list_t *kvs, void *data);
+};
 
-#define ADMIN_USER "graphitemaster"
-#define ADMIN_PASS "password"
+struct http_s {
+    sock_t *host;
+    list_t *clients;
+    list_t *handles;
+};
 
-typedef struct {
-    char *host;
-    char *username;
-    char *password;
-    bool  remember;
-    bool  invalid;
-    bool  expired;
-} html_session_t;
+#define HTTP_BUFFERSIZE 8096
 
-/* Session manegement */
-static list_t *http_sessions = NULL;
+/* MIME */
+static struct {
+    const char *extension;
+    const char *mimetype;
+} const http_mimetypes[] = {
+    { "html", "text/html"  },
+    { "htm",  "text/htm"   },
+    { "css",  "text/css"   },
+    { "gif",  "image/gif"  },
+    { "jpg",  "image/jpg"  },
+    { "jpeg", "image/jpeg" },
+    { "png",  "image/png"  }
+};
 
-static bool html_session_search(const void *a, const void *b) {
-    html_session_t *sa = (html_session_t*)a;
-    return !strcmp(sa->host, (const char *)b);
+static const char *http_mime(const char *extension) {
+    for (size_t i = 0; i < sizeof(http_mimetypes)/sizeof(*http_mimetypes); i++)
+        if (!strcmp(http_mimetypes[i].extension, extension))
+            return http_mimetypes[i].mimetype;
+    return "text/plain";
 }
 
-static void http_send_header(sock_t *client, const char *type) {
-    sock_sendf(client, "HTTP/1.0 200 OK\r\n");
-    sock_sendf(client, "Content-Type: %s\r\n", type);
-    sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
+/* URL */
+static char http_url_fromhex(char ch) {
+    ch = tolower(ch);
+    static char table[] = "0123456789abcdef";
+    return table[ch & 15];
 }
 
-static void http_send_redirect(sock_t *client, const char *location) {
-    sock_sendf(client, "HTTP/1.0 301 Moved Permanently\r\n");
-    sock_sendf(client, "Location: %s\r\n", location);
-    sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
-}
+static char *http_url_decode(const char *str) {
+    const char *tok = str;
+    char       *beg = malloc(strlen(str) + 1);
+    char       *end = beg;
 
-static void html_send_common_header(sock_t *client, const char *title) {
-    sock_sendf(client, "<!DOCTYPE html>\n");
-    sock_sendf(client, "    <head>\n");
-    sock_sendf(client, "        <meta charset=\"utf-8\">\n");
-    sock_sendf(client, "        <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\">\n");
-    sock_sendf(client, "        <title>Redroid - %s</title>\n", title);
-    sock_sendf(client, "        <link rel=stylesheet href=\"style.css\" type=\"text/css\" media=screen>\n");
-    sock_sendf(client, "        <meta name=\"robots\" content=\"noindex,follow\" />\n");
-    sock_sendf(client, "        <script language=\"javascript\" type=\"text/javascript\">\n");
-    sock_sendf(client, "            function toggle(identifier) {\n");
-    sock_sendf(client, "                divide = document.getElementById(identifier)\n");
-    sock_sendf(client, "                expand = document.getElementById(\"x\" + identifier)\n");
-    sock_sendf(client, "                if (divide.style.display == \"none\") {\n");
-    sock_sendf(client, "                    divide.style.display = \"block\"\n");
-    sock_sendf(client, "                    expand.innerHTML = \"[-]\"\n");
-    sock_sendf(client, "                } else {\n");
-    sock_sendf(client, "                    divide.style.display = \"none\"\n");
-    sock_sendf(client, "                    expand.innerHTML = \"[+]\"\n");
-    sock_sendf(client, "                }\n");
-    sock_sendf(client, "            }\n");
-    sock_sendf(client, "        </script>\n");
-    sock_sendf(client, "    </head>\n");
-    sock_sendf(client, "    <body>\n");
-    sock_sendf(client, "        <div class=\"container\">\n");
-}
-
-static void html_send_common_footer(sock_t *client) {
-    sock_sendf(client, "        </div>\n");
-    sock_sendf(client, "    </body>\n");
-    sock_sendf(client, "</html>\n");
-}
-
-static void html_send_login(sock_t *client, bool failed) {
-    char *username = NULL;
-    char *password = NULL;
-
-    http_send_header(client, "text/html");
-    html_send_common_header(client, "Login");
-
-    /* Check the session for an existing log in */
-    html_session_t *find = list_search(http_sessions, &html_session_search, client->host);
-    if (find && find->remember) {
-        username = find->username;
-        password = find->password;
+    while (*tok) {
+        if (*tok == '%') {
+            if (tok[1] && tok[2]) {
+                *end++ = http_url_fromhex(tok[1]) << 4 | http_url_fromhex(tok[2]);
+                tok += 2;
+            }
+        } else {
+            *end++ = (*tok == '+') ? ' ' : *tok;
+        }
+        tok++;
     }
-
-    if (!username || !password) {
-        username = "";
-        password = "";
-    }
-
-    sock_sendf(client, "            <div class=\"login\">\n");
-    sock_sendf(client, "                <h1>Login to Redroid</h1>\n");
-
-    if (failed)
-        sock_sendf(client, "                <h3>Invalid user name or password</h3>\n");
-
-    sock_sendf(client, "                <form method=\"post\" action=\"/::login\" autocomplete=\"off\">\n");
-    sock_sendf(client, "                    <p><input type=\"text\" name=\"login\" value=\"%s\" placeholder=\"Username\"></p>\n", username);
-    sock_sendf(client, "                    <p><input type=\"password\" name=\"password\" value=\"%s\" placeholder=\"Password\"></p>\n", password);
-    sock_sendf(client, "                    <p class=\"remember_me\">\n");
-    sock_sendf(client, "                        <label>\n");
-    sock_sendf(client, "                            <input type=\"checkbox\" name=\"remember_me\" id=\"remember_me\">\n");
-    sock_sendf(client, "                            Remember me on this computer\n");
-    sock_sendf(client, "                        </label>\n");
-    sock_sendf(client, "                    </p>\n");
-    sock_sendf(client, "                    <p class=\"submit\"><input type=\"submit\" name=\"commit\" value=\"Login\"></p>\n");
-    sock_sendf(client, "                </form>\n");
-    sock_sendf(client, "            </div>\n");
-    sock_sendf(client, "            <div class=\"login-help\">\n");
-    sock_sendf(client, "                <p>Forgot your password? <a href=\"#\">Click here to reset it</a>.</p>\n");
-    sock_sendf(client, "            </div>\n");
-
-    html_send_common_footer(client);
+    *end = '\0';
+    return beg;
 }
 
-static void html_send_admin(sock_t *client) {
-    http_send_header(client, "text/html");
-    html_send_common_header(client, "Administration");
-    sock_sendf(client, "            <div class=\"admin\">\n");
-    sock_sendf(client, "                <h1>Administrate</h1>\n");
-
-    list_t          *config = config_load("config.ini");
-    list_iterator_t *it     = list_iterator_create(config);
-
-    while (!list_iterator_end(it)) {
-        config_t *entry = list_iterator_next(it);
-
-        sock_sendf(
-            client,
-            "<a href=\"javascript:toggle('%s');\" id=\"x%s\">[+]</a><strong>%s</strong>\n",
-            entry->name,
-            entry->name,
-            entry->name
-        );
-
-        sock_sendf(
-            client,
-            "<div id=\"%s\" style=\"display: none;\">\n",
-            entry->name
-        );
-
-
-        sock_sendf(client, "<form method=\"post\" action=\"/::update\">");
-        sock_sendf(client, "<p class=\"left\">Nickname</p>\n");
-        sock_sendf(client, "<p class=\"right\"><input type=\"text\" name=\"nick\" value=\"%s\"></p>\n", entry->nick);
-        sock_sendf(client, "<p class=\"left\">Server host</p>\n");
-        sock_sendf(client, "<p class=\"right\"><input type=\"text\" name=\"host\" value=\"%s\"></p>\n", entry->host);
-        sock_sendf(client, "<p class=\"left\">Server port</p>\n");
-        sock_sendf(client, "<p class=\"right\"><input type=\"text\" name=\"port\" value=\"%s\"></p>\n", entry->port);
-        sock_sendf(client, "<p class=\"left\">Authentication (NickServ)</p>\n");
-        sock_sendf(client, "<p class=\"right\"><input type=\"password\" name=\"auth\" value=\"%s\"></p>\n", (entry->auth) ? entry->auth : "");
-        sock_sendf(client, "<p class=\"left\">Bot pattern</p>\n");
-        sock_sendf(client, "<p class=\"right\"><input type=\"text\" name=\"pattern\" value=\"%s\"></p>\n", entry->pattern);
-        sock_sendf(client, "<p class=\"left\">Channels (newline seperated)</p>\n");
-        sock_sendf(client, "<p class=\"right\">\n");
-        sock_sendf(client, "    <textarea cols=\"10\" rows=\"10\" name=\"channels\">\n");
-
-        list_iterator_t *ct = list_iterator_create(entry->channels);
-        while (!list_iterator_end(ct))
-            sock_sendf(client, "%s\n", list_iterator_next(ct));
-        list_iterator_destroy(ct);
-        sock_sendf(client, "</textarea>\n");
-
-        sock_sendf(client, "</p>\n");
-        sock_sendf(client, "<p class=\"left\">Modules (newline seperated)</p>\n");
-        sock_sendf(client, "<p class=\"right\">\n");
-        sock_sendf(client, "    <textarea cols=\"10\" rows=\"10\" name=\"modules\">\n");
-
-        list_iterator_t *mo = list_iterator_create(entry->modules);
-        while (!list_iterator_end(mo))
-            sock_sendf(client, "%s\n", list_iterator_next(mo));
-        list_iterator_destroy(mo);
-        sock_sendf(client, "</textarea>\n");
-
-        sock_sendf(client, "</p>\n");
-        sock_sendf(client, "<p class=\"submit\">\n");
-        sock_sendf(client, "    <p class=\"left\"></p>\n");
-        sock_sendf(client, "    <input type=\"submit\" name=\"commit\" value=\"Save\">\n");
-        sock_sendf(client, "</p>\n");
-        sock_sendf(client, "</div><br />\n");
-    }
-
-    config_unload(config);
-    list_iterator_destroy(it);
-
-    sock_sendf(client, "            </div>\n");
-    html_send_common_footer(client);
-}
-
-static void html_send_404(sock_t *client) {
-    http_send_header(client, "text/html");
-    sock_sendf(client, "<html>\n");
-    sock_sendf(client, "<h1>404 File not found</h1>\n");
-    sock_sendf(client, "</html>\n");
-}
-
-static void html_send_file(sock_t *client, const char *file) {
-    char *dot = strrchr(file, '.');
-    /* The front end only depends on CSS for now */
-    if (!strcmp(dot, ".css"))
-        http_send_header(client, "text/css");
-    else
-        http_send_header(client, "text/plain");
-
-    /* Open the file and send it out over the socket line by line */
-    FILE *fp;
-    if (!(fp = fopen(file, "r")))
-        html_send_404(client);
-
-    char  *line = NULL;
-    size_t size = 0;
-
-    while (getline(&line, &size, fp) != EOF)
-        sock_sendf(client, line);
-
-    free(line);
-    fclose(fp);
-}
-
-static void html_send_common(sock_t *client, const char *common) {
-    /* If there is an extension then we send a file */
-    if (strchr(common, '.'))
-        return html_send_file(client, common);
-
-    /* If we're not in session, or it's an invalid one then try logging in again */
-    html_session_t *session = list_search(http_sessions, &html_session_search, client->host);
-    if (!session || session->expired)
-        return html_send_login(client, false);
-    else if (session->invalid) {
-        list_erase(http_sessions, session);
-        return html_send_login(client, true);
-    }
-
-    /* Sessions expire after one use */
-    session->expired = true;
-    return html_send_admin(client);
-}
-
-/* Key value store of posted data */
+/* POST keyvalue parser */
 typedef struct {
     char *key;
     char *value;
-} html_post_content_t;
+} http_post_kv_t;
 
-static html_post_content_t *html_post_parse_keyvalue(char *content) {
-    html_post_content_t *keyvalue = malloc(sizeof(*keyvalue));
-    char                *cursor   = strchr(content, '=');
+static http_post_kv_t *http_post_kv_create(const char *key, const char *value) {
+    http_post_kv_t *kv = malloc(sizeof(*kv));
+    kv->key   = http_url_decode(key);
+    kv->value = http_url_decode(value);
 
-    *cursor = '\0';
-    keyvalue->key   = strdup(content);
-    keyvalue->value = strdup(&cursor[1]);
-
-    return keyvalue;
+    return kv;
 }
 
-static list_t *html_post_parse(char *content) {
-    list_t *list = list_create();
-    char   *next = strtok(content, "&");
+static void http_post_kv_destroy(http_post_kv_t *value) {
+    free(value->key);
+    free(value->value);
+    free(value);
+}
 
-    while (next) {
-        list_push(list, html_post_parse_keyvalue(next));
-        next = strtok(NULL, "&");
+static bool http_post_kv_search(const void *a, const void *b) {
+    const http_post_kv_t *const ka = a;
+    return !strcmp(ka->key, (const char *)b);
+}
+
+static list_t *http_post_extract(char *content) {
+    list_t *list = list_create();
+
+    char *tok = strtok(content, "&");
+    while (tok) {
+        char *key   = tok;
+        char *value = strchr(key, '=');
+
+        *value = '\0';
+        value++;
+
+        list_push(list, http_post_kv_create(key, value));
+        tok = strtok(NULL, "&");
     }
 
     return list;
 }
 
-static void html_post_parse_cleanup(list_t *list) {
-    list_iterator_t *it = list_iterator_create(list);
+static void http_post_cleanup(list_t *values) {
+    http_post_kv_t *value;
+    while ((value = list_pop(values)))
+        http_post_kv_destroy(value);
+    list_destroy(values);
+}
+
+const char *http_post_find(list_t *values, const char *key) {
+    http_post_kv_t *kv = list_search(values, &http_post_kv_search, key);
+    return kv ? kv->value : NULL;
+}
+
+/* HTTP */
+http_t *http_create(const char *port) {
+    http_t *http = malloc(sizeof(*http));
+
+    if (!(http->host = sock_create("::listen", port, SOCK_RESTART_NIL))) {
+        free(http);
+        return NULL;
+    }
+
+    http->clients = list_create();
+    http->handles = list_create();
+    return http;
+}
+
+void http_handles_register(http_t *http, const char *match, void (*callback)(sock_t *client, list_t *kvs, void *data), void *data) {
+    http_handle_t *handle = malloc(sizeof(*handle));
+
+    handle->match    = match;
+    handle->callback = callback;
+    handle->data     = data;
+
+    list_push(http->handles, handle);
+}
+
+static bool http_handles_search(const void *a, const void *b) {
+    const http_handle_t *const ha = a;
+    return !strcmp(ha->match, (const char *)b);
+}
+
+static void http_handles_destroy(http_t *http) {
+    http_handle_t *handle;
+    while ((handle = list_pop(http->handles)))
+        free(handle);
+}
+
+static void http_clients_destroy(http_t *http) {
+    sock_t *client;
+    while ((client = list_pop(http->clients)))
+        sock_destroy(client, NULL);
+}
+
+void http_destroy(http_t *http) {
+    http_clients_destroy(http);
+    http_handles_destroy(http);
+
+    sock_destroy(http->host, NULL);
+
+    list_destroy(http->clients);
+    list_destroy(http->handles);
+
+    free(http);
+}
+
+/* HTTP send */
+static void http_send_header(sock_t *client, size_t length, const char *type) {
+    sock_sendf(client, "HTTP/1.1 200 OK\n");
+    sock_sendf(client, "Server: Redroid HTTP\n");
+    sock_sendf(client, "Content-Length: %zu\n", length);
+    sock_sendf(client, "Content-Type: %s\n", type);
+    sock_sendf(client, "Connection: close\r\n\r\n");
+}
+
+void http_send_plain(sock_t *client, const char *plain) {
+    size_t length = strlen(plain);
+    http_send_header(client, length, "text/plain");
+    sock_send(client, plain, length);
+}
+
+void http_send_redirect(sock_t *client, const char *where) {
+    sock_sendf(client, "HTTP/1.1 301 Moved Permanently\n");
+    sock_sendf(client, "Server: Redroid HTTP\n");
+    sock_sendf(client, "Location: %s", where);
+}
+
+void http_send_file(sock_t *client, const char *file) {
+    FILE   *fp    = fopen(file, "r");
+    char   *data  = NULL;
+    size_t  size  = 0;
+
+    if (!fp)
+        return http_send_plain(client, "404 File not found");
+
+    fseek(fp, 0, SEEK_END);
+    size_t length = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    /* Send the header */
+    const char *mimetype = http_mime(strrchr(file, '.') + 1);
+    http_send_header(client, length, mimetype);
+
+    /* Send contents oneline at a time */
+    while (getline(&data, &size, fp) != EOF)
+        sock_send(client, data, strlen(data));
+
+    fclose(fp);
+    free(data);
+}
+
+/* HTTP client management */
+static void http_client_accept(http_t *http) {
+    sock_t *client;
+    if (!(client = sock_accept(http->host)))
+        return;
+
+    list_push(http->clients, client);
+}
+
+static void http_client_process(list_t *handles, sock_t *client) {
+    char buffer[HTTP_BUFFERSIZE];
+    int  count;
+
+    /* Ignore nothing */
+    if ((count = sock_recv(client, buffer, sizeof(buffer))) <= 0)
+        return;
+
+    /* Terminate */
+    buffer[count] = '\0';
+
+    /* Handle GET */
+    if (!strncmp(buffer, "GET /", 5)) {
+        char *file_beg = &buffer[5];
+        char *file_end = strchr(file_beg, ' ');
+
+        if (!file_end)
+            return;
+
+        *file_end = '\0';
+        http_send_file(client, file_beg);
+    } else if (!strncmp(buffer, "POST /", 6)) {
+        char *post_beg  = &buffer[6];
+        char *post_end  = strchr(post_beg, ' ');
+        char *post_chop = &post_end[1];
+
+        if (!post_end)
+            return;
+
+        /* Terminate to get the right data */
+        *post_end = '\0';
+
+        /* Find the data for the POST */
+        char *post_data = strstr(post_chop, "\r\n\r\n");
+        if (post_data)
+            post_data += 4;
+
+        /* Find the post handler */
+        http_handle_t *handle = list_search(handles, &http_handles_search, post_beg);
+        if (!handle) {
+            http_send_plain(client, post_beg);
+            return;
+        }
+
+        list_t *postdata = http_post_extract(post_data);
+        list_t *safedata = list_copy(postdata);
+        handle->callback(client, safedata, handle->data);
+        http_post_cleanup(postdata);
+        list_destroy(safedata);
+    }
+}
+
+void http_process(http_t *http) {
+    http_client_accept(http);
+
+    /* Process clients */
+    list_iterator_t *it = list_iterator_create(http->clients);
     while (!list_iterator_end(it)) {
-        html_post_content_t *content = list_iterator_next(it);
-        free(content->key);
-        free(content->value);
-        free(content);
+        sock_t *client = list_iterator_next(it);
+        http_client_process(http->handles, client);
     }
     list_iterator_destroy(it);
-    list_destroy(list);
-}
 
-static bool html_post_search(const void *a, const void *b) {
-    html_post_content_t *ca = (html_post_content_t*)a;
-    return !strcmp(ca->key, (const char *)b);
-}
-
-static void html_post_login(sock_t *client, char *content) {
-    list_t *postdata = html_post_parse(content);
-
-    /* Post login requires two pieces of data. Username and password */
-    html_post_content_t *username = list_search(postdata, &html_post_search, "login");
-    html_post_content_t *password = list_search(postdata, &html_post_search, "password");
-    html_post_content_t *remember = list_search(postdata, &html_post_search, "remember_me");
-
-    /* Check for existing session */
-    html_session_t *find = list_search(http_sessions, &html_session_search, client->host);
-    if (find) {
-        list_erase(http_sessions, find);
-
-        free(find->host);
-        free(find->username);
-        free(find->password);
-        free(find);
-    }
-
-    /* Create the session */
-    html_session_t *session = malloc(sizeof(*session));
-    session->host     = strdup(client->host);
-    session->username = strdup(username->value);
-    session->password = strdup(password->value);
-    session->remember = !!remember;
-    session->expired  = false;
-
-    /* TODO: check database and hash passwords */
-    if (!strcmp(session->username, ADMIN_USER) &&
-        !strcmp(session->password, ADMIN_PASS))
-        session->invalid = false;
-    else
-        session->invalid = true;
-
-
-    list_push(http_sessions, session);
-    html_post_parse_cleanup(postdata);
-    http_send_redirect(client, "/");
-}
-
-int HTTP_MAIN(void) {
-    http_sessions = list_create();
-    sock_t *socket = sock_create("::listen", "5050", SOCK_RESTART_NIL);
-
-    if (!socket) {
-        fprintf(stderr, "failed creating connection\n");
-        sock_destroy(socket, NULL);
-        return -1;
-    }
-
-    for (;;) {
-        sock_t *client = sock_accept(socket);
-        if (!client)
-            continue; /* no new clients */
-
-        char request[4096];
-        memset(request, 0, sizeof(request));
-        sock_recv(client, request, sizeof(request));
-
-        if (!strncmp(request, "GET /", 5)) {
-            char *file  = &request[5];
-            char *strip = strstr(file, " HTTP");
-
-            if (!strip) {
-                sock_destroy(client, NULL);
-                continue;
-            }
-            *strip = '\0';
-            html_send_common(client, file);
-        } else if (!strncmp(request, "POST /", 6)) {
-            char *file    = &request[6];
-            char *content = strstr(file, "\r\n\r\n");
-
-            content += 4;
-            printf("%s\n", content);
-            if (!strncmp(file, "::login", 7))
-                html_post_login(client, content);
-            /* TODO: deal with update */
-        }
-        sock_destroy(client, NULL);
-    }
-    sock_destroy(socket, NULL);
-    return 0;
+    /* Destroy clients after all were processed */
+    http_clients_destroy(http);
 }
