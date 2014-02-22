@@ -107,7 +107,7 @@ static int ssl_send(ssl_t *ssl, const char *message, size_t size) {
     return SSL_write(ssl->ssl, message, size);
 }
 
-static int ssl_getfd(ssl_t *ssl) {
+static int ssl_getfd(const ssl_t *ssl) {
     return ssl->fd;
 }
 

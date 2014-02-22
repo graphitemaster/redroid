@@ -56,7 +56,7 @@ static void web_session(web_t *web, sock_t *client) {
 
 static bool web_check_admin(sock_t *client, void *data) {
     web_t         *web     = data;
-    web_session_t *session = list_search(web->sessions, &web_session_search, client->host);
+    web_session_t *session = list_search(web->sessions, &web_session_search, client);
 
     return !!(session && session->valid);
 }
@@ -86,6 +86,9 @@ static void web_login(sock_t *client, list_t *post, void *data) {
     string_destroy(saltpassword);
     database_row_destroy(row);
 
+    if (!database_statement_complete(statement))
+        return http_send_file(client, "invalid.html");
+
     for (size_t i = 0; i < 160 / 8; i++)
         string_catf(hashpassword, "%02x", ripemdpass[i]);
 
@@ -107,6 +110,7 @@ static void web_login(sock_t *client, list_t *post, void *data) {
         http_send_file(client, "invalid.html");
     }
 
+    database_statement_complete(statement);
     database_row_destroy(row);
 }
 

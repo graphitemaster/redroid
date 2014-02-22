@@ -88,7 +88,7 @@
     } while (0)
 
 struct ripemd_s {
-    uint32_t buffer[4];
+    uint32_t buffer[5];
 };
 
 void ripemd_reset(ripemd_t *rmd) {

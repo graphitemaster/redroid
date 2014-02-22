@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <time.h>
 
 #include <unistd.h>
 
@@ -18,6 +19,12 @@ typedef struct {
         bool  (*get)(sock_t *client, void *data);
     } callback;
 } http_intercept_t;
+
+typedef struct {
+    size_t  refs;
+    sock_t *sock;
+    time_t  time;
+} http_client_t;
 
 struct http_s {
     sock_t *host;
@@ -189,14 +196,7 @@ static void http_intercepts_destroy(http_t *http) {
         free(handle);
 }
 
-static void http_clients_destroy(http_t *http) {
-    sock_t *client;
-    while ((client = list_pop(http->clients)))
-        sock_destroy(client, NULL);
-}
-
 void http_destroy(http_t *http) {
-    http_clients_destroy(http);
     http_intercepts_destroy(http);
 
     sock_destroy(http->host, NULL);
@@ -261,12 +261,48 @@ void http_send_file(sock_t *client, const char *file) {
 }
 
 /* HTTP client management */
+static bool http_client_search(const void *a, const void *b) {
+    const http_client_t *ca = a;
+    const sock_t        *cb = b;
+
+    return sock_getfd(ca->sock) == sock_getfd(cb);
+}
+
+static http_client_t *http_client_create(http_t *http, sock_t *client) {
+    http_client_t *find = list_search(http->clients, &http_client_search, client);
+    if (find) {
+        /* Don't create new clients if we don't need to */
+        sock_destroy(client, NULL);
+        find->refs++;
+        return find;
+    }
+
+    find        = malloc(sizeof(*find));
+    find->refs  = 1;
+    find->sock  = client;
+    find->time  = time(0);
+
+    return find;
+}
+
+static void http_client_destroy(http_t *http, http_client_t *client) {
+    if (--client->refs != 0)
+        return;
+
+    sock_destroy(client->sock, NULL);
+
+    /* remove it from the list */
+    list_erase(http->clients, client);
+
+    free(client);
+}
+
 static void http_client_accept(http_t *http) {
     sock_t *client;
     if (!(client = sock_accept(http->host)))
         return;
 
-    list_push(http->clients, client);
+    list_push(http->clients, http_client_create(http, client));
 }
 
 static void http_client_process(http_t *http, sock_t *client) {
@@ -334,11 +370,18 @@ void http_process(http_t *http) {
     /* Process clients */
     list_iterator_t *it = list_iterator_create(http->clients);
     while (!list_iterator_end(it)) {
-        sock_t *client = list_iterator_next(it);
-        http_client_process(http, client);
+        http_client_t *client = list_iterator_next(it);
+        http_client_process(http, client->sock);
     }
     list_iterator_destroy(it);
 
-    /* Destroy clients after all were processed */
-    http_clients_destroy(http);
+    /* Destroy clients */
+    it = list_iterator_create(http->clients);
+    while (!list_iterator_end(it)) {
+        http_client_t *client = list_iterator_next(it);
+        /* After 5 seconds destroy clients */
+        if (difftime(client->time, time(0)) >= 5)
+            http_client_destroy(http, client);
+    }
+    list_iterator_destroy(it);
 }

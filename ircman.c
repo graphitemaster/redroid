@@ -146,9 +146,11 @@ irc_manager_t *irc_manager_create(void) {
     if (!man)
         return NULL;
 
-    man->instances = irc_instances_create();
-    man->commander = cmd_channel_create();
-    man->polls     = NULL;
+    man->instances  = irc_instances_create();
+    man->commander  = cmd_channel_create();
+    man->polls      = NULL;
+    man->wakefds[0] = -1;
+    man->wakefds[1] = -1;
 
     return man;
 }

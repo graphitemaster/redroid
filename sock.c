@@ -169,7 +169,7 @@ static bool sock_standard_destroy(sock_ctx_t *ctx, sock_restart_t *restart) {
     return succeed;
 }
 
-static int sock_standard_getfd(sock_ctx_t *ctx) {
+static int sock_standard_getfd(const sock_ctx_t *ctx) {
     return ctx->fd;
 }
 
@@ -286,7 +286,7 @@ int sock_send(sock_t *socket, const char *message, size_t size) {
     return socket->send(socket->data, message, size);
 }
 
-int sock_getfd(sock_t *socket) {
+int sock_getfd(const sock_t *socket) {
     if (!socket)
         return -1;
     return socket->getfd(socket->data);

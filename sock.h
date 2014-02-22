@@ -14,7 +14,7 @@ typedef struct {
 
 typedef int (*sock_send_func)(void *, const char *, size_t);
 typedef int (*sock_recv_func)(void *, char *, size_t);
-typedef int (*sock_getfd_func)(void *);
+typedef int (*sock_getfd_func)(const void *);
 typedef bool (*sock_destroy_func)(void *, sock_restart_t *restart);
 
 typedef struct {
@@ -34,7 +34,7 @@ int sock_sendf(sock_t *socket, const char *format, ...);
 sock_t *sock_accept(sock_t *socket);
 int sock_recv(sock_t *socket, char *buffer, size_t buffersize);
 bool sock_destroy(sock_t *socket, sock_restart_t *restart);
-int sock_getfd(sock_t *socket);
+int sock_getfd(const sock_t *socket);
 bool sock_nonblock(int fd);
 
 #endif
