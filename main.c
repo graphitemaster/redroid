@@ -423,6 +423,8 @@ int main(int argc, char **argv) {
         irc_manager_process(manager);
     }
 
+    web_destroy(web);
+
     if (!signal_restart(false)) {
         list_t *fds = irc_manager_restart(manager);
         char unique[RESTART_FILESIZE] = "redroid_XXXXXX";
@@ -503,6 +505,5 @@ int main(int argc, char **argv) {
     }
 
     irc_manager_destroy(manager);
-    web_destroy(web);
     return EXIT_SUCCESS;
 }

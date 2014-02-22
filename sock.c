@@ -12,7 +12,6 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -106,8 +105,7 @@ static int sock_connection(const char *host, const char *port, char **resolved) 
         }
 
         inet_ntop(current->ai_family, addr, ipbuffer, sizeof(ipbuffer));
-
-        if ((status = connect(sock, result->ai_addr, result->ai_addrlen)) < 0) {
+        if (connect(sock, result->ai_addr, result->ai_addrlen) != 0 && errno != EINPROGRESS) {
             if (current->ai_next)
                 fprintf(stderr, "failed to connect: %s:%s (trying next address in list)\n", host, ipbuffer);
             else
@@ -168,7 +166,7 @@ static bool sock_standard_destroy(sock_ctx_t *ctx, sock_restart_t *restart) {
     }
 
 
-    bool succeed = (shutdown(ctx->fd, SHUT_WR) == 0);
+    bool succeed = (shutdown(ctx->fd, SHUT_RDWR) == 0);
     free(ctx);
     return succeed;
 }

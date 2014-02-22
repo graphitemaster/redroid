@@ -8,6 +8,7 @@
 #include <time.h>
 
 #include <unistd.h>
+#include <errno.h>
 
 typedef struct {
     bool        post;
@@ -142,6 +143,7 @@ http_t *http_create(const char *port) {
     http_t *http = malloc(sizeof(*http));
 
     if (!(http->host = sock_create("::listen", port, SOCK_RESTART_NIL))) {
+        printf("error %s\n", strerror(errno));
         free(http);
         return NULL;
     }
