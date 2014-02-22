@@ -225,6 +225,7 @@ static void web_hook_login(sock_t *client, list_t *post, void *data) {
 
     const char *username = http_post_find(post, "username");
     const char *password = http_post_find(post, "password");
+    const char *remember = http_post_find(post, "remember_me");
 
     database_statement_t *statement = database_statement_create(web->database, "SELECT SALT FROM USERS WHERE USERNAME=?");
     database_row_t       *row       = NULL;
@@ -264,7 +265,8 @@ static void web_hook_login(sock_t *client, list_t *post, void *data) {
     string_destroy(hashpassword);
 
     if (database_row_pop_integer(row) != 0) {
-        web_session(web, client);
+        if (remember)
+            web_session(web, client);
         web_template_send(web, client, "admin.html");
     } else {
         web_template_change(web, "login.html", "ERROR", "<h2>Invalid username or password</h2>");
