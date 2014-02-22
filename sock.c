@@ -88,6 +88,10 @@ static int sock_connection(const char *host, const char *port, char **resolved) 
         goto sock_get_error;
     }
 
+    /* make the socket non blocking for connect */
+    if (!sock_nonblock(sock))
+        goto sock_get_error;
+
     // try all of them until it succeeds
     bool failed = false;
     for (struct addrinfo *current = result; current; current = current->ai_next) {
