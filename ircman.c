@@ -141,6 +141,14 @@ self_pipe_error:
     return false;
 }
 
+static void irc_manager_cleanup(irc_manager_t *manager) {
+    cmd_channel_destroy(manager->commander);
+    irc_instances_destroy(manager->instances, false);
+
+    free(manager->polls);
+    free(manager);
+}
+
 irc_manager_t *irc_manager_create(void) {
     irc_manager_t *man = malloc(sizeof(*man));
     if (!man)
@@ -158,19 +166,14 @@ irc_manager_t *irc_manager_create(void) {
 void irc_manager_wake(irc_manager_t *manager) {
     if (write(manager->wakefds[1], "wakeup", 6) == -1) {
         /* Something went terribly wrong */
-        raise(SIGUSR1);
+        irc_manager_cleanup(manager);
+        abort();
     }
 }
 
 void irc_manager_destroy(irc_manager_t *manager) {
     irc_manager_wake(manager);
-    cmd_channel_destroy(manager->commander);
-    irc_instances_destroy(manager->instances, false);
-
-    if (manager->polls)
-        free(manager->polls);
-
-    free(manager);
+    irc_manager_cleanup(manager);
 }
 
 list_t *irc_manager_restart(irc_manager_t *manager) {

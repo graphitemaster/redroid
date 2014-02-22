@@ -148,6 +148,8 @@ void string_replace(string_t *string, const char *search, const char *replace) {
         content = &find[strlen(search)];
         find    = strstr(content, search);
     }
+    if (strlen(content))
+        string_catf(modified, "%s", content);
 
     string_reassociate(string, modified);
 }

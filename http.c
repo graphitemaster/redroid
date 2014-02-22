@@ -195,17 +195,6 @@ static void http_intercepts_destroy(http_t *http) {
         free(handle);
 }
 
-void http_destroy(http_t *http) {
-    http_intercepts_destroy(http);
-
-    sock_destroy(http->host, NULL);
-
-    list_destroy(http->clients);
-    list_destroy(http->intercepts);
-
-    free(http);
-}
-
 /* HTTP send */
 static void http_send_header(sock_t *client, size_t length, const char *type) {
     sock_sendf(client, "HTTP/1.1 200 OK\n");
@@ -386,4 +375,20 @@ void http_process(http_t *http) {
             http_client_destroy(http, client);
     }
     list_iterator_destroy(it);
+}
+
+void http_destroy(http_t *http) {
+    http_intercepts_destroy(http);
+
+    sock_destroy(http->host, NULL);
+
+    /* Destroy any active clients */
+    http_client_t *client;
+    while ((client = list_pop(http->clients)))
+        http_client_destroy(http, client);
+
+    list_destroy(http->clients);
+    list_destroy(http->intercepts);
+
+    free(http);
 }

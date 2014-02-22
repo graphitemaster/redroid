@@ -441,6 +441,7 @@ bool irc_channels_add(irc_t *irc, const char *channel) {
     irc_channel_t *ch = malloc(sizeof(*ch));
     ch->users   = list_create();
     ch->channel = strdup(channel);
+    ch->topic   = NULL;
 
     list_push(irc->channels, ch);
     printf("    channel  => %s added\n", channel);

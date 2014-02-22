@@ -57,23 +57,35 @@ static void web_session(web_t *web, sock_t *client) {
 
 /* web string template engine */
 typedef struct {
-    string_t   *search;
+    list_t     *replaces;
     const char *file;
-    const char *replace;
     char       *raw;
     string_t   *formatted;
 } web_template_t;
 
+typedef struct {
+    char *search;
+    char *replace;
+} web_template_entry_t;
+
 static void web_template_destroy(web_template_t *template) {
     free(template->raw);
-
-    string_destroy(template->search);
     string_destroy(template->formatted);
 
+    list_iterator_t *it = list_iterator_create(template->replaces);
+    while (!list_iterator_end(it)) {
+        web_template_entry_t *entry = list_iterator_next(it);
+        free(entry->search);
+        free(entry->replace);
+        free(entry);
+    }
+    list_iterator_destroy(it);
+
+    list_destroy(template->replaces);
     free(template);
 }
 
-static web_template_t *web_template_create(const char *infile, const char *search, const char *replace) {
+static web_template_t *web_template_create(const char *infile) {
     string_t *file = string_format("site/%s", infile);
     FILE     *fp;
 
@@ -90,16 +102,15 @@ static web_template_t *web_template_create(const char *infile, const char *searc
 
     web_template_t *tmpl = malloc(sizeof(*tmpl));
 
-    tmpl->raw       = malloc(size + 1);
-    tmpl->search    = string_format("$[[%s]]", search);
-    tmpl->file      = infile;
-    tmpl->replace   = replace;
+    tmpl->raw      = malloc(size + 1);
+    tmpl->file     = infile;
+    tmpl->replaces = list_create();
 
     if (fread(tmpl->raw, size, 1, fp) != 1)
         goto web_template_error;
 
     tmpl->raw[size] = '\0';
-    tmpl->formatted = string_create(tmpl->raw);
+    tmpl->formatted = string_construct();
 
     fclose(fp);
     return tmpl;
@@ -114,11 +125,16 @@ static void web_template_update(web_template_t *template) {
     string_destroy(template->formatted);
     template->formatted = string_create(template->raw);
 
-    string_replace (
-        template->formatted,
-        string_contents(template->search),
-        template->replace
-    );
+    list_iterator_t *it = list_iterator_create(template->replaces);
+    while (!list_iterator_end(it)) {
+        web_template_entry_t *entry = list_iterator_next(it);
+        if (!entry->replace)
+            continue;
+        string_t *format = string_format("<!--$[[%s]]-->", entry->search);
+        string_replace(template->formatted, string_contents(format), entry->replace);
+        string_destroy(format);
+    }
+    list_iterator_destroy(it);
 }
 
 static bool web_template_search(const void *a, const void *b) {
@@ -129,16 +145,17 @@ static bool web_template_search(const void *a, const void *b) {
     return !strcmp(aa, bb);
 }
 
+static bool web_template_entry_search(const void *a, const void *b) {
+    const web_template_entry_t *ea = a;
+    return !strcmp(ea->search, (const char *)b);
+}
+
 static web_template_t *web_template_find(web_t *web, const char *name) {
     return list_search(web->templates, &web_template_search, name);
 }
 
-static void web_template_add(web_t *web, const char *file, const char *search, const char *replace) {
-    web_template_t *tmpl = web_template_create(file, search, replace);
-    if (!tmpl)
-        return;
-
-    list_push(web->templates, tmpl);
+static web_template_entry_t *web_template_entry_find(web_template_t *template, const char *search) {
+    return list_search(template->replaces, &web_template_entry_search, search);
 }
 
 static void web_template_send(web_t *web, sock_t *client, const char *tmpl) {
@@ -148,6 +165,44 @@ static void web_template_send(web_t *web, sock_t *client, const char *tmpl) {
 
     web_template_update(find);
     http_send_html(client, string_contents(find->formatted));
+}
+
+static void web_template_register(web_t *web, const char *file, size_t count, ...) {
+    web_template_t *find = web_template_find(web, file);
+    if (!find) {
+        find = web_template_create(file);
+        list_push(web->templates, find);
+    }
+
+    va_list  va;
+    va_start(va, count);
+
+    for (size_t i = 0; i < count; i++) {
+        web_template_entry_t *entry = malloc(sizeof(*entry));
+        entry->search  = strdup(va_arg(va, char *));
+        entry->replace = NULL;
+        list_push(find->replaces, entry);
+    }
+
+    va_end(va);
+}
+
+static void web_template_change(web_t *web, const char *file, const char *search, const char *replace) {
+    web_template_t *find = web_template_find(web, file);
+    if (!find) {
+        printf("error find template\n");
+        return;
+    }
+
+    /* find the entry */
+    web_template_entry_t *entry = web_template_entry_find(find, search);
+    if (!entry) {
+        printf("error find entry\n");
+        return;
+    }
+
+    free(entry->replace);
+    entry->replace = strdup(replace);
 }
 
 /* web hooks */
@@ -189,6 +244,7 @@ static void web_hook_login(sock_t *client, list_t *post, void *data) {
 
     string_destroy(saltpassword);
     database_row_destroy(row);
+    free((void *)getsalt);
 
     if (!database_statement_complete(statement))
         return http_send_file(client, "invalid.html");
@@ -211,7 +267,8 @@ static void web_hook_login(sock_t *client, list_t *post, void *data) {
         web_session(web, client);
         web_template_send(web, client, "admin.html");
     } else {
-        http_send_file(client, "invalid.html");
+        web_template_change(web, "login.html", "ERROR", "<h2>Invalid username or password</h2>");
+        web_template_send(web, client, "login.html");
     }
 
     database_statement_complete(statement);
@@ -263,7 +320,8 @@ web_t *web_create(void) {
     http_intercept_get(server, "admin.html", &web_hook_admin,    web);
 
     /* register some templates */
-    web_template_add(web, "admin.html", "INSTANCES", "stuff");
+    web_template_register(web, "admin.html", 1, "INSTANCES");
+    web_template_register(web, "login.html", 1, "ERROR");
 
     /*
      * The thread will keep running for as long as the mutex is locked.
