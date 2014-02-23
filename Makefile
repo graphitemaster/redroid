@@ -34,7 +34,7 @@ modules/%.so: modules/%.c
 	$(CC) $(MODULE_CFLAGS) $(MODULE_LDFLAGS) $< -o $@
 
 wlgen: $(WHITELIST_OBJECTS)
-	$(CC) $(WHITELIST_LDFLAGS) $(WHITELIST_OBJECTS) -o $@
+	$(CC) $(WHITELIST_OBJECTS) -o $@ $(WHITELIST_LDFLAGS)
 
 whitelist: wlgen
 	@./wlgen
