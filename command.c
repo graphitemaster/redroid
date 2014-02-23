@@ -34,7 +34,7 @@ struct cmd_channel_s {
 };
 
 struct cmd_entry_s {
-    cmd_channel_t *associated; // to help with some stuff
+    cmd_channel_t *associated;
     module_t      *instance;
     string_t      *channel;
     string_t      *user;
@@ -170,7 +170,7 @@ cmd_entry_t *cmd_entry_create(
     entry->channel    = string_create(channel);
     entry->user       = string_create(user);
 
-    // messages can be empty
+    /* Messages can be empty */
     if (message && strlen(message))
         entry->message = string_create(message);
     else
@@ -193,14 +193,14 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
 }
 
 static void cmd_channel_signalhandle_quit(int sig) {
-    // called from the threaded end to bring down the thread
+    /* Bring down the thread */
     pthread_exit(NULL);
 }
 
 static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignore) {
     cmd_channel_t *channel = si->si_value.sival_ptr;
 
-    // a command timed out:
+    /* Did a command timeout? */
     pthread_mutex_lock(&channel->cmd_mutex);
     module_t *instance = (channel->cmd_entry) ? channel->cmd_entry->instance : NULL;
     if (!instance) {
@@ -209,7 +209,7 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
     }
 
     module_mem_mutex_lock(instance);
-    pthread_kill(channel->thread, SIGUSR2); // calls cmd_channel_signalhandle_quit
+    pthread_kill(channel->thread, SIGUSR2);
     pthread_join(channel->thread, NULL);
     pthread_mutex_unlock(&channel->cmd_mutex);
     module_mem_mutex_unlock(instance);
@@ -233,7 +233,7 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
 
     cmd_entry_destroy(entry);
 
-    // reopen the reading end
+    /* Reopen the reading end of the message queue */
     channel->rdend = false;
     cmd_channel_begin(channel);
 }
@@ -245,26 +245,26 @@ static void *cmd_channel_threader(void *data) {
     while (cmd_channel_pop(channel, &entry)) {
         module_t *module = entry->instance;
 
-        //
-        // unloaded module references cannot be accessed. We'll just
-        // ignore any commands that still reference old modules.
-        //
+        /*
+         * unloaded module references cannot be accessed. We'll just
+         * ignore any commands that still reference old modules.
+         */
         if (module_manager_module_unloaded(module->instance->moduleman, module))
             continue;
 
         if (module->enter) {
             channel->cmd_entry = entry;
-            *module_get()      = module; // save current module instance
+            *module_get()      = module; /* Save module instance */
             module->memory     = module_mem_create(module);
 
-            // begin the timer
+            /* Initiate the timer for the module */
             struct itimerspec its = {
                 .it_value.tv_sec    = COMMAND_TIMEOUT_SECONDS,
-                .it_interval.tv_sec = COMMAND_TIMEOUT_SECONDS, // executes in 3 second intervals
+                .it_interval.tv_sec = COMMAND_TIMEOUT_SECONDS,
             };
 
             if (timer_settime(channel->timerid, 0, &its, NULL) == -1)
-                raise(SIGUSR1); // internal error
+                raise(SIGUSR1); /* If the timer couldn't be made then ICE */
 
             module->enter(
                 module->instance,
@@ -276,8 +276,8 @@ static void *cmd_channel_threader(void *data) {
             pthread_mutex_lock(&channel->cmd_mutex);
             cmd_entry_destroy(entry);
 
-            // disarm the timer
-            its.it_value.tv_sec = 0; // will expire it right away
+            /* Setting the expiration to 0 will disarm the timer. */
+            its.it_value.tv_sec = 0;
             timer_settime(channel->timerid, 0, &its, NULL);
 
             channel->cmd_entry = NULL;
@@ -293,11 +293,11 @@ static void *cmd_channel_threader(void *data) {
 }
 
 static bool cmd_channel_init(cmd_channel_t *channel) {
-    // allow a module to segfault
-    signal(SIGSEGV, &cmd_channel_signalhandle_quit); // allow segfault to kill thread
-    signal(SIGUSR2, &cmd_channel_signalhandle_quit); // allow SIGUSR to kill thread
+    /* Modules can segfault. We handle for that here */
+    signal(SIGSEGV, &cmd_channel_signalhandle_quit);
+    signal(SIGUSR2, &cmd_channel_signalhandle_quit);
 
-    // establish signal handler for timer
+    /* Establish a signal handler for module timeouts */
     struct sigaction sa = {
         .sa_flags     = SA_SIGINFO,
         .sa_sigaction = &cmd_channel_signalhandle_timeout,
@@ -307,7 +307,7 @@ static bool cmd_channel_init(cmd_channel_t *channel) {
     if (sigaction(SIGALRM, &sa, NULL) == -1)
         return false;
 
-    // create the timeout timer
+    /* Construct the timeout timer */
     struct sigevent e = {
         .sigev_notify          = SIGEV_SIGNAL,
         .sigev_signo           = SIGALRM,

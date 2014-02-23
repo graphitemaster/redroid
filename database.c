@@ -202,7 +202,7 @@ database_t *database_create(const char *file) {
 }
 
 void database_destroy(database_t *database) {
-    // erase statements in cache
+    /* Clear the statement cache */
     list_iterator_t *it = list_iterator_create(database->statements);
     while (!list_iterator_end(it))
         database_statement_destroy(list_iterator_next(it));
@@ -213,7 +213,7 @@ void database_destroy(database_t *database) {
     free(database);
 }
 
-// table request count management
+/* Request table management */
 int database_request_count(irc_t *instance, const char *table) {
     database_statement_t *statement = database_statement_create(instance->database, "SELECT COUNT FROM REQUESTS WHERE NAME=?");
     if (!statement)

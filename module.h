@@ -28,7 +28,7 @@ struct module_s {
     void        (*close)(irc_t *irc);
     irc_t        *instance;
     module_mem_t *memory;
-    mt_t         *random; // random device for module
+    mt_t         *random;
 };
 
 typedef struct {
@@ -38,13 +38,13 @@ typedef struct {
     irc_t       *instance;
 } module_manager_t;
 
-// module
+/* module */
 module_t *module_open(const char *file, module_manager_t *manager, string_t **error);
 bool module_reload(module_t *module, module_manager_t *manager);
 void module_close(module_t *module, module_manager_t *manager);
 
 
-// module manager
+/* module manager */
 enum {
     MMSEARCH_FILE,
     MMSEARCH_NAME,
@@ -60,7 +60,7 @@ module_t *module_manager_module_command(module_manager_t *manager, const char *c
 module_t *module_manager_module_search(module_manager_t *manager, const char *thing, int method);
 
 
-// module memory manager
+/* module memory manager */
 void module_mem_mutex_lock(module_t *module);
 void module_mem_mutex_unlock(module_t *module);
 void module_mem_push(module_t *module, void *data, void (*cleanup)(void *));
@@ -68,7 +68,7 @@ module_mem_t *module_mem_create(module_t *instance);
 void module_mem_destroy(module_t *module);
 
 
-// module singleton
+/* module singleton */
 module_t **module_get(void);
 
 #endif

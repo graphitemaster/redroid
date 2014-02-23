@@ -3,11 +3,11 @@
 
 MODULE_DEFAULT(poetter);
 
-//
-// normally I would use a database for these sorts of things
-// but since there isn't much shit lennart has said it's easier
-// to just maintain a static list here for now.
-//
+/*
+ * normally I would use a database for these sorts of things
+ * but since there isn't much shit lennart has said it's easier
+ * to just maintain a static list here for now.
+ */
 static const char *list[] = {
     "My name is \"Poettering\", with \"oe\", as in \"Goethe\". Not \"Pöttering\".",
     "Do you hate handicapped people? -- Interrupting the speaker's confusion about why GDM needs to run half a GNOME session during a talk.",

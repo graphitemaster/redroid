@@ -9,12 +9,12 @@ static void quote_nick_stripspecial(char **input) {
     char *beg = *input;
     char *end = &((*input)[strlen(beg)-1]);
 
-    // deal with "<nick>" -> "nick"
+    /* deal with "<nick>" -> "nick" */
     if (*beg == '<' && *end == '>')
         beg++, *--end = '\0';
 
-    if (*end == ':') *--end = '\0'; // strip nicks like "foo:" -> "foo"
-    if (*beg == '@') beg++;         // strip nicks like "@foo" -> "foo"
+    if (*end == ':') *--end = '\0'; /* strip nicks like "foo:" -> "foo" */
+    if (*beg == '@') beg++;         /* strip nicks like "@foo" -> "foo" */
 
     *input = beg;
 }
@@ -56,13 +56,13 @@ static bool quote_find(const char *user, const char *quote) {
     return false;
 }
 
-// quote -help
+/* quote -help */
 static void quote_help(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel, "%s: quote [<nick> [searchtext]|<-stats [nick]|-add|-forget|-reauthor <oldnick> <newnick>> <nickname> <phrase>]", user);
     irc_write(irc, channel, "%s: used -> <<nickname>> <phrase>", user);
 }
 
-// quote
+/* quote */
 static void quote_entry_random(irc_t *irc, const char *channel, const char *user) {
     database_statement_t *statement = database_statement_create("SELECT * FROM QUOTES ORDER BY RANDOM() LIMIT 1");
     if (!statement)
@@ -84,7 +84,7 @@ static void quote_entry_random(irc_t *irc, const char *channel, const char *user
     irc_write(irc, channel, "%s: <%s> %s", user, nick, message);
 }
 
-// quote <nick>
+/* quote <nick> */
 static void quote_entry(irc_t *irc, const char *channel, const char *user, const char *nick) {
     database_statement_t *statement = database_statement_create("SELECT * FROM QUOTES WHERE NAME = ? ORDER BY RANDOM() LIMIT 1");
     if (!database_statement_bind(statement, "s", nick))

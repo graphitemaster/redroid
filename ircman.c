@@ -125,7 +125,7 @@ static bool irc_manager_stage(irc_manager_t *manager) {
         manager->polls[1+i].events = POLLIN | POLLPRI;
     }
 
-    // begin the channel
+    /* Begin the command message channel if it isn't already ready */
     if (!cmd_channel_ready(manager->commander))
         cmd_channel_begin(manager->commander);
 

@@ -105,7 +105,7 @@ static void faq_concat(irc_t *irc, const char *channel, const char *user, list_t
         return;
 
     if (!faq_find(faq)) {
-        // put them back and add it instead
+        /* put them back and add it instead */
         list_push(list, content);
         list_push(list, faq);
         return faq_add(irc, channel, user, list);

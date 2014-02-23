@@ -32,11 +32,11 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         void *addr;
 
         if (p->ai_family == AF_INET) {
-            // ipv4
+            /* ipv4 */
             struct sockaddr_in *ipv4 = (struct sockaddr_in*)p->ai_addr;
             addr = &(ipv4->sin_addr);
         } else {
-            // ipv6
+            /* ipv6 */
             struct sockaddr_in6 *ipv6 = (struct sockaddr_in6*)p->ai_addr;
             addr = &(ipv6->sin6_addr);
         }

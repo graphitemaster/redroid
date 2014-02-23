@@ -73,12 +73,13 @@ static bool config_entry_handler(void *user, const char *section, const char *na
     else if (!strcmp(name, "ssl"))       exists->ssl      = ini_boolean(value);
     else if (!strcmp(name, "modules")) {
         if (*value == '*') {
-            // load all modules
+            /* Load all modules */
             DIR           *dir;
             struct dirent *ent;
             if ((dir = opendir("modules"))) {
                 while ((ent = readdir(dir))) {
-                    if (strstr(ent->d_name, ".so")) { // found module
+                    if (strstr(ent->d_name, ".so")) {
+                        /* Found module */
                         char *copy = strdup(ent->d_name);
                         *strstr(copy, ".so")='\0';
                         list_push(exists->modules, copy);
@@ -90,12 +91,12 @@ static bool config_entry_handler(void *user, const char *section, const char *na
                 return false;
             }
         } else {
-            // individually
+            /* Individual modules */
             char *tok = strtok((char *)value, ", ");
             while (tok) {
                 char *format = strdup(tok);
                 if (strstr(format, ".so"))
-                    *strstr(format, ".so")='\0'; // strip extension
+                    *strstr(format, ".so")='\0';
                 list_push(exists->modules, format);
                 tok = strtok(NULL, ", ");
             }

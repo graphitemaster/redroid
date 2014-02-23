@@ -270,7 +270,7 @@ int main(int argc, char **argv) {
         int       sock = 0;
 
         for (size_t i = 0; i < networks; i++) {
-            read(tmpfd, &sock, sizeof(int));    // socket
+            read(tmpfd, &sock, sizeof(int)); /* Get socket */
 
             name = list_at(list, i);
             printf("    Network %s on socket %d will be restored\n", string_contents(name), sock);
@@ -363,19 +363,19 @@ int main(int argc, char **argv) {
          */
         if (argc == 2 && argv[1][0] == '-') {
             switch (argv[1][1]) {
-                case 'l': // logging
+                case 'l': /* Logging */
                     freopen(&argv[0][3], "w", stdout);
                     freopen(&argv[0][3], "w", stderr);
                     signal_daemonize(false);
                     break;
 
-                case 'q': // quiet
+                case 'q': /* Quiet */
                     freopen("/dev/null", "w", stdout);
                     freopen("/dev/null", "w", stderr);
                     signal_daemonize(false);
                     break;
 
-                case 'd': // daemonize
+                case 'd': /* Daemonize */
                     signal_daemonize(true);
                     break;
             }
@@ -388,19 +388,19 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
-        // create all the appropriate IRC instances
+        /* Create all IRC instances */
         list_iterator_t *it = list_iterator_create(list);
         while (!list_iterator_end(it)) {
             config_t *entry = list_iterator_next(it);
             irc_t    *irc   = irc_create(entry);
 
-            // add all modules
+            /* Add all the modules for this instance */
             list_iterator_t *jt = list_iterator_create(entry->modules);
             while (!list_iterator_end(jt))
                 irc_modules_add(irc, (const char *)list_iterator_next(jt));
             list_iterator_destroy(jt);
 
-            // and all channels
+            /* Add all the channels for this instance */
             jt = list_iterator_create(entry->channels);
             while (!list_iterator_end(jt))
                 irc_channels_add(irc, (const char *)list_iterator_next(jt));
@@ -415,7 +415,7 @@ int main(int argc, char **argv) {
         }
 
         list_iterator_destroy(it);
-        config_unload(list); // unload config
+        config_unload(list);
     }
 
     if (irc_manager_empty(manager)) {

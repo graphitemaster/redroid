@@ -34,7 +34,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!ignore)
         return;
 
-    // now read the entries and write the changes out
+    /* Read SVN entries in and write them out to the channel */
     list_t *list = svnlog(SVN_URL, SVN_DEPTH);
     if (!list)
         return;

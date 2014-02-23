@@ -30,7 +30,7 @@ struct list_iterator_s {
     list_node_t *pointer;
 };
 
-// iterator
+/* List iterator */
 list_iterator_t *list_iterator_create(list_t *list) {
     if (!list) return NULL;
 
@@ -68,7 +68,7 @@ bool list_iterator_end(list_iterator_t *it) {
     return !it->pointer;
 }
 
-// list node
+/* List node */
 static list_node_t *list_node_create(void *element) {
     list_node_t *node = malloc(sizeof(*node));
 
@@ -145,7 +145,7 @@ static void list_atcache_cache(list_t *list, list_node_t *node) {
     return list_atcache_cache_index(list, node, list->length);
 }
 
-// list
+/* List */
 list_t *list_create(void) {
     list_t *list    = malloc(sizeof(*list));
     list->length    = 0;

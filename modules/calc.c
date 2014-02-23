@@ -56,11 +56,11 @@ static const char *calc_jokes[] = {
 };
 
 typedef struct {
-    size_t      index;      // stack index
-    char       *sp;         // stack pointer
-    irc_t      *irc;        // irc instance
-    const char *channel;    // irc channel
-    const char *user;       // irc user
+    size_t      index;      /* stack index   */
+    char       *sp;         /* stack pointer */
+    irc_t      *irc;        /* irc instance  */
+    const char *channel;    /* irc channel   */
+    const char *user;       /* irc user      */
 } calc_parser_t;
 
 static const int8_t calc_sip['z' - 'E' + 1] = {

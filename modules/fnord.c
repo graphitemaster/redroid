@@ -28,8 +28,10 @@ static void fnord_a(string_t *out, const char *word_type) {
     const char *text = fnord_get(word_type);
     if (!text)
         return;
-    // special 'u' treatment for sounds like 'unique', 'usable', 'using', ...
-    // also special treatment for 'honor', 'honorary', 'honest', ...
+    /*
+     * special 'u' treatment for sounds like 'unique', 'usable', 'using', ...
+     * also special treatment for 'honor', 'honorary', 'honest', ...
+     */
     if (!memcmp(text, "uniq", 4) ||
         !memcmp(text, "use",  3)  ||
         !memcmp(text, "usi",  3)  ||
@@ -245,7 +247,7 @@ static string_t *generate_about(const char *user) {
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     string_t *line = NULL;
 
-    // generate either a message about a person, or a general message
+    /* generate either a message about a person, or a general message */
     if (message)
         line = generate_about(message);
     else
@@ -257,7 +259,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     char  *fnord_line = string_contents(line);
     size_t fnord_len  = string_length(line);
 
-    // line ending
+    /* line ending */
     fnord_line[--fnord_len] = 0;
     if (fnord_line[fnord_len-1] != '.' &&
         fnord_line[fnord_len-1] != '!' &&
@@ -266,9 +268,8 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         fnord_line[fnord_len] = '.';
     }
 
-    // capitalize the beginning
+    /* capitalize the beginning */
     fnord_line[0] = toupper(fnord_line[0]);
 
-    // let the world know stuff!
     irc_write(irc, channel, "%s: %s", user, fnord_line);
 }

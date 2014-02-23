@@ -16,8 +16,8 @@ struct list_iterator_s;
 struct string_s;
 
 typedef struct {
-    size_t  soff;   // Start offset for match
-    size_t  eoff;   // End offset for match
+    size_t  soff;   /* Start offset for match */
+    size_t  eoff;   /* End offset for match   */
 } regexpr_match_t;
 
 typedef struct {

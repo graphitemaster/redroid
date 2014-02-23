@@ -32,7 +32,11 @@ void irc_queue_enqueue(irc_t *irc, int (*raw)(irc_t *irc, const char *, const ch
         memcpy(
             malloc(sizeof(irc_queue_entry_t)),
             &(irc_queue_entry_t) {
-                .channel = (channel) ? strdup(channel) : NULL, // may not come from a channel (e.g /quit /join)
+                /*
+                 * Messages might not come from a channel. For instance
+                 * commands like /quit /part.
+                 */
+                .channel = (channel) ? strdup(channel) : NULL,
                 .message = message,
                 .raw     = raw
             },
@@ -42,10 +46,7 @@ void irc_queue_enqueue(irc_t *irc, int (*raw)(irc_t *irc, const char *, const ch
 }
 
 void irc_queue_entry_destroy(irc_queue_entry_t *entry) {
-    // not all commands will come from a channel
-    if (entry->channel)
-        free(entry->channel);
-
+    free(entry->channel);
     string_destroy(entry->message);
     free(entry);
 }
@@ -92,17 +93,19 @@ static int irc_action_raw(irc_t *irc, const char *channel, const char *data) {
     return sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, data);
 }
 
-// DO NOT USE these from irc_process or irc_process_line
-// these are for modules which run in a seperate thread.
+/* Not to be used from IRC process. Use queued methods instead */
 int irc_quit(irc_t *irc, const char *message) {
-    irc_queue_enqueue(irc, &irc_quit_raw, NULL, string_create(message)); // freed in irc_queue_dequeue
+    /* String is freed in irc_queue_dequeue */
+    irc_queue_enqueue(irc, &irc_quit_raw, NULL, string_create(message));
     return 1;
 }
 int irc_join(irc_t *irc, const char *channel) {
-    irc_queue_enqueue(irc, &irc_join_raw, NULL, string_create(channel)); // freed in irc_queue_dequeue
+    /* String is freed in irc_queue_dequeue */
+    irc_queue_enqueue(irc, &irc_join_raw, NULL, string_create(channel));
     return 1;
 }
 int irc_part(irc_t *irc, const char *channel) {
+    /* String is freed in irc_queue_dequeue */
     irc_queue_enqueue(irc, &irc_part_raw, NULL, string_create(channel));
     return 1;
 }
@@ -295,8 +298,7 @@ static void irc_onend(irc_t *irc, irc_parser_data_t *data) {
     }
 }
 
-
-// Instance management
+/* Management of IRC instances */
 irc_t *irc_create(config_t *entry) {
     irc_t *irc = malloc(sizeof(irc_t));
 
@@ -460,7 +462,10 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     regexpr_cache_destroy(irc->regexprcache);
     module_manager_destroy(irc->moduleman);
 
-    // destroy channels and messages
+    /*
+     * Destroy all channels and messages and the channels users as well
+     * as the topic.
+     */
     list_iterator_t *it = list_iterator_create(irc->channels);
     while (!list_iterator_end(it)) {
         irc_channel_t   *ch = list_iterator_next(it);

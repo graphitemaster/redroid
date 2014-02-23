@@ -101,7 +101,6 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
                 ? "this channel"
                 : data.chan
         );
-        // update
         data.user      = user;
         data.timestamp = time(NULL);
         youtube_update(id, &data);

@@ -91,7 +91,7 @@ static int sock_connection(const char *host, const char *port, char **resolved) 
     if (!sock_nonblock(sock))
         goto sock_get_error;
 
-    // try all of them until it succeeds
+    /* try all of them until it succeeds */
     bool failed = false;
     for (struct addrinfo *current = result; current; current = current->ai_next) {
         char ipbuffer[INET6_ADDRSTRLEN];
@@ -129,7 +129,7 @@ sock_get_error:
     return -1;
 }
 
-// standard non SSL sockets
+/* standard non SSL sockets */
 typedef struct {
     int fd;
 } sock_ctx_t;
@@ -197,7 +197,7 @@ static sock_t *sock_standard_create(int fd, bool listen, const char *host) {
     return socket;
 }
 
-// exposed interface
+/* exposed interface */
 sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart) {
     bool listen = !strcmp(host, "::listen");
 

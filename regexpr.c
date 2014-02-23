@@ -42,13 +42,13 @@ static void regexpr_cache_insert(regexpr_cache_t *cache, regexpr_t *expr) {
     list_push(cache->cache, expr);
 }
 
-// regular expression management
+/* regular expression management */
 regexpr_t *regexpr_create(regexpr_cache_t *cache, const char *string, bool icase) {
-    //
-    // save on recompiling complex regular expressions if they're in cache.
-    // This helps when a regex using module is invoked multiple times in succession,
-    // which is quite common in an IRC channel.
-    //
+    /*
+     * save on recompiling complex regular expressions if they're in cache.
+     * This helps when a regex using module is invoked multiple times in succession,
+     * which is quite common in an IRC channel.
+     */
     regexpr_t *find;
     if ((find = list_search(cache->cache, &regexpr_cache_find, string)))
         return find;
@@ -62,10 +62,10 @@ regexpr_t *regexpr_create(regexpr_cache_t *cache, const char *string, bool icase
 
     next->match = strdup(string);
 
-    //
-    // New entries won't have any initial hotness and will literally be
-    // at the tail of the list.
-    //
+    /*
+     * New entries won't have any initial hotness and will literally be
+     * at the tail of the list.
+     */
     regexpr_cache_insert(cache, next);
     return next;
 }
@@ -76,7 +76,7 @@ void regexpr_destroy(regexpr_t *regexpr) {
     free(regexpr);
 }
 
-// regular expression execution/result
+/* regular expression execution/result */
 bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
     regmatch_t *temp = NULL;
     if (nmatch)

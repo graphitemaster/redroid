@@ -71,11 +71,12 @@ void module_mem_destroy(module_t *module) {
 }
 
 static bool module_load(module_t *module) {
-    //
-    // POSIX.1-2003 (Technical Corrigendum 1) see Rational for how this
-    // is legal despite it being 'illegal' in C99, which leaves casting
-    // from "void *" to a function pointer undefined.
-    //
+    /*
+     * POSIX.1-2003 (Technical Corrigendum 1) see Rational for how this
+     * is legal despite it being 'illegal' in C99, which leaves casting
+     * from "void *" to a function pointer undefined.
+     */
+
     *(void **)(&module->enter) = dlsym(module->handle, "module_enter");
     *(void **)(&module->close) = dlsym(module->handle, "module_close");
 
@@ -94,7 +95,6 @@ static bool module_load(module_t *module) {
         return false;
     }
 
-    // module interval
     int *interval = dlsym(module->handle, "module_interval");
 
     module->interval     = (interval) ? *interval : 0;
@@ -103,11 +103,11 @@ static bool module_load(module_t *module) {
     return true;
 }
 
-//
-// ensure a module doesn't use any functions by the ones provided by
-// a whitelist. This way we can ensure modules don't allocate resources
-// with standard library functions.
-//
+/*
+ * ensure a module doesn't use any functions by the ones provided by
+ * a whitelist. This way we can ensure modules don't allocate resources
+ * with standard library functions.
+ */
 #include <elf.h>
 #include <stdint.h>
 #if ULONG_MAX == 0xffffffff
@@ -243,7 +243,7 @@ bool module_reload(module_t *module, module_manager_t *manager) {
         module->close(module->instance);
     dlclose(module->handle);
 
-    // save old address for unloaded modules
+    /* Save old address for unloaded module */
     list_push(manager->unloaded, module->handle);
 
     if (!(module->handle = dlopen(module->file, RTLD_LAZY)))
@@ -252,7 +252,7 @@ bool module_reload(module_t *module, module_manager_t *manager) {
     if (!module_load(module))
         goto module_reload_error;
 
-    // reload the prng too
+    /* Reload the PRNG as well */
     mt_destroy(module->random);
     module->random = mt_create();
 
@@ -270,7 +270,7 @@ void module_close(module_t *module, module_manager_t *manager) {
         dlclose(module->handle);
     free(module->file);
 
-    // save old address for unloaded modules
+    /* Save old address for unloaded module */
     list_push(manager->unloaded, module);
     mt_destroy(module->random);
     free(module);
@@ -289,7 +289,6 @@ module_t **module_get(void) {
     return &module;
 }
 
-// module manager
 module_manager_t *module_manager_create(irc_t *instance) {
     module_manager_t *manager = malloc(sizeof(*manager));
 
@@ -380,8 +379,7 @@ module_t *module_manager_module_search(module_manager_t *manager, const char *na
     return NULL;
 }
 
-
-// memory pinners
+/* Memory pinners for module API */
 void *module_malloc(size_t bytes) {
     module_t *module = *module_get();
     module_mem_mutex_lock(module);
@@ -447,12 +445,12 @@ int module_getaddrinfo(const char *mode, const char *service, const struct addri
 }
 
 database_statement_t *module_database_statement_create(const char *string) {
-    //
-    // There is no need to gaurd a mutex here since the database statement
-    // cache system also serves as a garbage collector. This will implictly
-    // deal with freeing database statements. Instead we need the GC call
-    // to access the modules instance database
-    //
+    /*
+     * There is no need to gaurd a mutex here since the database statement
+     * cache system also serves as a garbage collector. This will implictly
+     * deal with freeing database statements. Instead we need the GC call
+     * to access the modules instance database
+     */
     return database_statement_create((*module_get())->instance->database, string);
 }
 
@@ -592,7 +590,7 @@ typedef struct {
 
 static void strdur_step(strdur_context_t *c, unsigned long long d, const char *suffix) {
     unsigned long long cnt = c->num / d;
-    c->num %= d; // compiler should keep the above div's mod part
+    c->num %= d; /* compiler should keep the above div's mod part */
     if (!cnt)
         return;
     string_catf(c->str, "%llu%s", cnt, suffix);
@@ -626,12 +624,12 @@ char *module_strdur(unsigned long long duration) {
 }
 
 regexpr_t *module_regexpr_create(const char *string, bool icase) {
-    //
-    // There is no need to gaurd a mutex here since the module cache
-    // system also serves as a garbage collector. This will implictly
-    // deal with freeing regexpr_t objects automatically. Instead we
-    // need the GC call to access the modules instances regexpr cache.
-    //
+    /*
+     * There is no need to gaurd a mutex here since the module cache
+     * system also serves as a garbage collector. This will implictly
+     * deal with freeing regexpr_t objects automatically. Instead we
+     * need the GC call to access the modules instances regexpr cache.
+     */
     module_t *module = *module_get();
     return regexpr_create(module->instance->regexprcache, string, icase);
 }
@@ -661,20 +659,19 @@ typedef struct {
     string_t *revision;
 } svn_entry_t;
 
-// a simple way to parse the svn log
+/* a simple way to parse the svn log */
 static svn_entry_t *module_svnlog_read_entry(FILE *handle) {
     svn_entry_t *entry  = malloc(sizeof(*entry));
     char        *line   = NULL;
     size_t       length = 0;
 
-    // process a line
     if (getline(&line, &length, handle) == EOF) {
         free(entry);
         free(line);
         return NULL;
     }
 
-    // if we have '-' at start then it's a seperator
+    /* if we have '-' at start then it's a seperator */
     if (*line == '-') {
         if (getline(&line, &length, handle) == EOF) {
             free(entry);
@@ -683,29 +680,29 @@ static svn_entry_t *module_svnlog_read_entry(FILE *handle) {
         }
     }
 
-    // expecting a revision tag
+    /* expecting a revision tag */
     if (*line != 'r') {
         free(entry);
         free(line);
         return NULL;
     }
 
-    // split revision marker "rev | author | date | changes"
+    /* split revision marker "rev | author | date | changes" */
     char   *copy  = strdup(&line[1]);
     list_t *split = module_strnsplit_impl(copy, " |", 2);
-    list_pop(split); // drop "date | changes"
+    list_pop(split); /* drop "date | changes" */
 
     entry->revision = string_create(list_shift(split));
     entry->author   = string_create(list_shift(split));
 
-    // now parse it
+    /* now parse it */
     string_t *message = string_construct();
     while (getline(&line, &length, handle) != EOF) {
-        // ignore empty lines
+        /* ignore empty lines */
         if (*line == '\n')
             continue;
 
-        // seperator marks end of message
+        /* seperator marks end of message */
         if (*line == '-') {
             entry->message = message;
             list_destroy(split);
@@ -714,7 +711,7 @@ static svn_entry_t *module_svnlog_read_entry(FILE *handle) {
             return entry;
         }
 
-        // strip newlines
+        /* strip newlines */
         char *nl = strchr(line, '\n');
         if (nl)
             *nl = '\0';
