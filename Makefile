@@ -31,7 +31,7 @@ timestamp.o:
 	$(CC) -c $(CFLAGS) $< -o $@
 
 modules/%.so: modules/%.c
-	$(CC) $(MODULE_CFLAGS) $(MODULE_LDFLAGS) $< -o $@
+	$(CC) $(MODULE_CFLAGS) $< -o $@ $(MODULE_LDFLAGS)
 
 wlgen: $(WHITELIST_OBJECTS)
 	$(CC) $(WHITELIST_OBJECTS) -o $@ $(WHITELIST_LDFLAGS)
