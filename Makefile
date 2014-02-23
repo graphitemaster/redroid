@@ -22,7 +22,7 @@ STRIP             = $(shell strip)
 all: modules $(REDROID) whitelist
 
 $(REDROID): $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
 
 timestamp.o:
 	$(CC) $(CFLAGS) -c -o timestamp.o timestamp.c
