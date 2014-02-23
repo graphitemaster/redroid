@@ -51,8 +51,11 @@ static bool web_session_search(const void *a, const void *b) {
 static void web_session_control(web_t *web, sock_t *client, bool add) {
     /* Check if there isn't already a session for the client first */
     web_session_t *session = list_search(web->sessions, &web_session_search, client);
-    if (add && session)
+    if (add && session) {
+        /* Revalidate session */
+        session->valid = true;
         return;
+    }
 
     if (add)
         list_push(web->sessions, web_session_create(web, client));
