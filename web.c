@@ -226,6 +226,47 @@ static void web_admin_create(web_t *web) {
             "               <div id=\"%s\" style=\"display: none;\">\n",
             entry->name
         );
+
+
+        string_catf(create, "<form method=\"post\" action=\"/::update\">");
+        string_catf(create, "<p class=\"left\">Nickname</p>\n");
+        string_catf(create, "<p class=\"right\"><input type=\"text\" name=\"nick\" value=\"%s\"></p>\n", entry->nick);
+        string_catf(create, "<p class=\"left\">Server host</p>\n");
+        string_catf(create, "<p class=\"right\"><input type=\"text\" name=\"host\" value=\"%s\"></p>\n", entry->host);
+        string_catf(create, "<p class=\"left\">Server port</p>\n");
+        string_catf(create, "<p class=\"right\"><input type=\"text\" name=\"port\" value=\"%s\"></p>\n", entry->port);
+        string_catf(create, "<p class=\"left\">Authentication (NickServ)</p>\n");
+        string_catf(create, "<p class=\"right\"><input type=\"password\" name=\"auth\" value=\"%s\"></p>\n", (entry->auth) ? entry->auth : "");
+        string_catf(create, "<p class=\"left\">Bot pattern</p>\n");
+        string_catf(create, "<p class=\"right\"><input type=\"text\" name=\"pattern\" value=\"%s\"></p>\n", entry->pattern);
+        string_catf(create, "<p class=\"left\">Channels (newline seperated)</p>\n");
+        string_catf(create, "<p class=\"right\">\n");
+        string_catf(create, " <textarea cols=\"10\" rows=\"10\" name=\"channels\">\n");
+
+        list_iterator_t *ct = list_iterator_create(entry->channels);
+        while (!list_iterator_end(ct))
+            string_catf(create, "%s\n", list_iterator_next(ct));
+        list_iterator_destroy(ct);
+        string_catf(create, "</textarea>\n");
+
+        string_catf(create, "</p>\n");
+        string_catf(create, "<p class=\"left\">Modules (newline seperated)</p>\n");
+        string_catf(create, "<p class=\"right\">\n");
+        string_catf(create, " <textarea cols=\"10\" rows=\"10\" name=\"modules\">\n");
+
+        list_iterator_t *mo = list_iterator_create(entry->modules);
+        while (!list_iterator_end(mo))
+            string_catf(create, "%s\n", list_iterator_next(mo));
+        list_iterator_destroy(mo);
+        string_catf(create, "</textarea>\n");
+
+        string_catf(create, "</p>\n");
+        string_catf(create, "<p class=\"submit\">\n");
+        string_catf(create, " <p class=\"left\"></p>\n");
+        string_catf(create, " <input type=\"submit\" name=\"commit\" value=\"Save\">\n");
+        string_catf(create, "</p>\n");
+        string_catf(create, "</div><br />\n");
+
     }
 
     web_template_change(web, "admin.html", "INSTANCES", string_contents(create));
