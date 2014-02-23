@@ -246,7 +246,7 @@ void http_send_file(sock_t *client, const char *file) {
     const char *mimetype = http_mime(strrchr(file, '.') + 1);
     http_send_header(client, length, mimetype);
 
-    /* Send contents oneline at a time */
+    /* Send contents one line at a time */
     while (getline(&data, &size, fp) != EOF)
         sock_send(client, data, strlen(data));
 

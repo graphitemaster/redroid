@@ -288,7 +288,7 @@ static void web_hook_redirect(sock_t *client, void *data) {
         web_admin_create(web);
         return web_template_send(web, client, "admin.html");
     }
-    return http_send_file(client, "login.html");
+    return web_template_send(web, client, "login.html");
 }
 
 static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
@@ -356,7 +356,7 @@ static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
 
     if (!strcmp(control, "Logout")) {
         web_session_control(data, client, false);
-        http_send_file(client, "login.html");
+        web_template_send(data, client, "login.html");
     } else if (!strcmp(control, "Settings")) {
         http_send_plain(client, "TODO: settings");
     } else {
@@ -417,8 +417,13 @@ web_t *web_create(void) {
     }
 
     /* register some templates */
-    web_template_register(web, "admin.html", 1, "INSTANCES");
-    web_template_register(web, "login.html", 1, "ERROR");
+    web_template_register(web, "admin.html", 2, "INSTANCES", "VERSION");
+    web_template_register(web, "login.html", 2, "ERROR",     "VERSION");
+
+    /* register common replacements */
+    const char *build_version();
+    web_template_change(web, "admin.html", "VERSION", build_version());
+    web_template_change(web, "login.html", "VERSION", build_version());
 
     /*
      * The thread will keep running for as long as the mutex is locked.
