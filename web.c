@@ -4,6 +4,7 @@
 #include "ripemd.h"
 #include "database.h"
 #include "string.h"
+#include "config.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -193,20 +194,45 @@ static void web_template_register(web_t *web, const char *file, size_t count, ..
 
 static void web_template_change(web_t *web, const char *file, const char *search, const char *replace) {
     web_template_t *find = web_template_find(web, file);
-    if (!find) {
-        printf("error find template\n");
+    if (!find)
         return;
-    }
 
-    /* find the entry */
     web_template_entry_t *entry = web_template_entry_find(find, search);
-    if (!entry) {
-        printf("error find entry\n");
+    if (!entry)
         return;
-    }
 
     free(entry->replace);
     entry->replace = strdup(replace);
+}
+
+/* administration web template generation */
+static void web_admin_create(web_t *web) {
+    string_t        *create = string_construct();
+    list_t          *config = config_load("config.ini");
+    list_iterator_t *it     = list_iterator_create(config);
+
+    while (!list_iterator_end(it)) {
+        config_t *entry = list_iterator_next(it);
+        string_catf(
+            create,
+            "<a href=\"javascript:toggle('%s');\" id=\"x%s\">[+]</a><strong>%s</strong>\n",
+            entry->name,
+            entry->name,
+            entry->name
+        );
+
+        string_catf(
+            create,
+            "               <div id=\"%s\" style=\"display: none;\">\n",
+            entry->name
+        );
+    }
+
+    web_template_change(web, "admin.html", "INSTANCES", string_contents(create));
+
+    list_iterator_destroy(it);
+    config_unload(config);
+    string_destroy(create);
 }
 
 /* web hooks */
@@ -214,8 +240,10 @@ static void web_hook_redirect(sock_t *client, void *data) {
     web_t         *web     = data;
     web_session_t *session = list_search(web->sessions, &web_session_search, client);
 
-    if (session && session->valid)
+    if (session && session->valid) {
+        web_admin_create(web);
         return web_template_send(web, client, "admin.html");
+    }
     return http_send_file(client, "login.html");
 }
 
@@ -266,6 +294,7 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
     if (database_row_pop_integer(row) != 0) {
         if (remember)
             web_session_control(web, client, true);
+        web_admin_create(web);
         web_template_send(web, client, "admin.html");
     } else {
         web_template_change(web, "login.html", "ERROR", "<h2>Invalid username or password</h2>");
