@@ -88,4 +88,24 @@ void *hashtable_find(hashtable_t *hashtable, const void *key, const size_t keyle
  */
 void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *));
 
+/*
+ * Function: hashtable_set_compare
+ *  Set the comparision function for the hashtable.
+ *
+ * Parameters:
+ *  hashtable   - The hashtable to set the comparision function of.
+ *  compare     - Pointer to the comparision function.
+ */
+void hashtable_set_compare(hashtable_t *hashtable, bool (*compare)(const void *, const size_t, const void *));
+
+/*
+ * Function: hashtable_set_hash
+ *  Set the hash function for the hashtable.
+ *
+ * Parameters:
+ *  hashtable   - The hashtable to set the hash function of.
+ *  hash        - Pointer to the hash function.
+ */
+void hashtable_set_hash(hashtable_t *hashtable, size_t (*hash)(const void *, const size_t));
+
 #endif /*!REDROID_HASHTABLE_HDR */

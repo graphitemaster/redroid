@@ -183,3 +183,11 @@ void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *)) {
     }
     pthread_mutex_unlock(&hashtable->mutex);
 }
+
+void hashtable_set_compare(hashtable_t *hashtable, bool (*compare)(const void *, const size_t, const void *)) {
+    hashtable->compare = compare;
+}
+
+void hashtable_set_hash(hashtable_t *hashtable, size_t (*hash)(const void *, const size_t)) {
+    hashtable->hash = hash;
+}
