@@ -78,4 +78,14 @@ bool hashtable_remove(hashtable_t *hashtable, const void *key, const size_t keyl
  */
 void *hashtable_find(hashtable_t *hashtable, const void *key, const size_t keylength);
 
+/*
+ * Function: hashtable_foreach
+ *  Execute a callback passing in each value in the entire hashtable.
+ *
+ * Parameters:
+ *  hashtable   - The hashtable to execute callback over.
+ *  callback    - Pointer to function callback
+ */
+void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *));
+
 #endif /*!REDROID_HASHTABLE_HDR */

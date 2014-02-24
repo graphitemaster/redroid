@@ -7,6 +7,7 @@
 #include "regexpr.h"
 #include "module.h"
 #include "ircparser.h"
+#include "hashtable.h"
 
 typedef struct irc_manager_s irc_manager_t;
 
@@ -56,7 +57,7 @@ typedef struct irc_s {
     list_t           *queue;
     module_manager_t *moduleman;
     database_t       *database;
-    regexpr_cache_t  *regexprcache;
+    hashtable_t      *regexprcache;
     irc_manager_t    *manager;
     irc_parser_t      parser;
     irc_message_t     message;

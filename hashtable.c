@@ -166,3 +166,20 @@ void *hashtable_find(hashtable_t *hashtable, const void *key, const size_t keyle
 
     return find ? find->value : NULL;
 }
+
+void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *)) {
+    pthread_mutex_lock(&hashtable->mutex);
+    for (size_t i = 0; i < hashtable->size; i++) {
+        list_t *list = hashtable->table[i];
+        if (list_length(list) == 0)
+            break;
+
+        list_iterator_t *it = list_iterator_create(list);
+        while (!list_iterator_end(it)) {
+            hashtable_entry_t *entry = list_iterator_next(it);
+            callback(entry->value);
+        }
+        list_iterator_destroy(it);
+    }
+    pthread_mutex_unlock(&hashtable->mutex);
+}

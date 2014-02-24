@@ -10,47 +10,24 @@ struct regexpr_s {
     char   *match;
 };
 
-struct regexpr_cache_s {
-    list_t *cache;
-};
-
-static bool regexpr_cache_find(const void *a, const void *b) {
-    const regexpr_t *expr = a;
-    if (!strcmp(expr->match, (const char *)b))
-        return true;
-    return false;
+void regexpr_cache_destroy(hashtable_t *cache) {
+    hashtable_foreach(cache, (void (*)(void*))&regexpr_destroy);
+    hashtable_destroy(cache);
 }
 
-void regexpr_cache_destroy(regexpr_cache_t *cache) {
-    list_iterator_t *it = list_iterator_create(cache->cache);
-
-    while (!list_iterator_end(it))
-        regexpr_destroy(list_iterator_next(it));
-
-    list_iterator_destroy(it);
-    list_destroy(cache->cache);
-    free(cache);
-}
-
-regexpr_cache_t *regexpr_cache_create(void) {
-    regexpr_cache_t *cache = malloc(sizeof(*cache));
-    cache->cache = list_create();
-    return cache;
-}
-
-static void regexpr_cache_insert(regexpr_cache_t *cache, regexpr_t *expr) {
-    list_push(cache->cache, expr);
+hashtable_t *regexpr_cache_create(void) {
+    return hashtable_create(256);
 }
 
 /* regular expression management */
-regexpr_t *regexpr_create(regexpr_cache_t *cache, const char *string, bool icase) {
+regexpr_t *regexpr_create(hashtable_t *cache, const char *string, bool icase) {
     /*
      * save on recompiling complex regular expressions if they're in cache.
      * This helps when a regex using module is invoked multiple times in succession,
      * which is quite common in an IRC channel.
      */
     regexpr_t *find;
-    if ((find = list_search(cache->cache, &regexpr_cache_find, string)))
+    if ((find = hashtable_find(cache, string, strlen(string))))
         return find;
 
     regexpr_t *next = malloc(sizeof(*next));
@@ -61,12 +38,7 @@ regexpr_t *regexpr_create(regexpr_cache_t *cache, const char *string, bool icase
     }
 
     next->match = strdup(string);
-
-    /*
-     * New entries won't have any initial hotness and will literally be
-     * at the tail of the list.
-     */
-    regexpr_cache_insert(cache, next);
+    hashtable_insert(cache, string, strlen(string), next);
     return next;
 }
 
