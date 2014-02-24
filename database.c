@@ -19,7 +19,7 @@ struct database_statement_s {
 };
 
 struct database_s {
-    list_t          *statements;
+    hashtable_t     *statements;
     sqlite3         *handle;
 };
 
@@ -72,13 +72,6 @@ static void database_row_push_integer(database_row_t *row, int value) {
     row->tail          = row->tail->next;
 }
 
-static bool database_statement_find(const void *a, const void *b) {
-    const database_statement_t *statement = a;
-    if (!strcmp(statement->string, (const char *)b))
-        return true;
-    return false;
-}
-
 static void database_statement_destroy(database_statement_t *statement) {
     sqlite3_finalize(statement->statement);
     free(statement->string);
@@ -86,11 +79,11 @@ static void database_statement_destroy(database_statement_t *statement) {
 }
 
 database_statement_t *database_statement_create(database_t *database, const char *string) {
-    database_statement_t *find = list_search(database->statements, &database_statement_find, string);
+    database_statement_t *find = hashtable_find(database->statements, string, strlen(string));
     if (find) {
         if (sqlite3_reset(find->statement) != SQLITE_OK) {
             database_statement_destroy(find);
-            list_erase(database->statements, find);
+            hashtable_remove(database->statements, string, strlen(string));
             goto create;
         }
         return find;
@@ -103,7 +96,7 @@ create:
         return NULL;
     }
     find->string = strdup(string);
-    list_push(database->statements, find);
+    hashtable_insert(database->statements, string, strlen(string), find);
     return find;
 }
 
@@ -197,18 +190,15 @@ database_t *database_create(const char *file) {
         free(database);
         return NULL;
     }
-    database->statements = list_create();
+    database->statements = hashtable_create(256);
     return database;
 }
 
 void database_destroy(database_t *database) {
     /* Clear the statement cache */
-    list_iterator_t *it = list_iterator_create(database->statements);
-    while (!list_iterator_end(it))
-        database_statement_destroy(list_iterator_next(it));
+    hashtable_foreach(database->statements, (void (*)(void *))&database_statement_destroy);
+    hashtable_destroy(database->statements);
 
-    list_iterator_destroy(it);
-    list_destroy(database->statements);
     sqlite3_close(database->handle);
     free(database);
 }
