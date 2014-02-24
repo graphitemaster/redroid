@@ -185,9 +185,9 @@ void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *)) {
 }
 
 void hashtable_set_compare(hashtable_t *hashtable, bool (*compare)(const void *, const size_t, const void *)) {
-    hashtable->compare = compare;
+    hashtable->compare = (compare) ? compare: &hashtable_funcs_compare;
 }
 
 void hashtable_set_hash(hashtable_t *hashtable, size_t (*hash)(const void *, const size_t)) {
-    hashtable->hash = hash;
+    hashtable->hash = (hash) ? hash : &hashtable_funcs_hash;
 }

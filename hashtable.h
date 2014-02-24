@@ -95,6 +95,10 @@ void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *));
  * Parameters:
  *  hashtable   - The hashtable to set the comparision function of.
  *  compare     - Pointer to the comparision function.
+ *
+ * Remarks:
+ *  If `compare` is NULL then the default compare function provided by
+ *  the hashtable implementation will be set.
  */
 void hashtable_set_compare(hashtable_t *hashtable, bool (*compare)(const void *, const size_t, const void *));
 
@@ -105,6 +109,10 @@ void hashtable_set_compare(hashtable_t *hashtable, bool (*compare)(const void *,
  * Parameters:
  *  hashtable   - The hashtable to set the hash function of.
  *  hash        - Pointer to the hash function.
+ *
+ * Remarks:
+ *  If `hash` is NULL then the default hash function provided by the
+ *  hashtable implementation will be set.
  */
 void hashtable_set_hash(hashtable_t *hashtable, size_t (*hash)(const void *, const size_t));
 
