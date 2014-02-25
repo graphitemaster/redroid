@@ -10,7 +10,9 @@
         <div class="container">
             <div class="login">
                 <h1>Login to Redroid</h1>
-                <!--$[[ERROR]]-->
+                <!--$[[IFDEF ERROR]]-->
+                <h2><!--$[[ERROR]]--></h2>
+                <!--$[[END]]-->
                 <form method="post" action="/::login" autocomplete="on">
                     <p><input type="text"     name="username" placeholder="Username"></p>
                     <p><input type="password" name="password" placeholder="Password"></p>

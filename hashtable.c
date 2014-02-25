@@ -171,8 +171,9 @@ void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *)) {
     pthread_mutex_lock(&hashtable->mutex);
     for (size_t i = 0; i < hashtable->size; i++) {
         list_t *list = hashtable->table[i];
-        if (list_length(list) == 0)
+        if (!list) {
             break;
+        }
 
         list_iterator_t *it = list_iterator_create(list);
         while (!list_iterator_end(it)) {

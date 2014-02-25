@@ -5,6 +5,7 @@
 #include "database.h"
 #include "string.h"
 #include "config.h"
+#include "hashtable.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -65,84 +66,112 @@ static void web_session_control(web_t *web, sock_t *client, bool add) {
 
 /* web string template engine */
 typedef struct {
-    list_t     *replaces;
-    const char *file;
-    char       *raw;
-    string_t   *formatted;
+    hashtable_t *replaces;
+    const char  *file;
+    list_t      *lines;
+    string_t    *formatted;
 } web_template_t;
 
 typedef struct {
-    char *search;
-    char *replace;
+    web_template_t *associated;
+    char           *search;
+    char           *replace;
 } web_template_entry_t;
 
+static void web_template_entries_destroy(web_template_entry_t *entry) {
+    free(entry->search);
+    free(entry->replace);
+    free(entry);
+}
+
+static void web_template_entries_update(web_template_entry_t *entry) {
+    string_t *find = string_format("<!--$[[%s]]-->", entry->search);
+    string_replace(entry->associated->formatted, string_contents(find), entry->replace);
+    string_destroy(find);
+}
+
 static void web_template_destroy(web_template_t *template) {
-    free(template->raw);
     string_destroy(template->formatted);
+    hashtable_foreach(template->replaces, (void (*)(void*))&web_template_entries_destroy);
 
-    list_iterator_t *it = list_iterator_create(template->replaces);
-    while (!list_iterator_end(it)) {
-        web_template_entry_t *entry = list_iterator_next(it);
-        free(entry->search);
-        free(entry->replace);
-        free(entry);
-    }
-    list_iterator_destroy(it);
+    char *line;
+    while ((line = list_pop(template->lines)))
+        free(line);
+    list_destroy(template->lines);
 
-    list_destroy(template->replaces);
     free(template);
 }
 
 static web_template_t *web_template_create(const char *infile) {
+    size_t    size = 0;
+    char     *line = NULL;
     string_t *file = string_format("site/%s", infile);
     FILE     *fp;
 
-    if (!(fp = fopen(string_contents(file), "r"))) {
-        printf("file not found!\n");
+    if (!(fp = fopen(string_contents(file), "r")))
         return NULL;
-    }
-
     string_destroy(file);
 
-    fseek(fp, 0, SEEK_END);
-    size_t size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
+    /* create new template and read in the file as individual lines */
+    web_template_t tmpl = {
+        .file      = infile,
+        .replaces  = hashtable_create(256),
+        .lines     = list_create(),
+        .formatted = string_construct()
+    };
 
-    web_template_t *tmpl = malloc(sizeof(*tmpl));
-
-    tmpl->raw      = malloc(size + 1);
-    tmpl->file     = infile;
-    tmpl->replaces = list_create();
-
-    if (fread(tmpl->raw, size, 1, fp) != 1)
-        goto web_template_error;
-
-    tmpl->raw[size] = '\0';
-    tmpl->formatted = string_construct();
+    while (getline(&line, &size, fp) != EOF)
+        list_push(tmpl.lines, strdup(line));
 
     fclose(fp);
-    return tmpl;
-
-web_template_error:
-    fclose(fp);
-    web_template_destroy(tmpl);
-    return NULL;
+    return memcpy(malloc(sizeof(tmpl)), &tmpl, sizeof(tmpl));
 }
 
 static void web_template_update(web_template_t *template) {
     string_destroy(template->formatted);
-    template->formatted = string_create(template->raw);
+    template->formatted = string_construct();
 
-    list_iterator_t *it = list_iterator_create(template->replaces);
+    list_iterator_t *it = list_iterator_create(template->lines);
     while (!list_iterator_end(it)) {
-        web_template_entry_t *entry = list_iterator_next(it);
-        if (!entry->replace)
+        char *beg = list_iterator_next(it);
+        char *end = beg;
+        bool  def = false;
+
+        /* deal with normal stuff */
+        if (!(end = strstr(beg, "<!--$[[IF"))) {
+            string_catf(template->formatted, beg);
             continue;
-        string_t *format = string_format("<!--$[[%s]]-->", entry->search);
-        string_replace(template->formatted, string_contents(format), entry->replace);
-        string_destroy(format);
+        }
+
+        beg = &end[strlen("<!--$[[IF")];
+        if (!strncmp(beg, "DEF ", 4))
+            def = true;
+        else if (!strncmp(beg, "NDEF ", 5))
+            def = false;
+        else
+            continue;
+
+        if (!(end = strstr(beg, "]]-->")))
+            continue;
+
+        /* terminate the identifier name */
+        end[0] = '\0';
+        web_template_entry_t *entry = hashtable_find(template->replaces, beg, strlen(beg));
+        char *ending = list_iterator_next(it);
+        while (!list_iterator_end(it) && !strstr(ending, "<!--$[[END]]-->")) {
+            if (def) {
+                if (entry && entry->replace)
+                    string_catf(template->formatted, "%s", ending);
+            } else if (!entry || !entry->replace) {
+                string_catf(template->formatted, "%s", ending);
+            }
+            ending = list_iterator_next(it);
+        }
+        continue;
     }
-    list_iterator_destroy(it);
+
+    /* perform string replacements on the formatted data */
+    hashtable_foreach(template->replaces, (void (*)(void *))&web_template_entries_update);
 }
 
 static bool web_template_search(const void *a, const void *b) {
@@ -153,17 +182,8 @@ static bool web_template_search(const void *a, const void *b) {
     return !strcmp(aa, bb);
 }
 
-static bool web_template_entry_search(const void *a, const void *b) {
-    const web_template_entry_t *ea = a;
-    return !strcmp(ea->search, (const char *)b);
-}
-
 static web_template_t *web_template_find(web_t *web, const char *name) {
     return list_search(web->templates, &web_template_search, name);
-}
-
-static web_template_entry_t *web_template_entry_find(web_template_t *template, const char *search) {
-    return list_search(template->replaces, &web_template_entry_search, search);
 }
 
 static void web_template_send(web_t *web, sock_t *client, const char *tmpl) {
@@ -187,9 +207,11 @@ static void web_template_register(web_t *web, const char *file, size_t count, ..
 
     for (size_t i = 0; i < count; i++) {
         web_template_entry_t *entry = malloc(sizeof(*entry));
-        entry->search  = strdup(va_arg(va, char *));
-        entry->replace = NULL;
-        list_push(find->replaces, entry);
+        entry->search     = strdup(va_arg(va, char *));
+        entry->replace    = NULL;
+        entry->associated = find;
+
+        hashtable_insert(find->replaces, entry->search, strlen(entry->search), entry);
     }
 
     va_end(va);
@@ -200,7 +222,7 @@ static void web_template_change(web_t *web, const char *file, const char *search
     if (!find)
         return;
 
-    web_template_entry_t *entry = web_template_entry_find(find, search);
+    web_template_entry_t *entry = hashtable_find(find->replaces, search, strlen(search));
     if (!entry)
         return;
 
@@ -341,7 +363,7 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
         web_admin_create(web);
         web_template_send(web, client, "admin.html");
     } else {
-        web_template_change(web, "login.html", "ERROR", "<h2>Invalid username or password</h2>");
+        web_template_change(web, "login.html", "ERROR", "Invalid username or password");
         web_template_send(web, client, "login.html");
     }
 
