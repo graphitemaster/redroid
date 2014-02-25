@@ -246,59 +246,75 @@ static void web_admin_create(web_t *web) {
 
     while (!list_iterator_end(it)) {
         config_t *entry = list_iterator_next(it);
-        string_catf(
-            create,
-            "<a href=\"javascript:toggle('%s');\" id=\"x%s\">[+]</a><strong>%s</strong>\n",
-            entry->name,
-            entry->name,
-            entry->name
-        );
 
-        string_catf(
-            create,
-            "               <div id=\"%s\" style=\"display: none;\">\n",
-            entry->name
-        );
-
-
-        string_catf(create, "<form method=\"post\" action=\"/::update\">");
-        string_catf(create, "<p class=\"left\">Nickname</p>\n");
-        string_catf(create, "<p class=\"right\"><input type=\"text\" name=\"nick\" value=\"%s\"></p>\n", entry->nick);
-        string_catf(create, "<p class=\"left\">Server host</p>\n");
-        string_catf(create, "<p class=\"right\"><input type=\"text\" name=\"host\" value=\"%s\"></p>\n", entry->host);
-        string_catf(create, "<p class=\"left\">Server port</p>\n");
-        string_catf(create, "<p class=\"right\"><input type=\"text\" name=\"port\" value=\"%s\"></p>\n", entry->port);
-        string_catf(create, "<p class=\"left\">Authentication (NickServ)</p>\n");
-        string_catf(create, "<p class=\"right\"><input type=\"password\" name=\"auth\" value=\"%s\"></p>\n", (entry->auth) ? entry->auth : "");
-        string_catf(create, "<p class=\"left\">Bot pattern</p>\n");
-        string_catf(create, "<p class=\"right\"><input type=\"text\" name=\"pattern\" value=\"%s\"></p>\n", entry->pattern);
-        string_catf(create, "<p class=\"left\">Channels (newline seperated)</p>\n");
-        string_catf(create, "<p class=\"right\">\n");
-        string_catf(create, " <textarea cols=\"10\" rows=\"10\" name=\"channels\">\n");
-
-        list_iterator_t *ct = list_iterator_create(entry->channels);
-        while (!list_iterator_end(ct))
-            string_catf(create, "%s\n", list_iterator_next(ct));
-        list_iterator_destroy(ct);
-        string_catf(create, "</textarea>\n");
-
-        string_catf(create, "</p>\n");
-        string_catf(create, "<p class=\"left\">Modules (newline seperated)</p>\n");
-        string_catf(create, "<p class=\"right\">\n");
-        string_catf(create, " <textarea cols=\"10\" rows=\"10\" name=\"modules\">\n");
+        string_catf(create,
+                "<h4>Instance: <span>%s</span> <i class='fa fa-arrow-circle-o-down pull-right'></i></h4>"
+                "<div>"
+                "<form method='post' action='/::update'>"
+                "<div class='row'>"
+                "<div class='col-xs-6'>"
+                "<div class='instanceListHeader'>Bot data</div>"
+                "<div class='form-group'>"
+                "<label for='nick'>Nickname</label>"
+                "<input value='%s' type='text' class='form-control' name='nick' placeholder='Bot\'s nickname.'>"
+                "</div>"
+                "<div class='form-group'>"
+                "<label for='pattern'>Bot pattern</label>"
+                "<input value='%s' type='text' class='form-control' name='pattern' placeholder='The pattern you\'ll command the bot with.'>"
+                "</div>"
+                "<div class='form-group'>"
+                "<label for='modules'>Modules (newline separated)</label>"
+                "<textarea class='form-control' name='modules' placeholder='List of modules you want the bot to load upon start.' rows='4'>",
+                entry->name,
+                entry->nick,
+                entry->pattern);
 
         list_iterator_t *mo = list_iterator_create(entry->modules);
         while (!list_iterator_end(mo))
             string_catf(create, "%s\n", list_iterator_next(mo));
         list_iterator_destroy(mo);
-        string_catf(create, "</textarea>\n");
 
-        string_catf(create, "</p>\n");
-        string_catf(create, "<p class=\"submit\">\n");
-        string_catf(create, " <p class=\"left\"></p>\n");
-        string_catf(create, " <input type=\"submit\" name=\"commit\" value=\"Save\">\n");
-        string_catf(create, "</p>\n");
-        string_catf(create, "</div><br />\n");
+        string_catf(create,
+                "</textarea>"
+                "</div>"
+                "</div>"
+                "<div class='col-xs-6'>"
+                "<div class='instanceListHeader'>Server data</div>"
+                "<div class='form-group'>"
+                "<label for='host'>Server host</label>"
+                "<input value='%s' type='text' class='form-control' name='host' placeholder='The server the bot will connect to.'>"
+                "</div>"
+                "<div class='form-group'>"
+                "<label for='port'>Server port</label>"
+                "<input value='%s' type='text' class='form-control' name='port' placeholder='The server\'s port.'>"
+                "</div>"
+                "<div class='form-group'>"
+                "<label for='auth'>Authentication (NickServ)</label>"
+                "<input value='%s' type='password' class='form-control' name='auth' placeholder='The bot\'s NickServ password (optional).'>"
+                "</div>"
+                "<div class='form-group'>"
+                "<label for='channels'>Channels (newline separated)</label>"
+                "<textarea class='form-control' name='channels' placeholder='List of channels you want the bot to join upon connect.' rows='4'>",
+                entry->host,
+                entry->port,
+                (entry->auth) ? entry->auth : "");
+
+        list_iterator_t *ct = list_iterator_create(entry->channels);
+        while (!list_iterator_end(ct))
+            string_catf(create, "%s\n", list_iterator_next(ct));
+        list_iterator_destroy(ct);
+
+        string_catf(create,
+                "</textarea>"
+                "</div>"
+                "</div>"
+                "<div class='col-xs-offset-10 col-xs-2'>"
+                "<button type='submit' class='btn btn-block btn-danger'>Save <i class='fa fa-floppy-o'></i></button>"
+                "</div>"
+                "</div>"
+                "</form>"
+                "</div>"
+                );
 
     }
 
@@ -318,7 +334,7 @@ static void web_hook_redirect(sock_t *client, void *data) {
         web_admin_create(web);
         return web_template_send(web, client, "admin.html");
     }
-    return web_template_send(web, client, "login.html");
+    return web_template_send(web, client, "index.html");
 }
 
 static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
@@ -371,8 +387,8 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
         web_admin_create(web);
         web_template_send(web, client, "admin.html");
     } else {
-        web_template_change(web, "login.html", "ERROR", "Invalid username or password");
-        web_template_send(web, client, "login.html");
+        web_template_change(web, "index.html", "ERROR", "Invalid username or password");
+        web_template_send(web, client, "index.html");
     }
 
     database_statement_complete(statement);
@@ -386,7 +402,7 @@ static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
 
     if (!strcmp(control, "Logout")) {
         web_session_control(data, client, false);
-        web_template_send(data, client, "login.html");
+        web_template_send(data, client, "index.html");
     } else if (!strcmp(control, "Settings")) {
         http_send_plain(client, "TODO: settings");
     } else {
@@ -448,12 +464,12 @@ web_t *web_create(void) {
 
     /* register some templates */
     web_template_register(web, "admin.html", 2, "INSTANCES", "VERSION");
-    web_template_register(web, "login.html", 2, "ERROR",     "VERSION");
+    web_template_register(web, "index.html", 2, "ERROR",     "VERSION");
 
     /* register common replacements */
     const char *build_version();
     web_template_change(web, "admin.html", "VERSION", build_version());
-    web_template_change(web, "login.html", "VERSION", build_version());
+    web_template_change(web, "index.html", "VERSION", build_version());
 
     /*
      * The thread will keep running for as long as the mutex is locked.
