@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>
+#include <ctype.h>
 #include <pthread.h>
 
 typedef struct {
@@ -141,6 +142,7 @@ static void web_template_update(web_template_t *template) {
 
         /* deal with normal stuff */
         if (!(end = strstr(beg, "<!--$[[IF"))) {
+            while (isspace(*beg)) beg++;
             string_catf(template->formatted, beg);
             continue;
         }
@@ -160,11 +162,14 @@ static void web_template_update(web_template_t *template) {
         end[0] = '\0';
         web_template_entry_t *entry = hashtable_find(template->replaces, beg, strlen(beg));
         char *ending = list_iterator_next(it);
-        while (!list_iterator_end(it) && !strstr(ending, "<!--$[[END]]-->")) {
+        while (!list_iterator_end(it) && !strstr(ending, "<!--$[[ENDIF]]-->")) {
             if (def) {
-                if (entry && entry->replace)
+                if (entry && entry->replace) {
+                    while (isspace(*ending)) ending++;
                     string_catf(template->formatted, "%s", ending);
+                }
             } else if (!entry || !entry->replace) {
+                while (isspace(*ending)) ending++;
                 string_catf(template->formatted, "%s", ending);
             }
             ending = list_iterator_next(it);
