@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<title>Redroid :: Web Panel</title>
+	<meta name="description" content="">
+	<meta name="viewport" content="width=device-width">
+
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css">
+	<link rel="stylesheet" href="style.min.css">
+</head>
+<body id="login">
+	<header id="header">
+		<div class="container">
+			<div class="row">
+				<div class="col-xs-offset-3 col-xs-6">
+					<div id="headerContainer">
+						<h2>Welcome to <strong>Redroid</strong>'s Web Panel</h2>
+					</div>
+				</div>
+			</div>
+		</div>
+	</header>
+
+	<section id="body">
+		<div class="container">
+			<div class="row">
+				<div class="col-xs-offset-3 col-xs-6">
+					<div id="bodyContainer">
+						<!--$[[IFDEF ERROR]]-->
+						<div class="alert alert-warning">
+							<!--$[[ERROR]]-->
+						</div>
+						<!--$[[ENDIF]]-->
+
+						<form role="form" method="post" action="/::login" autocomplete="on">
+							<div class="form-group">
+								<label for="username">Username</label>
+
+								<div class="input-group">
+									<span class="input-group-addon"><i class="fa fa-user"></i></span>
+									<input type="text" class="form-control" id="username" name="username" placeholder="Please enter your username.">
+								</div>
+							</div>
+
+							<div class="form-group">
+								<label for="password">Password</label>
+
+								<div class="input-group">
+									<span class="input-group-addon"><i class="fa fa-key"></i></span>
+									<input type="password" class="form-control" id="password" name="password" placeholder="Please enter your super secret password.">
+								</div>
+							</div>
+
+							<div class="row">
+								<div class="col-xs-9">
+									<div class="checkbox">
+										<label>
+											<input type="checkbox" name="remember_me"> Remember me
+										</label>
+									</div>
+								</div>
+
+								<div class="col-xs-3">
+									<button type="submit" class="btn btn-block btn-danger" name="commit">Login <i class="fa fa-arrow-right"></i></button>
+								</div>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<footer>
+		<div class="container">
+			<div class="row">
+				<div class="col-xs-offset-3 col-xs-6">
+					<div id="footer">
+						<!--$[[VERSION]]-->
+					</div>
+				</div>
+			</div>
+		</div>
+	</footer>
+
+
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
+	<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+</body>
+</html>
