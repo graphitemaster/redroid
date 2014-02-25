@@ -174,7 +174,7 @@ static int sock_standard_getfd(const sock_ctx_t *ctx) {
     return ctx->fd;
 }
 
-static sock_t *sock_standard_create(int fd, bool listen, const char *host) {
+static sock_t *sock_standard_create(int fd, bool listen, const char *host, bool nonblocking) {
     sock_t     *socket = malloc(sizeof(*socket));
     sock_ctx_t *data   = malloc(sizeof(*data));
 
@@ -188,7 +188,7 @@ static sock_t *sock_standard_create(int fd, bool listen, const char *host) {
     socket->listen  = listen;
     socket->host    = strdup(host);
 
-    if (!sock_nonblock(fd)) {
+    if (nonblocking && !sock_nonblock(fd)) {
         free(socket);
         free(data);
         return NULL;
@@ -231,7 +231,7 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
             inet_ntop(AF_INET6, &ipv6->sin6_addr, resolved, sizeof(resolved));
         }
 
-        return sock_standard_create(restart->fd, true, resolved);
+        return sock_standard_create(restart->fd, true, resolved, true);
     }
 
     /*
@@ -245,7 +245,7 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
             return NULL;
 
         /* Listen servers cannot SSL */
-        return sock_standard_create(fd, true, host);
+        return sock_standard_create(fd, true, host, false);
     }
 
     char *resolved = NULL;
@@ -253,7 +253,7 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
     if (fd == -1)
         return NULL;
 
-    sock_t *sock = sock_standard_create(fd, false, resolved);
+    sock_t *sock = sock_standard_create(fd, false, resolved, true);
     free(resolved);
     return sock;
 }
@@ -308,7 +308,7 @@ sock_t *sock_accept(sock_t *socket) {
         return NULL;
 
     /* Resolved client host is saved for sessions */
-    return sock_standard_create(clientfd, false, inet_ntoa(clientaddr.sin_addr));
+    return sock_standard_create(clientfd, false, inet_ntoa(clientaddr.sin_addr), false);
 }
 
 bool sock_destroy(sock_t *socket, sock_restart_t *restart) {

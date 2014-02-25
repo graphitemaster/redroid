@@ -437,8 +437,11 @@ web_t *web_create(void) {
 }
 
 void web_destroy(web_t *web) {
-    /* Unlock to terminate the thread and join. */
+    /* Unlock to terminate*/
     pthread_mutex_unlock(&web->mutex);
+    /* terminate any accept in the http backend */
+    pthread_cancel(web->thread);
+    /* We can gracefully leave the thread now */
     pthread_join(web->thread, NULL);
 
     mt_destroy(web->rand);
