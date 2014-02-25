@@ -93,6 +93,7 @@ static void web_template_entries_update(web_template_entry_t *entry) {
 static void web_template_destroy(web_template_t *template) {
     string_destroy(template->formatted);
     hashtable_foreach(template->replaces, (void (*)(void*))&web_template_entries_destroy);
+    hashtable_destroy(template->replaces);
 
     char *line;
     while ((line = list_pop(template->lines)))
