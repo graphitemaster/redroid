@@ -124,6 +124,7 @@ static web_template_t *web_template_create(const char *infile) {
     while (getline(&line, &size, fp) != EOF)
         list_push(tmpl.lines, strdup(line));
 
+    free(line);
     fclose(fp);
     return memcpy(malloc(sizeof(tmpl)), &tmpl, sizeof(tmpl));
 }
