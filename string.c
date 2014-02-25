@@ -22,13 +22,15 @@ static void string_reallocate(string_t *string) {
 }
 
 static void string_reassociate(string_t *oldstr, string_t *newstr) {
+    size_t allocated = newstr->allocated;
+    size_t length    = newstr->length;
+    char  *move      = string_move(newstr);
+
     string_clear(oldstr);
 
-    oldstr->buffer    = newstr->buffer;
-    oldstr->allocated = newstr->allocated;
-    oldstr->length    = newstr->length;
-
-    free(newstr);
+    oldstr->buffer    = move;
+    oldstr->allocated = allocated;
+    oldstr->length    = length;
 }
 
 void string_vcatf(string_t *string, const char *fmt, va_list varg) {

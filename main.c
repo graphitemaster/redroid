@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-#if 0
+#if 1
     web_begin(web);
     while (signal_empty())
         ;

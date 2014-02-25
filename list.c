@@ -135,7 +135,7 @@ static void list_atcache_check(list_t *list) {
 static void list_atcache_cache_index(list_t *list, list_node_t *node, size_t index) {
     list_atcache_check(list);
 
-    if (list->length > list->atcache.size)
+    if (list->length >= list->atcache.size)
         list_atcache_resize(list);
 
     list->atcache.data[index] = node;

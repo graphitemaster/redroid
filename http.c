@@ -11,9 +11,9 @@
 #include <errno.h>
 
 typedef struct {
-    bool        post;
-    void       *data;
-    const char *match;
+    bool  post;
+    void *data;
+    char *match;
     union {
         void  (*post)(sock_t *client, list_t *kvs, void *data);
         void  (*get)(sock_t *client, void *data);
@@ -161,7 +161,7 @@ void http_intercept_post(
     http_intercept_t *intercept = malloc(sizeof(*intercept));
 
     intercept->post          = true;
-    intercept->match         = match;
+    intercept->match         = strdup(match);
     intercept->callback.post = callback;
     intercept->data          = data;
 
@@ -177,7 +177,7 @@ void http_intercept_get(
     http_intercept_t *intercept = malloc(sizeof(*intercept));
 
     intercept->post         = false;
-    intercept->match        = match;
+    intercept->match        = strdup(match);
     intercept->callback.get = callback;
     intercept->data         = data;
 
@@ -191,8 +191,10 @@ static bool http_intercept_search(const void *a, const void *b) {
 
 static void http_intercepts_destroy(http_t *http) {
     http_intercept_t *handle;
-    while ((handle = list_pop(http->intercepts)))
+    while ((handle = list_pop(http->intercepts))) {
+        free(handle->match);
         free(handle);
+    }
 }
 
 /* HTTP send */

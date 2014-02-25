@@ -171,6 +171,7 @@ static void web_template_update(web_template_t *template) {
         }
         continue;
     }
+    list_iterator_destroy(it);
 
     /* perform string replacements on the formatted data */
     hashtable_foreach(template->replaces, (void (*)(void *))&web_template_entries_update);
