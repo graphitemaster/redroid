@@ -121,3 +121,7 @@ safely shut down the process.
 In daemon mode there is no easy way to shut down the bot other than
 to send a `SIGINT` signal with kill, for that you'll need the PID.
 Optionally you can `killall -SIGINT redroid`.
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/graphitemaster/redroid/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
