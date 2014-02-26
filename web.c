@@ -15,6 +15,9 @@
 #include <ctype.h>
 #include <pthread.h>
 
+void redroid_restart_global(irc_manager_t *irc);
+void redroid_shutdown_global(irc_manager_t *irc);
+
 typedef struct {
     char    *host;
     bool     valid;
@@ -29,6 +32,7 @@ struct web_s {
     pthread_mutex_t mutex;
     list_t         *sessions;
     list_t         *templates;
+    irc_manager_t  *ircmanager;
 };
 
 static web_session_t *web_session_create(web_t *web, sock_t *client) {
@@ -404,9 +408,29 @@ static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
         web_session_control(data, client, false);
         web_template_send(data, client, "index.html");
     } else if (!strcmp(control, "Settings")) {
-        http_send_plain(client, "TODO: settings");
+        web_template_send(data, client, "system.html");
     } else {
         http_send_unimplemented(client);
+    }
+}
+
+static void web_hook_postsystem(sock_t *client, list_t *post, void *data) {
+    web_t      *web     = data;
+    const char *control = http_post_find(post, "control");
+
+    if (!control)
+        http_send_plain(client, "301 Operation not supported");
+
+    if (!strcmp(control, "Shutdown")) {
+        web_template_change(data, "system.html", "ACTION", "Shutting down");
+        web_template_send(data, client, "system.html");
+        irc_manager_broadcast(web->ircmanager, "Web client: %s initiaited shutdown", client->host);
+        redroid_shutdown_global(web->ircmanager);
+    } else if (!strcmp(control, "Restart")) {
+        web_template_change(data, "system.html", "ACTION", "Restarting");
+        web_template_send(data, client, "system.html");
+        irc_manager_broadcast(web->ircmanager, "Web client: %s initiaited restart", client->host);
+        redroid_restart_global(web->ircmanager);
     }
 }
 
@@ -448,11 +472,12 @@ web_t *web_create(void) {
     web->templates = list_create();
 
     /* register intercepts for post POST */
-    http_intercept_post(server, "::login", &web_hook_postlogin, web);
-    http_intercept_post(server, "::admin", &web_hook_postadmin, web);
+    http_intercept_post(server, "::login",  &web_hook_postlogin,  web);
+    http_intercept_post(server, "::admin",  &web_hook_postadmin,  web);
+    http_intercept_post(server, "::system", &web_hook_postsystem, web);
 
     /* Register common landing page redirects */
-    static const char *common_lands[] = { "admin", "index", "login", "home", "" };
+    static const char *common_lands[] = { "admin", "index", "login", "home", "system", "" };
     static const char *common_exts[]  = { "htm",   "html",  "HTM",   "HTML", "" };
     for (size_t i = 0; i < sizeof(common_lands)/sizeof(*common_lands); i++) {
         for (size_t j = 0; j < sizeof(common_exts)/sizeof(*common_exts); j++) {
@@ -463,13 +488,15 @@ web_t *web_create(void) {
     }
 
     /* register some templates */
-    web_template_register(web, "admin.html", 2, "INSTANCES", "VERSION");
-    web_template_register(web, "index.html", 2, "ERROR",     "VERSION");
+    web_template_register(web, "admin.html",  2, "INSTANCES", "VERSION");
+    web_template_register(web, "index.html",  2, "ERROR",     "VERSION");
+    web_template_register(web, "system.html", 2, "ACTION",    "VERSION");
 
     /* register common replacements */
     const char *build_version();
-    web_template_change(web, "admin.html", "VERSION", build_version());
-    web_template_change(web, "index.html", "VERSION", build_version());
+    web_template_change(web, "admin.html",  "VERSION", build_version());
+    web_template_change(web, "index.html",  "VERSION", build_version());
+    web_template_change(web, "system.html", "VERSION", build_version());
 
     /*
      * The thread will keep running for as long as the mutex is locked.
@@ -510,6 +537,7 @@ void web_destroy(web_t *web) {
     free(web);
 }
 
-void web_begin(web_t *web) {
+void web_begin(web_t *web, irc_manager_t *manager) {
+    web->ircmanager = manager; /* need manager to do shutdown */
     pthread_create(&web->thread, NULL, &web_thread, (void*)web);
 }

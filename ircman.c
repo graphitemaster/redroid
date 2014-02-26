@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <time.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #include <unistd.h>
 #include <poll.h>
@@ -161,6 +162,26 @@ irc_manager_t *irc_manager_create(void) {
     man->wakefds[1] = -1;
 
     return man;
+}
+
+void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
+    string_t *string = string_construct();
+    va_list   va;
+
+    va_start(va, message);
+    string_vcatf(string, message, va);
+
+    for (size_t i = 0; i < manager->instances->size; i++) {
+        irc_t  *irc = manager->instances->data[i];
+        list_iterator_t *it = list_iterator_create(irc->channels);
+        while (!list_iterator_end(it)) {
+            irc_channel_t *channel = list_iterator_next(it);
+            irc_write(irc, channel->channel, string_contents(string));
+        }
+        list_iterator_destroy(it);
+    }
+
+    va_end(va);
 }
 
 void irc_manager_wake(irc_manager_t *manager) {

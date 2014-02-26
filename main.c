@@ -60,6 +60,18 @@ static restart_info_t *restart_info_singleton(restart_info_t *info) {
     return rest;
 }
 
+void redroid_restart_global(irc_manager_t *manager) {
+    /* global is only called via the webclient */
+    restart_info_singleton(restart_info_create(";webclient", ";webclient", ";webclient"));
+    signal_restart(true);
+    irc_manager_wake(manager);
+}
+
+void redroid_shutdown_global(irc_manager_t *manager) {
+    signal_shutdown(true);
+    irc_manager_wake(manager);
+}
+
 void redroid_restart(irc_t *irc, const char *channel, const char *user) {
     /* Install information and restart */
     restart_info_singleton(restart_info_create(irc->name, channel, user));
@@ -68,8 +80,8 @@ void redroid_restart(irc_t *irc, const char *channel, const char *user) {
 }
 
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user) {
-    signal_shutdown(true);
-    irc_manager_wake(irc->manager);
+    /* todo print message */
+    redroid_shutdown_global(irc->manager);
 }
 
 static bool signal_restart(bool restart) {
@@ -194,7 +206,7 @@ int main(int argc, char **argv) {
     }
 
 #if 0
-    web_begin(web);
+    web_begin(web, manager);
     while (signal_empty())
         ;
     web_destroy(web);
@@ -333,14 +345,26 @@ int main(int argc, char **argv) {
         char *date     = strdup(strtok(NULL,     "|"));
         char *time     = strdup(strtok(NULL,     "|"));
 
-        irc_t *update = irc_manager_find(manager, instance);
-        irc_write(update, channel, "%s: successfully restarted\n", user);
+        /* no suitable restart information whenc oming from web client */
+        if (strcmp(instance, ";webclient")) {
+            irc_t *update = irc_manager_find(manager, instance);
+            irc_write(update, channel, "%s: successfully restarted", user);
 
-        if (strcmp(date, build_date()) || strcmp(time, build_time())) {
-            irc_write(update, channel, "%s: last instance build timestamp %s %s", user, date, time);
-            irc_write(update, channel, "%s: this instance build timestamp %s %s", user, build_date(), build_time());
+            if (strcmp(date, build_date()) || strcmp(time, build_time())) {
+                irc_write(update, channel, "%s: last instance build timestamp %s %s", user, date, time);
+                irc_write(update, channel, "%s: this instance build timestamp %s %s", user, build_date(), build_time());
+            } else {
+                irc_write(update, channel, "%s: this instance is the same binary as last instance", user);
+            }
         } else {
-            irc_write(update, channel, "%s: this instance is the same binary as last instance", user);
+            /* broadcast to all channels and servers */
+            irc_manager_broadcast(manager, "successfully restarted");
+            if (strcmp(date, build_date()) || strcmp(time, build_time())) {
+                irc_manager_broadcast(manager, "last instance build timestamp %s %s", date, time);
+                irc_manager_broadcast(manager, "this instance build timestamp %s %s", build_date(), build_time());
+            } else {
+                irc_manager_broadcast(manager, "this instance is the same binary as last instance");
+            }
         }
 
         unlink(tmpfilename);
@@ -426,7 +450,7 @@ int main(int argc, char **argv) {
     }
 
     /* Start the web frontend */
-    web_begin(web);
+    web_begin(web, manager);
 
     while (signal_empty()) {
         irc_manager_process(manager);
@@ -465,7 +489,8 @@ int main(int argc, char **argv) {
             restinfo->channel,
             restinfo->user,
             build_date(),
-            build_time());
+            build_time()
+        );
 
         /*
          * Calculate the length of the info line and store it as the

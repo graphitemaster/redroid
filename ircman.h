@@ -26,5 +26,6 @@ void irc_manager_add(irc_manager_t *manager, irc_t *instance);
 bool irc_manager_empty(irc_manager_t *manager);
 list_t *irc_manager_restart(irc_manager_t *manager);
 void irc_manager_wake(irc_manager_t *manager);
+void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...);
 
 #endif
