@@ -424,12 +424,10 @@ static void web_hook_postsystem(sock_t *client, list_t *post, void *data) {
     if (!strcmp(control, "Shutdown")) {
         web_template_change(data, "system.html", "ACTION", "Shutting down");
         web_template_send(data, client, "system.html");
-        irc_manager_broadcast(web->ircmanager, "Web client: %s initiaited shutdown", client->host);
         redroid_shutdown_global(web->ircmanager);
     } else if (!strcmp(control, "Restart")) {
         web_template_change(data, "system.html", "ACTION", "Restarting");
         web_template_send(data, client, "system.html");
-        irc_manager_broadcast(web->ircmanager, "Web client: %s initiaited restart", client->host);
         redroid_restart_global(web->ircmanager);
     }
 }
