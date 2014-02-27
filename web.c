@@ -509,16 +509,25 @@ web_t *web_create(void) {
 
 void web_destroy(web_t *web) {
     /* Unlock to terminate*/
+
     pthread_mutex_unlock(&web->mutex);
-    /* terminate any accept in the http backend */
-    pthread_cancel(web->thread);
+    /*
+     * The http server needs to be shutdown before we join the thread.
+     * The reason for this is that the http_process may be in a blocking
+     * state (stuck in poll). This means that we may not have actually
+     * left the thread yet. http_destroy sends a wake event to a pipe
+     * which will wake the poll and unblock. From here the thread is
+     * finally left and we can join.
+     */
+    http_destroy(web->server);
+
     /* We can gracefully leave the thread now */
     pthread_join(web->thread, NULL);
 
+    /* destroy any other things */
     mt_destroy(web->rand);
     ripemd_destroy(web->ripemd);
     database_destroy(web->database);
-    http_destroy(web->server);
 
     /* destroy sessions */
     web_session_t *session;

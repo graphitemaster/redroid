@@ -9,6 +9,8 @@
 
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
 
 typedef struct {
     bool  post;
@@ -27,9 +29,11 @@ typedef struct {
 } http_client_t;
 
 struct http_s {
-    sock_t *host;
-    list_t *clients;
-    list_t *intercepts;
+    sock_t       *host;
+    list_t       *clients;
+    list_t       *intercepts;
+    struct pollfd polls[2];
+    int           wakefds[2];
 };
 
 #define HTTP_BUFFERSIZE 8096
@@ -147,9 +151,44 @@ http_t *http_create(const char *port) {
         return NULL;
     }
 
+    if (pipe(http->wakefds) == -1) {
+        free(http);
+        return NULL;
+    }
+
+    http->polls[0].fd     = http->wakefds[0];
+    http->polls[0].events = POLLIN | POLLPRI;
+
+    int flags = fcntl(http->wakefds[0], F_GETFL);
+    if (flags == -1)
+        goto http_create_error;
+    flags |= O_NONBLOCK;
+    if (fcntl(http->wakefds[0], F_SETFL, flags) == -1)
+        goto http_create_error;
+
+    flags = fcntl(http->wakefds[1], F_GETFL);
+    if (flags == -1)
+        goto http_create_error;
+    flags |= O_NONBLOCK;
+    if (fcntl(http->wakefds[1], F_SETFL, flags) == -1)
+        goto http_create_error;
+
+    http->polls[1].fd     = sock_getfd(http->host);
+    http->polls[1].events = POLLIN | POLLPRI;
+
     http->clients    = list_create();
     http->intercepts = list_create();
+
     return http;
+
+http_create_error:
+    close(http->wakefds[0]);
+    close(http->wakefds[1]);
+
+    sock_destroy(http->host, NULL);
+    free(http);
+
+    return NULL;
 }
 
 void http_intercept_post(
@@ -358,6 +397,19 @@ static void http_client_process(http_t *http, sock_t *client) {
 }
 
 void http_process(http_t *http) {
+    /* Blocking poll */
+    int wait = poll(http->polls, 2, -1);
+    if (wait == 0 || wait == -1)
+        return;
+
+    /*
+     * if there is a read event on the wakeup pipe i.e http server
+     * cancelation then we immediately return.
+     */
+    if (http->polls[0].revents & POLLIN)
+        return;
+
+    /* we can do a non blocking accept now */
     http_client_accept(http);
 
     /* Process clients */
@@ -379,9 +431,20 @@ void http_process(http_t *http) {
     list_iterator_destroy(it);
 }
 
-void http_destroy(http_t *http) {
-    http_intercepts_destroy(http);
+static void http_terminate(http_t *http) {
+    /*
+     * write some data to the wakefd pipe so that if there is any block
+     * in poll at the http_process level we'll leave it quickly.
+     */
+    if (write(http->wakefds[1], "wakeup", 6) == -1) {
+        /* something went wrong */
+        abort();
+    }
+}
 
+void http_destroy(http_t *http) {
+    http_terminate(http);
+    http_intercepts_destroy(http);
     sock_destroy(http->host, NULL);
 
     /* Destroy any active clients */
@@ -391,6 +454,10 @@ void http_destroy(http_t *http) {
 
     list_destroy(http->clients);
     list_destroy(http->intercepts);
+
+    /* close the wakeup pipe descriptors */
+    close(http->wakefds[0]);
+    close(http->wakefds[1]);
 
     free(http);
 }

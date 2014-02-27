@@ -245,7 +245,7 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
             return NULL;
 
         /* Listen servers cannot SSL */
-        return sock_standard_create(fd, true, host, false);
+        return sock_standard_create(fd, true, host, true);
     }
 
     char *resolved = NULL;
@@ -308,7 +308,9 @@ sock_t *sock_accept(sock_t *socket) {
         return NULL;
 
     /* Resolved client host is saved for sessions */
-    return sock_standard_create(clientfd, false, inet_ntoa(clientaddr.sin_addr), false);
+    sock_t *sock = sock_standard_create(clientfd, false, inet_ntoa(clientaddr.sin_addr), false);
+    return sock;
+
 }
 
 bool sock_destroy(sock_t *socket, sock_restart_t *restart) {
