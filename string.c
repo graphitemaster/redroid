@@ -31,6 +31,8 @@ static void string_reassociate(string_t *oldstr, string_t *newstr) {
     oldstr->buffer    = move;
     oldstr->allocated = allocated;
     oldstr->length    = length;
+
+    free(newstr);
 }
 
 void string_vcatf(string_t *string, const char *fmt, va_list varg) {
@@ -136,13 +138,14 @@ char *string_end(string_t *string) {
 }
 
 void string_replace(string_t *string, const char *search, const char *replace) {
-    string_t *modified = string_construct();
+    string_t *modified = NULL;
     char     *content  = string_contents(string);
     char     *find     = strstr(content, search);
 
     if (!find)
         return;
 
+    modified = string_construct();
     while (find) {
         *find = '\0';
         string_catf(modified, "%s%s", content, replace);

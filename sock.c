@@ -308,9 +308,7 @@ sock_t *sock_accept(sock_t *socket) {
         return NULL;
 
     /* Resolved client host is saved for sessions */
-    sock_t *sock = sock_standard_create(clientfd, false, inet_ntoa(clientaddr.sin_addr), false);
-    return sock;
-
+    return sock_standard_create(clientfd, false, inet_ntoa(clientaddr.sin_addr), false);
 }
 
 bool sock_destroy(sock_t *socket, sock_restart_t *restart) {

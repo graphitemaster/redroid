@@ -474,6 +474,7 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
             free(list_iterator_next(ut));
         list_iterator_destroy(ut);
         list_destroy(ch->users);
+        free(ch->channel);
         free(ch->topic);
         free(ch);
     }
