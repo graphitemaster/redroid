@@ -265,6 +265,8 @@ void irc_manager_process(irc_manager_t *manager) {
                 fprintf(stderr, "    module   => %s interval met\n", module->name);
                 module->lastinterval = time(0);
                 cmd_channel_push(manager->commander, entry);
+            } else {
+                cmd_entry_destroy(entry);
             }
         }
         list_iterator_destroy(it);
