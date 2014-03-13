@@ -10,7 +10,9 @@
 #include <signal.h>
 #include <stdio.h>
 
-#define COMMAND_TIMEOUT_SECONDS 10
+#define COMMAND_TIMEOUT_SECONDS 5
+
+static volatile bool cmd_channel_crashed = false;
 
 struct cmd_link_s {
     cmd_entry_t *data;
@@ -95,6 +97,7 @@ void cmd_channel_destroy(cmd_channel_t *channel) {
         link = next;
     }
 
+    pthread_key_delete(cmd_channel_crashed);
     free(channel);
 }
 
@@ -193,7 +196,9 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
 }
 
 static void cmd_channel_signalhandle_quit(int sig) {
-    /* Bring down the thread */
+    /* not a timeout, i.e module crashed */
+    if (sig != SIGUSR2)
+        cmd_channel_crashed = true;
     pthread_exit(NULL);
 }
 
@@ -226,8 +231,10 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
         irc_write(
             entry->instance->instance,
             string_contents(entry->channel),
-            "%s: command timed out",
-            string_contents(entry->user)
+            "%s: command %s",
+            string_contents(entry->user),
+            cmd_channel_crashed ? "crashed"
+                                : "timed out"
         );
     }
 
@@ -323,6 +330,14 @@ static bool cmd_channel_init(cmd_channel_t *channel) {
 bool cmd_channel_begin(cmd_channel_t *channel) {
     if (!channel->ready && !cmd_channel_init(channel))
         return false;
+
+    /* coming back from a crash or timeout? */
+    if (channel->ready) {
+        /* reestablish signal handler because SIG_DFL */
+        signal(SIGUSR2, &cmd_channel_signalhandle_quit);
+        signal(SIGSEGV, &cmd_channel_signalhandle_quit);
+        cmd_channel_crashed = false;
+    }
 
     if (pthread_create(&channel->thread, NULL, &cmd_channel_threader, channel) == 0) {
         printf("    queue    => %s\n", (channel->ready) ? "restarted" : "running");
