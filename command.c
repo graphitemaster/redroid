@@ -97,7 +97,6 @@ void cmd_channel_destroy(cmd_channel_t *channel) {
         link = next;
     }
 
-    pthread_key_delete(cmd_channel_crashed);
     free(channel);
 }
 
