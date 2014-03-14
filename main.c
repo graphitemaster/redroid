@@ -258,7 +258,7 @@ static void signal_daemonize(bool closehandles) {
 
     umask(0);
 
-    if ((sid = setsid() == -1))
+    if ((sid = setsid()) == -1)
         exit(EXIT_FAILURE);
 
     if (!closehandles)
