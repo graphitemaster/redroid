@@ -15,7 +15,9 @@ Redroid is a modular rewrite of the redroid mIRC bot.
     modules that are unresponsive or unsafe from affecting the bot. Anyone
     can write a module. Modules themselfs can be loaded, unloaded and even
     reloaded from within IRC as well, making module development increadibly
-    painless.
+    painless. In addition Redroid comes with a plethora of already wrote,
+    tested and configurable modules. A list of these modules can be found
+    on the [_Modules_](Modules) page on our offical wiki.
 
 * __Restartable__
     Redroid can be restarted from within IRC by an administrator, or from
