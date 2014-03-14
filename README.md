@@ -38,7 +38,7 @@ Redroid is a modular rewrite of the redroid mIRC bot.
 * __Web interface__
     With all the complexity of Redroid, visualizing, configuring and
     communicating with it through configuration files, databases and
-    within IRC can seem a bit archaic and tedious. To combad this issue
+    within IRC can seem a bit archaic and tedious. To combat this issue
     Redroid comes with a full fledged web interface which can be accessed
     with standard login credentials from any web browser in the world.
     This same web interface can be used to create additional user accounts
