@@ -1,0 +1,11 @@
+# Systemd service file for Redroid
+[Unit]
+Description=Redroid IRC Bot
+
+[Service]
+ExecStart=/usr/local/redroid/redroid -d
+WorkingDirectory=/usr/local/redroid
+Type=forking
+
+[Install]
+WantedBy=multi-user.target

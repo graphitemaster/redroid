@@ -5,6 +5,7 @@ CC               ?= clang
 CFLAGS            = -std=c11 -D_XOPEN_SOURCE=700 -Wall -ggdb3 -DHAS_SSL
 LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lssl -lcrypto -Wl,--export-dynamic
 SOURCES           = $(shell echo *.c)
+HEADERS           = $(shell echo *.h)
 OBJECTS           = $(SOURCES:.c=.o)
 REDROID           = redroid
 MODULE_CFLAGS     = -fPIC -fno-asm -fno-builtin -std=c99 -D_POSIX_SOURCE -Imodules/ -ggdb3
@@ -40,6 +41,34 @@ whitelist: wlgen
 	@./wlgen
 
 modules: $(MODULE_OBJECTS)
+
+install: $(REDROID) modules
+	install -d -m755 /usr/local/redroid
+	install -d -m755 /usr/local/redroid/modules
+	install -d -m755 /usr/local/redroid/site
+	install -m755 $(SOURCES)           /usr/local/redroid
+	install -m755 $(HEADERS)           /usr/local/redroid
+	install -m755 $(MODULE_SOURCES)    /usr/local/redroid/modules
+	install -m755 $(MODULE_OBJECTS)    /usr/local/redroid/modules
+	install -m755 modules/module.h     /usr/local/redroid/modules/module.h
+	install -m755 $(REDROID)           /usr/local/redroid/$(REDROID)
+	install -m755 whitelist.db         /usr/local/redroid/whitelist.db
+	install -m755 config.ini           /usr/local/redroid/config.ini
+	install -m755 database.db          /usr/local/redroid/database.db
+	install -m755 site/*               /usr/local/redroid/site
+
+install-systemd-service:
+	install -m755 misc/redroid.service /etc/systemd/system/redroid.service
+
+install-all: install install-systemd-service
+
+uninstall-systemd-service:
+	rm -f /etc/systemd/system/redroid.service
+
+uninstall:
+	rm -rf /usr/local/redroid
+
+uninstall-all: uninstall uninstall-systemd-service
 
 cleanmodules:
 	rm -f $(MODULE_OBJECTS)

@@ -251,14 +251,14 @@ static void signal_daemonize(bool closehandles) {
     pid_t sid;
 
     pid = fork();
-    if (pid < 0)
+    if (pid == -1)
         exit(EXIT_FAILURE);
-    if (pid > 0)
+    if (pid != 0)
         exit(EXIT_SUCCESS);
 
     umask(0);
 
-    if ((sid = setsid() < 0))
+    if ((sid = setsid() == -1))
         exit(EXIT_FAILURE);
 
     if (!closehandles)
