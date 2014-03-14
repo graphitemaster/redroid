@@ -22,7 +22,12 @@
 
 #define SIGNAL_ERROR     (SIGRTMIN + 4)
 
-#define RESTART_FILESIZE sizeof("redroid_XXXXXX")
+#define RESTART_FILENAME  "redroid_XXXXXX"
+#define RESTART_FILESIZE  sizeof(RESTART_FILENAME)
+#define RESTART_MAGICDATA "Redroid"
+#define RESTART_MAGICSIZE sizeof(RESTART_MAGICDATA)
+
+#define REDROID_LOCKFILE  "Redroid.pid"
 
 extern const char *build_date();
 extern const char *build_time();
@@ -84,6 +89,12 @@ void redroid_restart(irc_t *irc, const char *channel, const char *user) {
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user) {
     /* todo print message */
     redroid_shutdown_global(irc->manager);
+}
+
+void redroid_abort(void) {
+    /* We need atexit handlers to be called for the lock file */
+    fprintf(stderr, "Aborted\n");
+    exit(EXIT_FAILURE);
 }
 
 void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
@@ -194,11 +205,11 @@ redroid_recompile_fail:
 }
 
 static void redroid_unlock(void) {
-    unlink("Redroid.pid");
+    unlink(REDROID_LOCKFILE);
 }
 
 static void redroid_lock(void) {
-    FILE *fp = fopen("Redroid.pid", "w");
+    FILE *fp = fopen(REDROID_LOCKFILE, "w");
     if (fp) {
         atexit(redroid_unlock);
         fclose(fp);
@@ -207,7 +218,7 @@ static void redroid_lock(void) {
 
 static bool redroid_locked(void) {
     FILE *fp;
-    if (!(fp = fopen("Redroid.pid", "r"))) {
+    if (!(fp = fopen(REDROID_LOCKFILE, "r"))) {
         redroid_lock();
         return false;
     }
@@ -304,13 +315,12 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
     /*
      * Check the contents of the file to validate that it is indeed a
      * restart file. This is done by checking the first bytes for
-     * 'Redroid\0'
-     *  12345678.
+     * RESTART_MAGICDATA
      */
     lseek(*tmpfd, 0, SEEK_SET);
-    char magic[8];
+    char magic[RESTART_MAGICSIZE];
     read(*tmpfd, magic, sizeof(magic));
-    if (strcmp(magic, "Redroid")) {
+    if (strcmp(magic, RESTART_MAGICDATA)) {
         close(*tmpfd);
         return false;
     }
@@ -461,13 +471,8 @@ int main(int argc, char **argv) {
                 .fd   = sock,
             };
 
-            if (!irc_reinstate(instance, entry->host, entry->port, &restdata)) {
-                /*
-                 * Something went terribly wrong in the reinstate process
-                 * TODO: handle it some how
-                 */
-                abort();
-            }
+            if (!irc_reinstate(instance, entry->host, entry->port, &restdata))
+                redroid_abort();
 
             instance->flags |= IRC_STATE_READY;
             irc_manager_add(manager, instance);
@@ -602,7 +607,7 @@ int main(int argc, char **argv) {
 
     if (!signal_restart(false)) {
         list_t *fds = irc_manager_restart(manager);
-        char unique[RESTART_FILESIZE] = "redroid_XXXXXX";
+        char unique[RESTART_FILESIZE] = RESTART_FILENAME;
         int fd = mkstemp(unique);
         if (fd == -1) {
             fprintf(stderr, "%s: restart failed (mkstemp failed) [%s]\n", *argv, strerror(errno));
@@ -622,7 +627,7 @@ int main(int argc, char **argv) {
         }
 
         /* Write the signature */
-        write(fd, "Redroid", 8);
+        write(fd, RESTART_MAGICDATA, RESTART_MAGICSIZE);
 
         /* Write the filename */
         write(fd, unique, sizeof(unique));

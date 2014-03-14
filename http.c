@@ -12,6 +12,8 @@
 #include <fcntl.h>
 #include <poll.h>
 
+void redroid_abort(void);
+
 typedef struct {
     bool  post;
     void *data;
@@ -438,7 +440,7 @@ static void http_terminate(http_t *http) {
      */
     if (write(http->wakefds[1], "wakeup", 6) == -1) {
         /* something went wrong */
-        abort();
+        redroid_abort();
     }
 }
 

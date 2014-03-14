@@ -14,6 +14,8 @@
 #include <poll.h>
 #include <fcntl.h>
 
+void redroid_abort(void);
+
 typedef struct {
     irc_t **data;
     size_t  size;
@@ -188,7 +190,7 @@ void irc_manager_wake(irc_manager_t *manager) {
     if (write(manager->wakefds[1], "wakeup", 6) == -1) {
         /* Something went terribly wrong */
         irc_manager_cleanup(manager);
-        abort();
+        redroid_abort();
     }
 }
 
@@ -212,7 +214,7 @@ list_t *irc_manager_restart(irc_manager_t *manager) {
 void irc_manager_process(irc_manager_t *manager) {
     if (!cmd_channel_ready(manager->commander)) {
         if (!irc_manager_stage(manager))
-            abort();
+            redroid_abort();
         return;
     }
 
