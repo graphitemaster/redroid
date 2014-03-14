@@ -193,6 +193,28 @@ redroid_recompile_fail:
     irc_write(irc, channel, "%s: %s", user, error);
 }
 
+static void redroid_unlock(void) {
+    unlink("Redroid.pid");
+}
+
+static void redroid_lock(void) {
+    FILE *fp = fopen("Redroid.pid", "w");
+    if (fp) {
+        atexit(redroid_unlock);
+        fclose(fp);
+    }
+}
+
+static bool redroid_locked(void) {
+    FILE *fp;
+    if (!(fp = fopen("Redroid.pid", "r"))) {
+        redroid_lock();
+        return false;
+    }
+    fclose(fp);
+    return true;
+}
+
 static bool signal_restart(bool restart) {
     static bool stage = false;
     if (restart)
@@ -299,6 +321,11 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
 int main(int argc, char **argv) {
     irc_manager_t *manager = NULL;
     web_t         *web     = NULL;
+
+    if (redroid_locked()) {
+        fprintf(stderr, "an instance of Redroid is already running\n");
+        return EXIT_FAILURE;
+    }
 
     /*
      * We need the binary name to perform backups on it for recompiling
@@ -648,6 +675,9 @@ int main(int argc, char **argv) {
         /* Write string table */
         write(fd, string_contents(stringtable), string_length(stringtable));
         string_destroy(stringtable);
+
+        /* Unlock for restart */
+        redroid_unlock();
 
         char buffer[1024];
         snprintf(buffer, sizeof(buffer), "-r%d", fd);

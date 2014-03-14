@@ -22,19 +22,10 @@ static void config_entry_destroy(config_t *entry) {
     free(entry->host);
     free(entry->port);
     free(entry->database);
+    free(entry->auth);
 
-    if (entry->auth)
-        free(entry->auth);
-
-    list_iterator_t *it;
-    for (it = list_iterator_create(entry->modules); !list_iterator_end(it); )
-        free(list_iterator_next(it));
-    list_iterator_destroy(it);
-
-    for (it = list_iterator_create(entry->channels); !list_iterator_end(it); )
-        free(list_iterator_next(it));
-    list_iterator_destroy(it);
-
+    list_foreach(entry->modules, &free);
+    list_foreach(entry->channels, &free);
     list_destroy(entry->modules);
     list_destroy(entry->channels);
 
