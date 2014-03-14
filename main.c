@@ -151,17 +151,15 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
     char   *line  = NULL;
     size_t  size  = 0;
 
-    while (getline(&line, &size, fp) != EOF) {
-        printf("%s", line);
+    while (getline(&line, &size, fp) != EOF)
         list_push(lines, strdup(line));
-    }
     free(line);
 
     if (pclose(fp) != 0) {
         /* it failed to recompile, search for errors */
         list_t *errors = list_create();
         while ((line = list_shift(lines))) {
-            if (strstr(line, ": error: "))
+            if (strstr(line, "error:"))
                 list_push(errors, line);
             else
                 free(line);
@@ -174,10 +172,11 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
         if (count > 5)
             irc_write(irc, channel, "%s: showing only the first five errors", user);
 
-        while ((line = list_shift(errors))) {
+        for (size_t i = 0; i < 5 && (line = list_shift(errors)); i++) {
             irc_write(irc, channel, "%s: %s", user, line);
             free(line);
         }
+        list_foreach(errors, &free);
         list_destroy(errors);
         rename(string_contents(backupname), redroid_binary);
     } else {
@@ -255,8 +254,6 @@ static void signal_daemonize(bool closehandles) {
         exit(EXIT_FAILURE);
     if (pid != 0)
         exit(EXIT_SUCCESS);
-
-    umask(0);
 
     if ((sid = setsid()) == -1)
         exit(EXIT_FAILURE);
