@@ -29,6 +29,8 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         return redroid_shutdown(irc, channel, user);
     if (!strcmp(message, "-restart"))
         return redroid_restart(irc, channel, user);
+    if (!strcmp(message, "-recompile"))
+        return redroid_recompile(irc, channel, user);
 
     if (!strcmp(message, "-test-timeout"))
         for (;;) ;
@@ -85,5 +87,5 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     }
 
 help:
-    irc_write(irc, channel, "%s: system <-shutdown|-restart|-test-timeout|-test-crash|-topic|-version>|<-join|-part> <channel>", user);
+    irc_write(irc, channel, "%s: system <-shutdown|-restart|-recompile|-test-timeout|-test-crash|-topic|-version>|<-join|-part> <channel>", user);
 }

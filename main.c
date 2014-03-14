@@ -27,6 +27,8 @@
 extern const char *build_date();
 extern const char *build_time();
 
+static char *redroid_binary;
+
 static bool signal_restart(bool restart);
 static bool signal_shutdown(bool shutdown);
 
@@ -82,6 +84,113 @@ void redroid_restart(irc_t *irc, const char *channel, const char *user) {
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user) {
     /* todo print message */
     redroid_shutdown_global(irc->manager);
+}
+
+void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
+    string_t *backupname = NULL;
+    const char *error;
+
+    /* Backup the instance binary */
+    FILE *fp;
+    if (!(fp = fopen(redroid_binary, "rb"))) {
+        error = "backing up redroid binary (failed opening for backup) ";
+        goto redroid_recompile_fail;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    size_t binsize = ftell(fp);
+    char  *binread = malloc(binsize);
+    fseek(fp, 0, SEEK_SET);
+
+    if (fread(binread, binsize, 1, fp) != 1) {
+        fclose(fp);
+        error = "backing up redroid binary (failed reading for backup)";
+        goto redroid_recompile_fail;
+    }
+
+    fclose(fp);
+
+    backupname = string_format("%s.bak", redroid_binary);
+    if (!(fp = fopen(string_contents(backupname), "wb"))) {
+        error = "backing up redroid binary (failed creating backup file)";
+        goto redroid_recompile_fail;
+    }
+
+    if (fwrite(binread, binsize, 1, fp) != 1) {
+        error = "backing up redroid binary (failed writing backup file)";
+        goto redroid_recompile_fail;
+    }
+
+    /* Make sure the binary can be executed */
+    if (chmod(string_contents(backupname), S_IRWXU) != 0) {
+        error = "backing up redroid binary (failed setting executable permissions for backup file)";
+        goto redroid_recompile_fail;
+    }
+
+    fclose(fp);
+
+    /* Cleanup the instance. This will erase the binary */
+    pclose(popen("make clean", "r"));
+
+    /* Now try the recompile */
+    if (!(fp = popen("make 2>&1", "r")))
+        irc_write(irc, channel, "%s: failed to recompile", user);
+
+    list_t *lines = list_create();
+    char   *line  = NULL;
+    size_t  size  = 0;
+
+    while (getline(&line, &size, fp) != EOF) {
+        printf("%s", line);
+        list_push(lines, strdup(line));
+    }
+    free(line);
+
+    if (pclose(fp) != 0) {
+        /* it failed to recompile, search for errors */
+        list_t *errors = list_create();
+        while ((line = list_shift(lines))) {
+            if (strstr(line, ": error: "))
+                list_push(errors, line);
+            else
+                free(line);
+        }
+
+        size_t count = list_length(errors);
+        irc_write(irc, channel, "%s: recompile failed (%zu %s)",
+            user, count, (count == 1) ? "error" : "errors");
+
+        if (count > 5)
+            irc_write(irc, channel, "%s: showing only the first five errors", user);
+
+        while ((line = list_shift(errors))) {
+            irc_write(irc, channel, "%s: %s", user, line);
+            free(line);
+        }
+        list_destroy(errors);
+        rename(string_contents(backupname), redroid_binary);
+    } else {
+        /* if everything went fine then do the restart */
+        irc_write(irc, channel, "%s: recompiled successfully", user);
+        redroid_restart(irc, channel, user);
+        remove(string_contents(backupname));
+    }
+
+    string_destroy(backupname);
+    list_foreach(lines, &free);
+    list_destroy(lines);
+    return;
+
+redroid_recompile_fail:
+    /* backupname can be allocated from a path coming to here */
+    if (backupname)
+        string_destroy(backupname);
+    /* fp can be opened from a path coming to here */
+    if (fp)
+        fclose(fp);
+
+    irc_write(irc, channel, "%s: failed recompiling", user);
+    irc_write(irc, channel, "%s: %s", user, error);
 }
 
 static bool signal_restart(bool restart) {
@@ -190,6 +299,12 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
 int main(int argc, char **argv) {
     irc_manager_t *manager = NULL;
     web_t         *web     = NULL;
+
+    /*
+     * We need the binary name to perform backups on it for recompiling
+     * the bot within itself.
+     */
+    redroid_binary = *argv;
 
     signal_install();
     srand(time(0));
@@ -475,6 +590,7 @@ int main(int argc, char **argv) {
         restart_info_t *restinfo = restart_info_singleton(NULL);
         if (!restinfo) {
             fprintf(stderr, "%s: restart failed (no restart info)\n", *argv);
+            unlink(unique);
             return EXIT_FAILURE;
         }
 
@@ -517,7 +633,7 @@ int main(int argc, char **argv) {
         while (!list_iterator_end(it)) {
             irc_manager_restart_t *e = list_iterator_next(it);
             printf("    Network %s on socket %d stored (%s socket)\n",
-                e->name, e->fd, e->ssl ? "SSL" : "normal");
+                e->name, e->fd, e->ssl ? "secure" : "normal");
 
             write(fd, &e->fd, sizeof(int));
 

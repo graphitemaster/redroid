@@ -165,6 +165,7 @@ database_request_count
 database_row_pop_integer
 redroid_restart
 redroid_shutdown
+redroid_recompile
 build_date
 build_time
 build_version

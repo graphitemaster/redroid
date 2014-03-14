@@ -148,7 +148,10 @@ void string_replace(string_t *string, const char *search, const char *replace) {
     modified = string_construct();
     while (find) {
         *find = '\0';
-        string_catf(modified, "%s%s", content, replace);
+        if (replace)
+            string_catf(modified, "%s%s", content, replace);
+        else
+            string_catf(modified, "%s", content);
 
         content = &find[strlen(search)];
         find    = strstr(content, search);

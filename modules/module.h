@@ -597,6 +597,7 @@ void irc_join(irc_t *irc, const char *channel);
 
 void redroid_restart(irc_t *irc, const char *channel, const char *user);
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user);
+void redroid_recompile(irc_t *irc, const char *channel, const char *user);
 list_t *redroid_instances(irc_t *irc);
 
 const char *build_date(void);

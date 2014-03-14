@@ -221,6 +221,18 @@ list_t *list_copy(list_t *list);
 size_t list_length(list_t *list);
 
 /*
+ * Function: list_foreach
+ *  Execute a callback for every value in a list.
+ *
+ * Parameters:
+ *  list     - The list to iterate through
+ *  callback - The callback to execute passing in the current list iterator
+ *             value as the first argument.
+ *
+ */
+void list_foreach(list_t *list, void (*callback)(void *));
+
+/*
  * Function: list_erase
  *  Erase an element in a list.
  *

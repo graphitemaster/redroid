@@ -288,6 +288,13 @@ size_t list_length(list_t *list) {
     return (list) ? list->length : 0;
 }
 
+void list_foreach(list_t *list, void (*callback)(void *)) {
+    list_iterator_t *it = list_iterator_create(list);
+    while (!list_iterator_end(it))
+        callback(list_iterator_next(it));
+    list_iterator_destroy(it);
+}
+
 static list_node_t *list_sort_split(list_node_t *node) {
     if (!node || !node->next) return NULL;
     list_node_t *split = node->next;
