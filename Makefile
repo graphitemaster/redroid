@@ -46,6 +46,7 @@ install: $(REDROID) modules
 	install -d -m755 /usr/local/redroid
 	install -d -m755 /usr/local/redroid/modules
 	install -d -m755 /usr/local/redroid/site
+	install -d -m755 /usr/local/redroid/misc
 	install -m755 $(SOURCES)           /usr/local/redroid
 	install -m755 $(HEADERS)           /usr/local/redroid
 	install -m755 $(MODULE_SOURCES)    /usr/local/redroid/modules
@@ -56,6 +57,9 @@ install: $(REDROID) modules
 	install -m755 config.ini           /usr/local/redroid/config.ini
 	install -m755 database.db          /usr/local/redroid/database.db
 	install -m755 site/*               /usr/local/redroid/site
+	install -m755 Makefile             /usr/local/redroid/Makefile
+	install -m755 misc/whitelist.c     /usr/local/redroid/misc/whitelist.c
+	install -m755 misc/whitelist       /usr/local/redroid/misc/whitelist
 
 install-systemd-service:
 	install -m755 misc/redroid.service /etc/systemd/system/redroid.service
