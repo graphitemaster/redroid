@@ -6,6 +6,7 @@ Description=Redroid IRC Bot
 ExecStart=/usr/local/redroid/redroid -d
 WorkingDirectory=/usr/local/redroid
 Type=forking
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
