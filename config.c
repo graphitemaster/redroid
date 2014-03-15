@@ -112,9 +112,6 @@ list_t *config_load(const char *file) {
 }
 
 void config_unload(list_t *list) {
-    list_iterator_t *it;
-    for (it = list_iterator_create(list); !list_iterator_end(it); )
-        config_entry_destroy(list_iterator_next(it));
-    list_iterator_destroy(it);
+    list_foreach(list, (void(*)(void*))&config_entry_destroy);
     list_destroy(list);
 }
