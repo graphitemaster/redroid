@@ -370,9 +370,7 @@ bool irc_modules_add(irc_t *irc, const char *name) {
     if (strstr(name, "//") || strstr(name, "./"))
         return false;
 
-    string_t *file = string_create("modules/");
-    string_catf(file, "%s.so", name);
-
+    string_t *file = string_format("modules/%s.so", name);
     if ((module = module_manager_module_search(irc->moduleman, string_contents(file), MMSEARCH_FILE))) {
         printf("    module   => %s [%s] already loaded\n", module->name, name);
         string_destroy(file);

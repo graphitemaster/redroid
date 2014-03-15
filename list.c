@@ -289,10 +289,8 @@ size_t list_length(list_t *list) {
 }
 
 void list_foreach(list_t *list, void (*callback)(void *)) {
-    list_iterator_t *it = list_iterator_create(list);
-    while (!list_iterator_end(it))
-        callback(list_iterator_next(it));
-    list_iterator_destroy(it);
+    for (list_node_t *curr = list->head; curr; curr = curr->next)
+        callback(curr->element);
 }
 
 static list_node_t *list_sort_split(list_node_t *node) {
