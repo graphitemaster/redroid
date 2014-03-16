@@ -16,7 +16,7 @@ void string_clear(string_t *string);
 void string_destroy(string_t *string);
 size_t string_length(string_t *string);
 bool string_empty(string_t *string);
-char *const string_contents(string_t *string);
+char *string_contents(string_t *string);
 char *string_move(string_t *string);
 char *string_end(string_t *string);
 void string_replace(string_t *string, const char *substr, const char *replace);

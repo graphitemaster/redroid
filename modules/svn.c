@@ -30,9 +30,9 @@ static void svn_add(svn_entry_t *e) {
         return;
 }
 
-void module_enter(irc_t *irc, const char *channel, const char *user, const char *ignore) {
-    if (!ignore)
-        return;
+void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
+    (void)user; /* ignored */
+    (void)message; /* ignored */
 
     /* Read SVN entries in and write them out to the channel */
     list_t *list = svnlog(SVN_URL, SVN_DEPTH);

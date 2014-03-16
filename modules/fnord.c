@@ -60,12 +60,12 @@ static void fnord_from(string_t *out, const char *word_type) {
         string_catf(out, "%s ", text);
 }
 
-static void fnord_chance(string_t *out, int chance, const char *word_type) {
+static void fnord_chance(string_t *out, size_t chance, const char *word_type) {
     if (urand()%100 < chance)
         fnord_from(out, word_type);
 }
 
-static void fnord_a_chance(string_t *out, int chance, const char *maybe, const char *from) {
+static void fnord_a_chance(string_t *out, size_t chance, const char *maybe, const char *from) {
     if (urand()%100 < chance) {
         fnord_a(out, maybe);
         fnord_from(out, from);
@@ -74,7 +74,7 @@ static void fnord_a_chance(string_t *out, int chance, const char *maybe, const c
     }
 }
 
-static void fnord_chance_prefix(string_t *out, int chance, const char *text, const char *word_type) {
+static void fnord_chance_prefix(string_t *out, size_t chance, const char *text, const char *word_type) {
     if (urand()%100 < chance)
         return;
 

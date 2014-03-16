@@ -112,7 +112,7 @@ void string_destroy(string_t *string) {
     free(string);
 }
 
-char *const string_contents(string_t *string) {
+char *string_contents(string_t *string) {
     return (string) ? string->buffer : NULL;
 }
 

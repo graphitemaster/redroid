@@ -18,18 +18,6 @@ static int faq_length(void) {
     return count;
 }
 
-static bool faq_count(const char *user, int *count) {
-    database_statement_t *statement = database_statement_create("SELECT COUNT(*) FROM FAQ WHERE NAME=?");
-    if (!database_statement_bind(statement, "s", user))
-        return false;
-
-    database_row_t *row = database_row_extract(statement, "i");
-    if ((*count = database_row_pop_integer(row)) >= 1)
-        return true;
-
-    return false;
-}
-
 static bool faq_find(const char *faq) {
     database_statement_t *statement = database_statement_create("SELECT COUNT(*) FROM FAQ WHERE NAME=?");
     if (!database_statement_bind(statement, "s", faq))

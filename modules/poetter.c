@@ -19,6 +19,7 @@ static const char *list[] = {
 
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
+    (void)message; /* unused */
     size_t entry = urand() % (sizeof(list) / sizeof(*list));
     irc_write(irc, channel, "%s: shit Lennart Poettering says: ``%s''", user, list[entry]);
 }

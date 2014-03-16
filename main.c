@@ -87,6 +87,8 @@ void redroid_restart(irc_t *irc, const char *channel, const char *user) {
 }
 
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user) {
+    (void)channel; /* ignored */
+    (void)user; /* ignored */
     /* todo print message */
     redroid_shutdown_global(irc->manager);
 }

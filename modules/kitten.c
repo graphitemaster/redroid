@@ -31,6 +31,8 @@ static kitten_t *kitten_method(void) {
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
+    (void)user; /* unused */
+
     database_request(irc, "KITTENS");
     int count = database_request_count(irc, "KITTENS");
     if (message) {

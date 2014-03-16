@@ -41,7 +41,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     while (*digit && isspace(*digit))
         digit++;
 
-    size_t x = isdigit(*digit) ? atoi(message) : (urand() % 36);
+    size_t x = isdigit(*digit) ? (size_t)atoi(message) : (urand() % 36);
     size_t y = 0;
 
     while (*digit && isdigit(*digit)) digit++;

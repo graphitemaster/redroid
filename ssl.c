@@ -76,6 +76,8 @@ ssl_create_error:
 }
 
 static bool ssl_destroy(ssl_t *ssl, sock_restart_t *restart) {
+    (void)restart; /* ignroed */
+
     if (ssl->ssl)
         SSL_free(ssl->ssl);
 

@@ -16,8 +16,8 @@ struct list_iterator_s;
 struct string_s;
 
 typedef struct {
-    size_t  soff;   /* Start offset for match */
-    size_t  eoff;   /* End offset for match   */
+    int soff; /* Start offset for match */
+    int eoff; /* End offset for match   */
 } regexpr_match_t;
 
 typedef struct {
@@ -587,7 +587,7 @@ bool string_empty(string_t *string);
  * Returns:
  *  Pointer to the raw contents of the string (internal buffer).
  */
-char *const string_contents(string_t *string);
+char *string_contents(string_t *string);
 
 static inline list_t *svnlog(const char *url, size_t depth) {
     return MODULE_GC_CALL(svnlog)(url, depth);

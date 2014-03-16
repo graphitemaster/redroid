@@ -111,7 +111,7 @@ static int calc_strmatch(const char *s, const char *prefix) {
     for (i = 0; prefix[i]; i++)
         if (prefix[i] != s[i])
             return false;
-    return !(s[i] - '0' <= 9U || s[i] - 'a' <= 25U || s[i] - 'A' <= 25U || s[i] == '_');
+    return !(s[i] - '0' <= 9 || s[i] - 'a' <= 25 || s[i] - 'A' <= 25 || s[i] == '_');
 }
 
 typedef struct eval_expr_s {
@@ -189,7 +189,7 @@ static bool parse_primary(calc_expr_t **e, calc_parser_t *p)
     }
     d->value = 1;
 
-    for (i = 0; calc_cnames && calc_cnames[i]; i++) {
+    for (i = 0; calc_cnames[i]; i++) {
         if (calc_strmatch(p->sp, calc_cnames[i])) {
             p->sp         += strlen(calc_cnames[i]);
             d->type        = e_const;
@@ -294,7 +294,7 @@ static bool parse_pow(calc_expr_t **e, calc_parser_t *p, int *sign) {
 static bool parse_dB(calc_expr_t **e, calc_parser_t *p, int *sign) {
     if (*p->sp == '-') {
         char  *next;
-        double ignored = strtod(p->sp, &next);
+        (void)!!strtod(p->sp, &next);
         if (next != p->sp && next[0] == 'd' && next[1] == 'B') {
             *sign = 0;
             return parse_primary(e, p);

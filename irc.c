@@ -40,7 +40,6 @@ int irc_action_raw(irc_t *irc, const char *target, const char *action) {
 typedef int (*irc_queue_func_standard_t)(irc_t *, const char *);
 typedef int (*irc_queue_func_extended_t)(irc_t *, const char *, const char *);
 typedef struct {
-    irc_t    *irc;
     string_t *target;
     string_t *payload;
     union {
@@ -52,7 +51,6 @@ typedef struct {
 static void irc_enqueue_standard(irc_t *irc, const char *target, irc_queue_func_standard_t callback) {
     irc_queued_t *entry = malloc(sizeof(*entry));
 
-    entry->irc      = irc;
     entry->target   = string_create(target);
     entry->payload  = NULL;
     entry->standard = callback;
@@ -63,7 +61,6 @@ static void irc_enqueue_standard(irc_t *irc, const char *target, irc_queue_func_
 static void irc_enqueue_extended(irc_t *irc, const char *target, string_t *payload, irc_queue_func_extended_t callback) {
     irc_queued_t *entry = malloc(sizeof(*entry));
 
-    entry->irc      = irc;
     entry->target   = string_create(target);
     entry->payload  = payload;
     entry->extended = callback;
@@ -78,11 +75,11 @@ void irc_unqueue(irc_t *irc) {
         /* If there is a payload we use the extended call */
         if (entry->payload) {
             const char *payload = string_contents(entry->payload);
-            entry->extended(entry->irc, target, payload);
+            entry->extended(irc, target, payload);
             string_destroy(entry->payload);
         } else {
             /* Otherwise we do a standard call */
-            entry->standard(entry->irc, target);
+            entry->standard(irc, target);
         }
         string_destroy(entry->target);
         free(entry);
@@ -342,7 +339,7 @@ static const char *irc_target_nick(const char *target) {
     static char buffer[128];
 
     char *split = strstr(target, "!");
-    size_t length = split ? split - target : strlen(target);
+    size_t length = split ? (size_t)(split - target) : strlen(target);
     if (length > sizeof(buffer) - 1)
         length = sizeof(buffer) - 1;
 
@@ -577,12 +574,14 @@ void irc_process(irc_t *irc, void *data) {
             /* For the ones which don't we can terminate earlier */
             if (irc->buffer.data[irc->buffer.offset - 2] == '\r')
                 irc->buffer.data[irc->buffer.offset - 2] = '\0';
-
             irc_parse(irc, data);
             irc->buffer.offset = 0;
             break;
         }
     }
+
+    /* Process any data that may exist */
+    irc_unqueue(irc);
 }
 
 /* Exposed functionality for the module API */

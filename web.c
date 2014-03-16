@@ -35,7 +35,7 @@ struct web_s {
     irc_manager_t  *ircmanager;
 };
 
-static web_session_t *web_session_create(web_t *web, sock_t *client) {
+static web_session_t *web_session_create(sock_t *client) {
     web_session_t *session = malloc(sizeof(*session));
     session->host  = strdup(client->host);
     session->valid = true;
@@ -64,7 +64,7 @@ static void web_session_control(web_t *web, sock_t *client, bool add) {
     }
 
     if (add)
-        list_push(web->sessions, web_session_create(web, client));
+        list_push(web->sessions, web_session_create(client));
     else if (session)
         session->valid = false;
 }

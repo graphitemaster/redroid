@@ -24,7 +24,7 @@ enum {
 #define MBITS(U, V) (((U) & UMASK) | ((V) & LMASK))
 #define TWIST(U, V) ((MBITS(U, V) >> 1) ^ ((V) & 1U ? MMASK : 0U))
 
-static unsigned long mt_seed(mt_t *mt) {
+static unsigned long mt_seed(void) {
     uint32_t a = (uint32_t)clock();
     uint32_t b = (uint32_t)time(0);
     uint32_t c = (uint32_t)getpid();
@@ -69,7 +69,7 @@ static void mt_update(mt_t *mt) {
 
 mt_t *mt_create(void) {
     mt_t *mt = memset(malloc(sizeof(mt_t)), 0, sizeof(mt_t));
-    return mt_init(mt, mt_seed(mt));
+    return mt_init(mt, mt_seed());
 }
 
 void mt_destroy(mt_t *mt) {

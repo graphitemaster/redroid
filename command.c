@@ -202,6 +202,9 @@ static void cmd_channel_signalhandle_quit(int sig) {
 }
 
 static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignore) {
+    (void)sig; /* ignored */
+    (void)ignore; /* ignored */
+
     cmd_channel_t *channel = si->si_value.sival_ptr;
 
     /* Did a command timeout? */
@@ -265,8 +268,13 @@ static void *cmd_channel_threader(void *data) {
 
             /* Initiate the timer for the module */
             struct itimerspec its = {
-                .it_value.tv_sec    = COMMAND_TIMEOUT_SECONDS,
-                .it_interval.tv_sec = COMMAND_TIMEOUT_SECONDS,
+                .it_value = {
+                    .tv_sec  = COMMAND_TIMEOUT_SECONDS
+                },
+                .it_interval = {
+                    .tv_sec  = COMMAND_TIMEOUT_SECONDS,
+                    .tv_nsec = 0
+                }
             };
 
             if (timer_settime(channel->timerid, 0, &its, NULL) == -1)

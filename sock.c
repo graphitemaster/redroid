@@ -260,7 +260,7 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
 
 int sock_sendf(sock_t *socket, const char *fmt, ...) {
     char    buffer[4096];
-    int     length;
+    size_t  length;
     va_list args;
 
     if (!strlen(fmt))
