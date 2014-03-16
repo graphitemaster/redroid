@@ -79,11 +79,11 @@ static void database_statement_destroy(database_statement_t *statement) {
 }
 
 database_statement_t *database_statement_create(database_t *database, const char *string) {
-    database_statement_t *find = hashtable_find(database->statements, string, strlen(string));
+    database_statement_t *find = hashtable_find(database->statements, string);
     if (find) {
         if (sqlite3_reset(find->statement) != SQLITE_OK) {
             database_statement_destroy(find);
-            hashtable_remove(database->statements, string, strlen(string));
+            hashtable_remove(database->statements, string);
             goto create;
         }
         return find;
@@ -96,7 +96,7 @@ create:
         return NULL;
     }
     find->string = strdup(string);
-    hashtable_insert(database->statements, string, strlen(string), find);
+    hashtable_insert(database->statements, string, find);
     return find;
 }
 
@@ -196,7 +196,7 @@ database_t *database_create(const char *file) {
 
 void database_destroy(database_t *database) {
     /* Clear the statement cache */
-    hashtable_foreach(database->statements, (void (*)(void *))&database_statement_destroy);
+    hashtable_foreach(database->statements, NULL, &database_statement_destroy);
     hashtable_destroy(database->statements);
 
     sqlite3_close(database->handle);

@@ -43,7 +43,7 @@ static list_t *irc_instances_destroy(irc_instances_t *instances, bool restart) {
     list_t *list = (restart) ? list_create() : NULL;
 
     for (size_t i = 0; i < instances->size; i++) {
-        if (!irc_ready(instances->data[i])) {
+        if (!instances->data[i]->ready) {
             irc_destroy(instances->data[i], NULL, NULL);
             continue;
         }
@@ -125,7 +125,7 @@ static bool irc_manager_stage(irc_manager_t *manager) {
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         manager->polls[1+i].fd     = sock_getfd(manager->instances->data[i]->sock);
-        manager->polls[1+i].events = POLLIN | POLLPRI;
+        manager->polls[1+i].events = POLLIN | POLLERR | POLLPRI;
     }
 
     /* Begin the command message channel if it isn't already ready */
@@ -166,6 +166,15 @@ irc_manager_t *irc_manager_create(void) {
     return man;
 }
 
+typedef struct {
+    irc_t    *instance;
+    string_t *message;
+} irc_manager_broadcast_t;
+
+static void irc_manager_broadcast_single(irc_channel_t *channel, irc_manager_broadcast_t *caster) {
+    irc_write(caster->instance, channel->channel, string_contents(caster->message));
+}
+
 void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
     string_t *string = string_construct();
     va_list   va;
@@ -175,12 +184,14 @@ void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         irc_t  *irc = manager->instances->data[i];
-        list_iterator_t *it = list_iterator_create(irc->channels);
-        while (!list_iterator_end(it)) {
-            irc_channel_t *channel = list_iterator_next(it);
-            irc_write(irc, channel->channel, string_contents(string));
-        }
-        list_iterator_destroy(it);
+        hashtable_foreach(
+            irc->channels,
+            (&(irc_manager_broadcast_t) {
+                .instance = irc,
+                .message  = string
+            }),
+            &irc_manager_broadcast_single
+        );
     }
 
     va_end(va);
@@ -232,12 +243,11 @@ void irc_manager_process(irc_manager_t *manager) {
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         irc_t *instance = manager->instances->data[i];
-        if (manager->polls[1+i].revents & POLLIN ||
-            manager->polls[1+i].revents & POLLOUT)
+        if (manager->polls[1+i].revents & (POLLIN | POLLOUT))
             irc_process(instance, manager->commander);
 
         /* Don't process modules if we're not ready */
-        if (!irc_ready(instance) || !instance->message.channel)
+        if (!instance->ready || !instance->message.channel)
             continue;
 
         /*

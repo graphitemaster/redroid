@@ -11,7 +11,7 @@ struct regexpr_s {
 };
 
 void regexpr_cache_destroy(hashtable_t *cache) {
-    hashtable_foreach(cache, (void (*)(void*))&regexpr_destroy);
+    hashtable_foreach(cache, NULL, &regexpr_destroy);
     hashtable_destroy(cache);
 }
 
@@ -27,7 +27,7 @@ regexpr_t *regexpr_create(hashtable_t *cache, const char *string, bool icase) {
      * which is quite common in an IRC channel.
      */
     regexpr_t *find;
-    if ((find = hashtable_find(cache, string, strlen(string))))
+    if ((find = hashtable_find(cache, string)))
         return find;
 
     regexpr_t *next = malloc(sizeof(*next));
@@ -38,7 +38,7 @@ regexpr_t *regexpr_create(hashtable_t *cache, const char *string, bool icase) {
     }
 
     next->match = strdup(string);
-    hashtable_insert(cache, string, strlen(string), next);
+    hashtable_insert(cache, string, next);
     return next;
 }
 

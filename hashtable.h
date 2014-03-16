@@ -41,11 +41,10 @@ void hashtable_destroy(hashtable_t *hashtable);
  *
  * Parameters:
  *  hashtable   - The hashtable to insert into.
- *  key         - Pointer to key data.
- *  keylength   - Length of key data.
+ *  key         - The key.
  *  value       - Value referenced by pointer to store in hashtable.
  */
-void hashtable_insert(hashtable_t *hashtable, const void *key, const size_t keylength, void *value);
+void hashtable_insert(hashtable_t *hashtable, const char *key, void *value);
 
 /*
  * Function: hashtable_remove
@@ -53,14 +52,13 @@ void hashtable_insert(hashtable_t *hashtable, const void *key, const size_t keyl
  *
  * Parameters:
  *  hashtable   - The hashtable to remove from.
- *  key         - Pointer to key data to remove.
- *  keylength   - Length of key data.
+ *  key         - The key.
  *
  * Returns:
  *  If the value referenced by pointer is found and removed from the
  *  hashtable true is returned. On failure false is returned.
  */
-bool hashtable_remove(hashtable_t *hashtable, const void *key, const size_t keylength);
+bool hashtable_remove(hashtable_t *hashtable, const char *key);
 
 /*
  * Function: hashtable_find
@@ -69,51 +67,28 @@ bool hashtable_remove(hashtable_t *hashtable, const void *key, const size_t keyl
  * Parameters:
  *  hashtable   - The hashtable to find for value referenced by pointer in.
  *  key         - Pointer to key data to find.
- *  keylength   - Length of key data.
  *
  * Returns:
  *  The value referenced by pointer on success. On failure NULL is returned
  *  instead. It should be noted here that it's impossible to distinguish
  *  an error if the value referenced by pointer itself was also NULL.
  */
-void *hashtable_find(hashtable_t *hashtable, const void *key, const size_t keylength);
+void *hashtable_find(hashtable_t *hashtable, const char *key);
 
 /*
  * Function: hashtable_foreach
- *  Execute a callback passing in each value in the entire hashtable.
+ *  Execute a callback passing in each value in the entire hashtable
+ *  as well as passing in an additional pointer.
  *
  * Parameters:
- *  hashtable   - The hashtable to execute callback over.
- *  callback    - Pointer to function callback
+ *  hashtable   - The hashtable to execute the callback over.
+ *  pass        - The additional thing to pass in for the callback to
+ *                get as its second argument.
+ *  callback    - Pointer to functionc allback.
  */
-void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *));
+#define hashtable_foreach(HASHTABLE, PASS, CALLBACK) \
+    hashtable_foreach_impl((HASHTABLE), (PASS), ((void(*)(void*,void*))(CALLBACK)))
 
-/*
- * Function: hashtable_set_compare
- *  Set the comparision function for the hashtable.
- *
- * Parameters:
- *  hashtable   - The hashtable to set the comparision function of.
- *  compare     - Pointer to the comparision function.
- *
- * Remarks:
- *  If `compare` is NULL then the default compare function provided by
- *  the hashtable implementation will be set.
- */
-void hashtable_set_compare(hashtable_t *hashtable, bool (*compare)(const void *, const size_t, const void *));
-
-/*
- * Function: hashtable_set_hash
- *  Set the hash function for the hashtable.
- *
- * Parameters:
- *  hashtable   - The hashtable to set the hash function of.
- *  hash        - Pointer to the hash function.
- *
- * Remarks:
- *  If `hash` is NULL then the default hash function provided by the
- *  hashtable implementation will be set.
- */
-void hashtable_set_hash(hashtable_t *hashtable, size_t (*hash)(const void *, const size_t));
+void hashtable_foreach_impl(hashtable_t *hashtable, void *pass, void (*callback)(void *, void *));
 
 #endif /*!REDROID_HASHTABLE_HDR */
