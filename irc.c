@@ -257,8 +257,14 @@ static void irc_onend(irc_t *irc, irc_parser_data_t *data) {
 
         /* Get channel users */
         if (!strncmp(space, "353", 3)) {
-            char *chanbeg = strchr(space,   '@') + 2;
-            char *chanend = strchr(chanbeg, ':') - 2;
+            char *chanbeg = strchr(space,   '@');
+            if (!chanbeg) return;
+            chanbeg += 2;
+            char *chanend = strchr(chanbeg, ':');
+            if (!chanend) return;
+            chanend -= 2;
+            if (strlen(chanend) <= 1)
+                return;
 
             chanend[1] = 0;
             irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chanbeg);
