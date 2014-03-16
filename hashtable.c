@@ -10,28 +10,27 @@ struct hashtable_s {
     size_t          size;
     pthread_mutex_t mutex;
     list_t        **table;
-    bool          (*compare)(const void *, const size_t, const void *);
-    size_t        (*hash)(const void *, const size_t);
+    bool          (*compare)(const char *, const char *);
+    size_t        (*hash)(const char *);
 };
 
 typedef struct {
-    const void  *key;
+    char        *key;
     void        *value;
     hashtable_t *hashtable;
-    size_t       keylength;
 } hashtable_entry_t;
 
-static inline hashtable_entry_t *hashtable_entry_create(const void *key, const size_t keylength, void *value) {
+static inline hashtable_entry_t *hashtable_entry_create(const void *key, void *value) {
     hashtable_entry_t *entry = malloc(sizeof(*entry));
 
-    entry->key       = key;
+    entry->key       = strdup(key);
     entry->value     = value;
-    entry->keylength = keylength;
 
     return entry;
 }
 
 static inline void hashtable_entry_destroy(hashtable_entry_t *entry) {
+    free(entry->key);
     free(entry);
 }
 
@@ -39,18 +38,14 @@ static inline bool hashtable_entry_compare(const void *a, const void *b) {
     const hashtable_entry_t *const entry = a;
     const hashtable_entry_t *const other = b;
 
-    if (entry->keylength != other->keylength)
-        return false;
-
-    return other->hashtable->compare(entry->key, other->keylength, other->key);
+    return other->hashtable->compare(entry->key, other->key);
 }
 
-static inline void *hashtable_entry_find(hashtable_t *hashtable, const void *key, const size_t keylength, size_t *index) {
-    *index = hashtable->hash(key, keylength) & (hashtable->size - 1);
+static inline void *hashtable_entry_find(hashtable_t *hashtable, const char *key, size_t *index) {
+    *index = hashtable->hash(key) & (hashtable->size - 1);
 
     hashtable_entry_t pass = {
-        .key       = key,
-        .keylength = keylength,
+        .key       = (char *)key,
         .hashtable = hashtable
     };
 
@@ -72,26 +67,16 @@ static inline size_t hashtable_pot(size_t size) {
     return size;
 }
 
-static bool hashtable_funcs_compare(const void *a, const size_t length, const void *b) {
-    return !memcmp(a, b, length);
+static bool hashtable_funcs_compare(const char *a, const char *b) {
+    return !strcmp(a, b);
 }
 
-static size_t hashtable_funcs_hash(const void *data, const size_t length) {
-    size_t hash = 5381;
-    size_t value;
+static size_t hashtable_funcs_hash(const char *string) {
+    size_t hash   = 0;
+    int    ch     = 0;
 
-    /* read data as size_t */
-    union {
-        const size_t *s;
-        const void   *v;
-    } cast = {
-        .v = data
-    };
-
-    for (size_t i = 0; i < length / sizeof(size_t); i++) {
-        value = cast.s[i];
-        hash  = ((hash << 5) + hash) + value;
-    }
+    while ((ch = *string++))
+        hash = ch + (hash << 6) + (hash << 16) - hash;
 
     return hash;
 }
@@ -101,14 +86,13 @@ hashtable_t *hashtable_create(size_t size) {
     if (pthread_mutex_init(&mutex, NULL) != 0)
         return NULL;
 
-
     hashtable_t *hashtable = malloc(sizeof(*hashtable));
 
     hashtable->size    = hashtable_pot(size);
     hashtable->mutex   = mutex;
     hashtable->table   = malloc(sizeof(list_t*) * size);
-    hashtable->compare = hashtable_funcs_compare;
-    hashtable->hash    = hashtable_funcs_hash;
+    hashtable->hash    = &hashtable_funcs_hash;
+    hashtable->compare = &hashtable_funcs_compare;
 
     for (size_t i = 0; i < hashtable->size; i++)
         hashtable->table[i] = list_create();
@@ -131,19 +115,19 @@ void hashtable_destroy(hashtable_t *hashtable) {
     free(hashtable);
 }
 
-void hashtable_insert(hashtable_t *hashtable, const void *key, const size_t keylength, void *value) {
-    size_t hash = hashtable->hash(key, keylength) & (hashtable->size - 1);
+void hashtable_insert(hashtable_t *hashtable, const char *key, void *value) {
+    size_t hash = hashtable->hash(key) & (hashtable->size - 1);
     pthread_mutex_lock(&hashtable->mutex);
-    list_push(hashtable->table[hash], hashtable_entry_create(key, keylength, value));
+    list_push(hashtable->table[hash], hashtable_entry_create(key, value));
     pthread_mutex_unlock(&hashtable->mutex);
 }
 
-bool hashtable_remove(hashtable_t *hashtable, const void *key, const size_t keylength) {
+bool hashtable_remove(hashtable_t *hashtable, const char *key) {
     bool   value = true;
     size_t index = 0;
 
     pthread_mutex_lock(&hashtable->mutex);
-    hashtable_entry_t *find = hashtable_entry_find(hashtable, key, keylength, &index);
+    hashtable_entry_t *find = hashtable_entry_find(hashtable, key, &index);
     if (!find) {
         value = false;
         goto hashtable_remove_finish;
@@ -159,15 +143,15 @@ hashtable_remove_finish:
     return value;
 }
 
-void *hashtable_find(hashtable_t *hashtable, const void *key, const size_t keylength) {
+void *hashtable_find(hashtable_t *hashtable, const char *key) {
     pthread_mutex_lock(&hashtable->mutex);
-    hashtable_entry_t *find = hashtable_entry_find(hashtable, key, keylength, &(size_t){0});
+    hashtable_entry_t *find = hashtable_entry_find(hashtable, key, &(size_t){0});
     pthread_mutex_unlock(&hashtable->mutex);
 
     return find ? find->value : NULL;
 }
 
-void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *)) {
+void hashtable_foreach_impl(hashtable_t *hashtable, void *pass, void (*callback)(void *, void *)) {
     pthread_mutex_lock(&hashtable->mutex);
     for (size_t i = 0; i < hashtable->size; i++) {
         list_t *list = hashtable->table[i];
@@ -178,17 +162,9 @@ void hashtable_foreach(hashtable_t *hashtable, void (*callback)(void *)) {
         list_iterator_t *it = list_iterator_create(list);
         while (!list_iterator_end(it)) {
             hashtable_entry_t *entry = list_iterator_next(it);
-            callback(entry->value);
+            callback(entry->value, pass);
         }
         list_iterator_destroy(it);
     }
     pthread_mutex_unlock(&hashtable->mutex);
-}
-
-void hashtable_set_compare(hashtable_t *hashtable, bool (*compare)(const void *, const size_t, const void *)) {
-    hashtable->compare = (compare) ? compare: &hashtable_funcs_compare;
-}
-
-void hashtable_set_hash(hashtable_t *hashtable, size_t (*hash)(const void *, const size_t)) {
-    hashtable->hash = (hash) ? hash : &hashtable_funcs_hash;
 }

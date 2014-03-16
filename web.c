@@ -97,7 +97,7 @@ static void web_template_entries_update(web_template_entry_t *entry) {
 
 static void web_template_destroy(web_template_t *template) {
     string_destroy(template->formatted);
-    hashtable_foreach(template->replaces, (void (*)(void*))&web_template_entries_destroy);
+    hashtable_foreach(template->replaces, NULL, &web_template_entries_destroy);
     hashtable_destroy(template->replaces);
 
     char *line;
@@ -164,7 +164,7 @@ static void web_template_update(web_template_t *template) {
 
         /* terminate the identifier name */
         end[0] = '\0';
-        web_template_entry_t *entry = hashtable_find(template->replaces, beg, strlen(beg));
+        web_template_entry_t *entry = hashtable_find(template->replaces, beg);
         char *ending = list_iterator_next(it);
         while (!list_iterator_end(it) && !strstr(ending, "<!--$[[ENDIF]]-->")) {
             if (def) {
@@ -183,7 +183,7 @@ static void web_template_update(web_template_t *template) {
     list_iterator_destroy(it);
 
     /* perform string replacements on the formatted data */
-    hashtable_foreach(template->replaces, (void (*)(void *))&web_template_entries_update);
+    hashtable_foreach(template->replaces, NULL, &web_template_entries_update);
 }
 
 static bool web_template_search(const void *a, const void *b) {
@@ -223,7 +223,7 @@ static void web_template_register(web_t *web, const char *file, size_t count, ..
         entry->replace    = NULL;
         entry->associated = find;
 
-        hashtable_insert(find->replaces, entry->search, strlen(entry->search), entry);
+        hashtable_insert(find->replaces, entry->search, entry);
     }
 
     va_end(va);
@@ -234,7 +234,7 @@ static void web_template_change(web_t *web, const char *file, const char *search
     if (!find)
         return;
 
-    web_template_entry_t *entry = hashtable_find(find->replaces, search, strlen(search));
+    web_template_entry_t *entry = hashtable_find(find->replaces, search);
     if (!entry)
         return;
 

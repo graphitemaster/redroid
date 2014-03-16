@@ -10,327 +10,206 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-/*
- * Queue for IRC messages and the API to us esaid queue from modules
- * and other things. The RAW api isn't buffered so use at your own
- * peril (typically for things where you're not too worried about flood
- * and need it out as soon as possible).
- */
-static int irc_action_raw(irc_t *irc, const char *channel, const char *message);
-static int irc_quit_raw(irc_t *irc, const char *channel, const char *message);
-static int irc_join_raw(irc_t *irc, const char *channel, const char *message);
+static const char *irc_target_nick(const char *target);
+static const char *irc_target_host(const char *target);
 
+/* Raw communication protocol */
+int irc_join_raw(irc_t *irc, const char *channel) {
+    return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
+}
+
+int irc_part_raw(irc_t *irc, const char *channel) {
+    return sock_sendf(irc->sock, "PART %s\r\n", channel);
+}
+
+int irc_quit_raw(irc_t *irc, const char *message) {
+    if (message)
+        return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
+    return sock_sendf(irc->sock, "QUIT\r\n");
+}
+
+int irc_write_raw(irc_t *irc, const char *target, const char *message) {
+    return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", target, message);
+}
+
+int irc_action_raw(irc_t *irc, const char *target, const char *action) {
+    return sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", target, action);
+}
+
+/* Buffered protocol */
+typedef int (*irc_queue_func_standard_t)(irc_t *, const char *);
+typedef int (*irc_queue_func_extended_t)(irc_t *, const char *, const char *);
 typedef struct {
-    char     *channel;
-    string_t *message;
-    int  (*raw)(irc_t *irc, const char *channel, const char *message);
-} irc_queue_entry_t;
+    irc_t    *irc;
+    string_t *target;
+    string_t *payload;
+    union {
+        irc_queue_func_standard_t standard;
+        irc_queue_func_extended_t extended;
+    };
+} irc_queued_t;
 
-void irc_queue_enqueue(irc_t *irc, int (*raw)(irc_t *irc, const char *, const char *), const char *channel, string_t *message) {
-    list_push(
-        irc->queue,
-        memcpy(
-            malloc(sizeof(irc_queue_entry_t)),
-            &(irc_queue_entry_t) {
-                /*
-                 * Messages might not come from a channel. For instance
-                 * commands like /quit /part.
-                 */
-                .channel = (channel) ? strdup(channel) : NULL,
-                .message = message,
-                .raw     = raw
-            },
-            sizeof(irc_queue_entry_t)
-        )
-    );
+static void irc_enqueue_standard(irc_t *irc, const char *target, irc_queue_func_standard_t callback) {
+    irc_queued_t *entry = malloc(sizeof(*entry));
+
+    entry->irc      = irc;
+    entry->target   = string_create(target);
+    entry->payload  = NULL;
+    entry->standard = callback;
+
+    list_push(irc->queue, entry);
 }
 
-void irc_queue_entry_destroy(irc_queue_entry_t *entry) {
-    free(entry->channel);
-    string_destroy(entry->message);
-    free(entry);
+static void irc_enqueue_extended(irc_t *irc, const char *target, string_t *payload, irc_queue_func_extended_t callback) {
+    irc_queued_t *entry = malloc(sizeof(*entry));
+
+    entry->irc      = irc;
+    entry->target   = string_create(target);
+    entry->payload  = payload;
+    entry->extended = callback;
+
+    list_push(irc->queue, entry);
 }
 
-bool irc_queue_dequeue(irc_t *irc) {
-    irc_queue_entry_t *entry = list_shift(irc->queue);
-    if (!entry)
-        return false;
-
-    entry->raw(irc, entry->channel, string_contents(entry->message));
-    irc_queue_entry_destroy(entry);
-
-    return true;
+void irc_unqueue(irc_t *irc) {
+    irc_queued_t *entry;
+    while ((entry = list_shift(irc->queue))) {
+        const char *target = string_contents(entry->target);
+        /* If there is a payload we use the extended call */
+        if (entry->payload) {
+            const char *payload = string_contents(entry->payload);
+            entry->extended(entry->irc, target, payload);
+            string_destroy(entry->payload);
+        } else {
+            /* Otherwise we do a standard call */
+            entry->standard(entry->irc, target);
+        }
+        string_destroy(entry->target);
+        free(entry);
+    }
 }
 
-static void irc_queue_destroy(irc_t *irc) {
-    while (irc_queue_dequeue(irc))
-        ;
-
-    list_destroy(irc->queue);
+void irc_quit(irc_t *irc, const char *message) {
+    irc_enqueue_standard(irc, message, &irc_quit_raw);
 }
 
-static int irc_pong(irc_t *irc, const char *data) {
-    return sock_sendf(irc->sock, "PONG :%s\r\n", data);
-}
-static int irc_register(irc_t *irc) {
-    if (irc->flags & IRC_STATE_AUTH)
-        return -1;
-    return sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redroid\r\n", irc->nick, irc->nick);
-}
-static int irc_quit_raw(irc_t *irc, const char *channel, const char *message) {
-    return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
-}
-static int irc_join_raw(irc_t *irc, const char *channel, const char *message) {
-    return sock_sendf(irc->sock, "JOIN %s\r\n", message);
-}
-static int irc_part_raw(irc_t *irc, const char *channel, const char *message) {
-    return sock_sendf(irc->sock, "PART %s\r\n", message);
-}
-static int irc_write_raw(irc_t *irc, const char *channel, const char *data) {
-    return sock_sendf(irc->sock, "PRIVMSG %s :%s\r\n", channel, data);
-}
-static int irc_action_raw(irc_t *irc, const char *channel, const char *data) {
-    return sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, data);
+void irc_join(irc_t *irc, const char *channel) {
+    irc_channels_add(irc, channel);
+    irc_enqueue_standard(irc, channel, &irc_join_raw);
 }
 
-/* Not to be used from IRC process. Use queued methods instead */
-int irc_quit(irc_t *irc, const char *message) {
-    /* String is freed in irc_queue_dequeue */
-    irc_queue_enqueue(irc, &irc_quit_raw, NULL, string_create(message));
-    return 1;
+void irc_part(irc_t *irc, const char *channel) {
+    irc_enqueue_standard(irc, channel, &irc_part_raw);
 }
-int irc_join(irc_t *irc, const char *channel) {
-    /* String is freed in irc_queue_dequeue */
-    irc_queue_enqueue(irc, &irc_join_raw, NULL, string_create(channel));
-    return 1;
-}
-int irc_part(irc_t *irc, const char *channel) {
-    /* String is freed in irc_queue_dequeue */
-    irc_queue_enqueue(irc, &irc_part_raw, NULL, string_create(channel));
-    return 1;
-}
-int irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
-    string_t *string = string_construct();
-    va_list va;
-    va_start(va, fmt);
-    string_vcatf(string, fmt, va);
-    va_end(va);
-    irc_queue_enqueue(irc, &irc_action_raw, channel, string);
-    return 1;
-}
-int irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
-    string_t *string = string_construct();
+
+void irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
     va_list  va;
     va_start(va, fmt);
-    string_vcatf(string, fmt, va);
+    irc_enqueue_extended(irc, channel, string_vformat(fmt, va), &irc_action_raw);
     va_end(va);
-    irc_queue_enqueue(irc, &irc_write_raw, channel, string);
-    return 1;
 }
 
-const char *irc_nick(irc_t *irc) {
-    return irc->nick;
+void irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
+    va_list  va;
+    va_start(va, fmt);
+    irc_enqueue_extended(irc, channel, string_vformat(fmt, va), &irc_write_raw);
+    va_end(va);
 }
 
-const char *irc_name(irc_t *irc) {
-    return irc->name;
+/* Channel management */
+static void irc_user_destroy(irc_user_t *user);
+static void irc_channel_destroy(irc_channel_t *channel) {
+    free(channel->channel);
+    free(channel->topic);
+    hashtable_foreach(channel->users, NULL, &irc_user_destroy);
+    hashtable_destroy(channel->users);
+    free(channel);
+}
+
+static void irc_channel_join(irc_channel_t *channel, irc_t *irc) {
+    irc_join_raw(irc, channel->channel);
 }
 
 static void irc_channels_join(irc_t *irc) {
-    list_iterator_t *it = list_iterator_create(irc->channels);
-    while (!list_iterator_end(it)) {
-        irc_channel_t *channel = list_iterator_next(it);
-        irc_join_raw(irc, NULL, channel->channel);
-    }
-    list_iterator_destroy(it);
+    hashtable_foreach(irc->channels, irc, &irc_channel_join);
 }
 
-static bool irc_channel_find_name(const void *a, const void *b) {
-    const irc_channel_t *ca = a;
-    const char          *cb = b;
-
-    return !strcmp(ca->channel, cb);
-}
-
-static bool irc_channel_find(const void *a, const void *b) {
-    return irc_channel_find_name(a, ((irc_channel_t*)b)->channel);
-}
-
-
-static void irc_onnick(irc_t *irc, irc_parser_data_t *data) {
-    if (!strncmp(data->content, "NickServ", data->length) && !(irc->flags & IRC_STATE_NICKSERV)) {
-        irc_write(irc, "NickServ", "IDENTIFY %s %s", irc->nick, irc->auth);
-        irc->flags |= IRC_STATE_NICKSERV;
+bool irc_channels_add(irc_t *irc, const char *channel) {
+    if (hashtable_find(irc->channels, channel)) {
+        printf("    channel  => %s already exists\n", channel);
+        return false;
     }
 
-    free(irc->message.nick);
-    irc->message.nick = strdup(data->content);
+    irc_channel_t *chan = malloc(sizeof(*chan));
+    chan->users   = hashtable_create(32);
+    chan->channel = strdup(channel);
+    chan->topic   = NULL;
+
+    hashtable_insert(irc->channels, channel, chan);
+    printf("    channel  => %s added\n", channel);
+    return true;
 }
 
-static void irc_onname(irc_t *irc, irc_parser_data_t *data) {
-    free(irc->message.name);
-    irc->message.name = strdup(data->content);
+/* User management */
+static void irc_user_destroy(irc_user_t *user) {
+    free(user->nick);
+    free(user->host);
+    free(user);
 }
 
-static void irc_onhost(irc_t *irc, irc_parser_data_t *data) {
-    free(irc->message.host);
-    irc->message.host = strdup(data->content);
+static irc_user_t *irc_user_create(const char *nick, const char *host) {
+    irc_user_t *user = malloc(sizeof(*user));
+    user->nick = strdup(nick);
+    user->host = strdup(host);
+    return user;
 }
 
-static void irc_onparam(irc_t *irc, irc_parser_data_t *data) {
-    if (!strncmp(data->content, "AUTH", 4))
-        irc->flags |= IRC_COMMAND_AUTH;
-    if (!strncmp(data->content, irc->nick, data->length))
-        irc->flags |= IRC_COMMAND_KICK;
+void irc_users_insert(irc_t *irc, const char *channel, const char *prefix) {
+    irc_channel_t *chan = hashtable_find(irc->channels, channel);
+    if (!chan) return;
 
-    /*
-     * RFC (2812): 1.3 Channels
-     *  Channel names are strings (beginning with a '&', '#', '+' or '!'
-     *  character).
-     */
-    if (strpbrk(data->content, "&#+!")) {
-        free(irc->message.channel);
-        irc->message.channel = strdup(data->content);
-    }
+    const char *nick = irc_target_nick(prefix);
+    const char *host = irc_target_host(prefix);
+    irc_user_t *user = irc_user_create(nick, host);
+
+    hashtable_insert(chan->users, nick, user);
 }
 
-static void irc_onerror(irc_t *irc, irc_parser_data_t *data) {
-    /* broadcast all errors and shut down */
-    list_iterator_t *it = list_iterator_create(irc->channels);
-    while (!list_iterator_end(it)) {
-        irc_channel_t *channel = list_iterator_next(it);
-        irc_write(irc, channel->channel, "error %s (shutting down)", data->content);
-    }
-    list_iterator_destroy(it);
-    raise(SIGUSR1);
-}
+void irc_users_remove(irc_t *irc, const char *channel, const char *prefix) {
+    irc_channel_t *chan = hashtable_find(irc->channels, channel);
+    if (!chan) return;
 
-static void irc_oncommand(irc_t *irc, irc_parser_data_t *data) {
-    static const struct {
-        const char *name;
-        size_t      flag;
-    } commands[] = {
-        { "PING",    IRC_COMMAND_PING    },
-        { "ERROR",   IRC_COMMAND_ERROR   },
-        { "KICK",    IRC_COMMAND_KICK    },
-        { "JOIN",    IRC_COMMAND_JOIN    },
-        { "LEAVE",   IRC_COMMAND_LEAVE   },
-        { "NOTICE",  IRC_COMMAND_NOTICE  },
-        { "PRIVMSG", IRC_COMMAND_PRIVMSG }
-    };
-
-    for (size_t i = 0; i < sizeof(commands)/sizeof(*commands); i++)
-        if (!strcmp(data->content, commands[i].name))
-            irc->flags |= commands[i].flag;
-}
-
-static void irc_onend(irc_t *irc, irc_parser_data_t *data) {
-    if (irc->flags & IRC_COMMAND_PRIVMSG) {
-        irc->flags &= ~IRC_COMMAND_PRIVMSG;
-        irc->flags |= IRC_STATE_END;
-        free(irc->message.content);
-        irc->message.content = strdup(data->content);
+    const char *nick = irc_target_nick(prefix);
+    irc_user_t *user = hashtable_find(chan->users, nick);
+    if (!user)
         return;
-    }
 
-    /* Deal with server numerics and NOTICES */
-    char *space = strchr(data->content, ' ');
-    if (space && space[1]) {
-        space++;
-        if (!strncmp(space, "NOTICE", 6) && !(irc->flags & IRC_STATE_AUTH))
-            irc->flags |= IRC_COMMAND_REGISTER;
-
-        /* Get channel topic */
-        if (!strncmp(space, "332", 3)) {
-            strtok(space, " ");
-            strtok(NULL,  " ");
-
-            char *chan = strtok(NULL, " ");
-            irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chan);
-            if (!channel)
-                return;
-
-            free(channel->topic);
-            channel->topic = strdup(strchr(&chan[strlen(chan) + 1], ':') + 1);
-            return;
-        }
-
-        /* Get channel users */
-        if (!strncmp(space, "353", 3)) {
-            char *chanbeg = strchr(space,   '@');
-            if (!chanbeg) return;
-            chanbeg += 2;
-            char *chanend = strchr(chanbeg, ':');
-            if (!chanend) return;
-            chanend -= 2;
-            if (strlen(chanend) <= 1)
-                return;
-
-            chanend[1] = 0;
-            irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chanbeg);
-            if (!channel)
-                return;
-
-            char *user = strtok(&chanend[3], " ");
-            while (user) {
-                list_push(channel->users, strdup(user));
-                user = strtok(NULL, " ");
-            }
-            return;
-        }
-    }
-
-    if (irc->flags & IRC_COMMAND_ERROR) {
-        fprintf(stderr, "    irc      => %s\n", data->content);
-        irc->flags &= ~IRC_COMMAND_ERROR;
-    }
-
-    if (irc->flags & IRC_COMMAND_REGISTER) {
-        irc_register(irc);
-        irc->flags &= ~IRC_COMMAND_REGISTER;
-        irc->flags |= IRC_STATE_AUTH;
-    }
-
-    if (irc->flags & IRC_COMMAND_PING) {
-        irc_pong(irc, data->content);
-        irc->flags &= ~IRC_COMMAND_PING;
-    }
-
-    if (irc->flags & IRC_COMMAND_KICK) {
-        irc_channels_join(irc);
-        irc->flags |= IRC_STATE_READY;
-        irc->flags &= ~IRC_COMMAND_KICK;
-        printf("    irc      => ready\n");
-    }
+    irc_user_destroy(user);
+    hashtable_remove(chan->users, nick);
 }
 
-/* Management of IRC instances */
+/* Instance management */
 irc_t *irc_create(config_t *entry) {
     irc_t *irc = malloc(sizeof(irc_t));
 
-    if (!(irc->name    = strdup(entry->name)))    goto error;
-    if (!(irc->nick    = strdup(entry->nick)))    goto error;
-    if (!(irc->pattern = strdup(entry->pattern))) goto error;
+    irc->name            = strdup(entry->name);
+    irc->nick            = strdup(entry->nick);
+    irc->pattern         = strdup(entry->pattern);
+    irc->auth            = (entry->auth) ? strdup(entry->auth) : NULL;
+    irc->ready           = false;
+    irc->identified      = false;
+    irc->channels        = hashtable_create(64);
+    irc->queue           = list_create();
+    irc->database        = database_create(entry->database);
+    irc->regexprcache    = regexpr_cache_create();
+    irc->moduleman       = module_manager_create(irc);
 
-    if (entry->auth) {
-        if (!(irc->auth = strdup(entry->auth)))
-            goto error;
-    } else {
-        irc->auth = NULL;
-    }
+    memset(&irc->message, 0, sizeof(irc_message_t));
 
-    irc->channels     = list_create();
-    irc->queue        = list_create();
-    irc->database     = database_create(entry->database);
-    irc->regexprcache = regexpr_cache_create();
-    irc->moduleman    = module_manager_create(irc);
-    irc->flags        = 0;
-
-    irc->message.nick    = NULL;
-    irc->message.name    = NULL;
-    irc->message.host    = NULL;
-    irc->message.channel = NULL;
-    irc->message.content = NULL;
+    /* First realloc will make it the correct size */
+    irc->buffer.data     = malloc(512);
+    irc->buffer.offset   = 0;
+    irc->buffer.size     = 512;
 
     printf("instance: %s\n", irc->name);
     printf("    nick     => %s\n", irc->nick);
@@ -341,30 +220,44 @@ irc_t *irc_create(config_t *entry) {
     printf("    port     => %s\n", entry->port);
     printf("    ssl      => %s\n", entry->ssl ? "Yes" : "No");
 
-    irc_parser_init(&irc->parser, irc);
-
-    /* Register the callbacks */
-    irc->parser.callbacks[IRC_PARSER_STATE_NICK]      = &irc_onnick;
-    irc->parser.callbacks[IRC_PARSER_STATE_NAME]      = &irc_onname;
-    irc->parser.callbacks[IRC_PARSER_STATE_HOST]      = &irc_onhost;
-    irc->parser.callbacks[IRC_PARSER_STATE_COMMAND]   = &irc_oncommand;
-    irc->parser.callbacks[IRC_PARSER_STATE_PARMETERS] = &irc_onparam;
-    irc->parser.callbacks[IRC_PARSER_STATE_END]       = &irc_onend;
-    irc->parser.callbacks[IRC_PARSER_STATE_ERROR]     = &irc_onerror;
-
     return irc;
-
-error:
-    free(irc->name);
-    free(irc->nick);
-    free(irc->pattern);
-    free(irc->auth);
-
-    if (irc->database)
-        database_destroy(irc->database);
-    return NULL;
 }
 
+void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
+    /* Process any left over things in the queue before destroying */
+    irc_unqueue(irc);
+
+    if (irc->sock && !restart)
+        irc_quit_raw(irc, "Shutting down");
+
+    if (name)
+        *name = strdup(irc->name);
+
+    database_destroy(irc->database);
+    regexpr_cache_destroy(irc->regexprcache);
+    module_manager_destroy(irc->moduleman);
+
+    hashtable_foreach(irc->channels, NULL, &irc_channel_destroy);
+    hashtable_destroy(irc->channels);
+    list_destroy(irc->queue);
+
+    free(irc->auth);
+    free(irc->nick);
+    free(irc->name);
+    free(irc->pattern);
+    free(irc->buffer.data);
+
+    free(irc->message.nick);
+    free(irc->message.host);
+    free(irc->message.channel);
+    free(irc->message.content);
+
+    sock_destroy(irc->sock, restart);
+
+    free(irc);
+}
+
+/* Module management */
 bool irc_modules_reload(irc_t *irc, const char *name) {
     return module_manager_module_reload(irc->moduleman, name);
 }
@@ -420,86 +313,7 @@ list_t *irc_modules_list(irc_t *irc) {
     return list;
 }
 
-list_t *irc_users(irc_t *irc, const char *chan) {
-    irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chan);
-    if (!channel)
-        return NULL;
-
-    list_t *copy = list_copy(channel->users);
-    list_sort(copy, &irc_modules_list_sort);
-    return copy;
-}
-
-const char *irc_topic(irc_t *irc, const char *chan) {
-    irc_channel_t *channel = list_search(irc->channels, &irc_channel_find_name, chan);
-    if (!channel)
-        return NULL;
-
-    return channel->topic;
-}
-
-bool irc_channels_add(irc_t *irc, const char *channel) {
-    if (list_search(irc->channels, &irc_channel_find, channel)) {
-        printf("    channel  => %s already exists\n", channel);
-        return false;
-    }
-
-    irc_channel_t *ch = malloc(sizeof(*ch));
-    ch->users   = list_create();
-    ch->channel = strdup(channel);
-    ch->topic   = NULL;
-
-    list_push(irc->channels, ch);
-    printf("    channel  => %s added\n", channel);
-    return true;
-}
-
-void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
-    if (irc->sock && !restart)
-        irc_quit_raw(irc, NULL, "Shutting down");
-
-    if (name)
-        *name = strdup(irc->name);
-
-    irc_queue_destroy(irc);
-    database_destroy(irc->database);
-    regexpr_cache_destroy(irc->regexprcache);
-    module_manager_destroy(irc->moduleman);
-
-    /*
-     * Destroy all channels and messages and the channels users as well
-     * as the topic.
-     */
-    list_iterator_t *it = list_iterator_create(irc->channels);
-    while (!list_iterator_end(it)) {
-        irc_channel_t   *ch = list_iterator_next(it);
-        list_iterator_t *ut = list_iterator_create(ch->users);
-        while (!list_iterator_end(ut))
-            free(list_iterator_next(ut));
-        list_iterator_destroy(ut);
-        list_destroy(ch->users);
-        free(ch->channel);
-        free(ch->topic);
-        free(ch);
-    }
-    list_iterator_destroy(it);
-    list_destroy(irc->channels);
-
-    free(irc->message.nick);
-    free(irc->message.name);
-    free(irc->message.host);
-    free(irc->message.channel);
-    free(irc->message.content);
-    free(irc->auth);
-    free(irc->nick);
-    free(irc->name);
-    free(irc->pattern);
-
-    sock_destroy(irc->sock, restart);
-
-    free(irc);
-}
-
+/* Network management */
 bool irc_connect(irc_t *irc, const char *host, const char *port, bool ssl) {
     sock_restart_t info = {
         .ssl = ssl,
@@ -514,54 +328,282 @@ bool irc_connect(irc_t *irc, const char *host, const char *port, bool ssl) {
 bool irc_reinstate(irc_t *irc, const char *host, const char *port, sock_restart_t *restart) {
     if (!(irc->sock = sock_create(host, port, restart)))
         return false;
+    irc->ready      = true;
+    irc->identified = true;
     return true;
 }
 
-int irc_process(irc_t *irc, void *data) {
-    char buffer[513];
-    int  read;
+/* Parser */
+static const char *irc_target_nick(const char *target) {
+    static char buffer[128];
 
-    if ((read = sock_recv(irc->sock, buffer, sizeof(buffer))) == -1)
-        return -1;
+    char *split = strstr(target, "!");
+    size_t length = split ? split - target : strlen(target);
+    if (length > sizeof(buffer) - 1)
+        length = sizeof(buffer) - 1;
 
-    irc_parser_next(&irc->parser, buffer, read);
+    memcpy(buffer, target, length);
+    buffer[length] = '\0';
+    return buffer;
+}
 
-    /*
-     * Don't process commands unless the state of the line parser itself
-     * has reached the end.
-     */
-    if (!(irc->flags & IRC_STATE_END))
-        return read;
+static const char *irc_target_host(const char *target) {
+    static char buffer[128];
+    const char *split = strstr(target, "!");
+    if (!split)
+        split = target;
 
-    /* now deal with commands */
-    if (!(irc->message.channel && !strncmp(irc->message.content, irc->pattern, strlen(irc->pattern)))) {
-        irc->flags &= ~IRC_STATE_END;
-        return read;
+    size_t length = strlen(split);
+    if (length > sizeof(buffer) - 1)
+        length = sizeof(buffer) - 1;
+
+    memcpy(buffer, target, length);
+    buffer[length] = '\0';
+    return buffer;
+}
+
+static void irc_parse(irc_t *irc, void *data) {
+    char *params[11];
+    char *command = NULL;
+    char *prefix  = NULL;
+    char *parse   = irc->buffer.data;
+    char *end     = irc->buffer.data + irc->buffer.offset;
+    int   numeric = 0;
+
+    /* <prefix> ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ] */
+    if (irc->buffer.data[0] == ':') {
+        while (*parse && *parse != ' ')
+            parse++;
+        *parse++ = '\0';
+        prefix = irc->buffer.data + 1;
     }
 
-    char *beg = irc->message.content + strlen(irc->pattern);
-    char *end = strchr(beg, ' ');
-
-    if (end)
-        *end = 0;
-
-    module_t *find = module_manager_module_command(irc->moduleman, beg);
-    if (!find) {
-        irc_write(irc, irc->message.nick, "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", beg);
-        irc->flags &= ~IRC_STATE_END;
-        return read;
+    /* <command> ::= <letter> { <letter> } | <number> <number> <number> */
+    if (isdigit(parse[0]) && isdigit(parse[1]) && isdigit(parse[2])) {
+        parse[3] = '\0';
+        numeric  = atoi(parse);
+        parse   += 4;
+    } else {
+        command = parse;
+        while (*parse && *parse != ' ')
+            parse++;
+        *parse++ = '\0';
     }
 
-    if (end && end[1]) {
-        beg = &end[1];
-        end = beg + strlen(beg) - 1;
-        while (end > beg && isspace(*end))
-            end--;
-        end[1] = 0;
-        end    = beg;
+    /* <params> ::= <space> [ ':' <trailing> | <middle> <params> ] */
+    for (size_t i = 0; i < sizeof(params)/sizeof(*params) - 1; ) {
+        /* When starting from ':' it's the last parameter */
+        if (*parse == ':') {
+            params[i++] = parse + 1;
+            break;
+        }
+
+        /*
+         * Otherwise we have the middle to worry about:
+         *  <middle> ::= <Any *non-empty* sequence of octets not including
+         *               space or NUL or CR or LF, the first of which
+         *               cannot be <space>>
+         */
+        params[i++] = parse;
+
+        /*
+         * <trailing> ::= <Any possibly *empty*, sequence of octets not
+         *                 including NUL or CR or LF>
+         */
+        for (; *parse && *parse != ' '; parse++)
+            ;
+
+        /* Finished */
+        if (!*parse)
+            break;
+
+        *parse++ = '\0';
     }
 
-    cmd_channel_push(data, cmd_entry_create(data, find, irc->message.channel, irc->message.nick, end));
-    irc->flags &= ~IRC_STATE_END;
-    return read;
+    /* Deal with server PING/PONG as early as possible */
+    if (command && !strncmp(command, "PING", end - command) && params[0]) {
+        sock_sendf(irc->sock, "PONG :%s", params[0]);
+        return;
+    }
+
+    if (numeric) {
+        /*
+         * When the server sends the end of it's MOTD or it doesn't send a
+         * MOTD at all we consider this the syncronized state and join the
+         * channels we need to.
+         */
+        if ((numeric == RPL_ENDOFMOTD || numeric == ERR_NOMOTD))
+            irc_channels_join(irc);
+
+        else if (numeric == RPL_WELCOME) {
+            irc->ready = true;
+            printf("    irc      => ready\n");
+            return;
+        } else if (numeric == RPL_TOPIC) {
+            irc_channel_t *channel = hashtable_find(irc->channels, params[1]);
+            if (!channel)
+                return;
+            /* Update the channel topic */
+            free(channel->topic);
+            channel->topic = strdup(params[2]);
+            return;
+        } else if (numeric == RPL_NAMREPLY) {
+            irc_channel_t *channel = hashtable_find(irc->channels, params[2]);
+            if (!channel)
+                return;
+            /* Update the names */
+            char *tokenize = strtok(params[3], " ");
+            while (tokenize) {
+                /* TODO: whois to get host */
+                irc_users_insert(irc, channel->channel, tokenize);
+                tokenize = strtok(NULL, " ");
+            }
+            return;
+        }
+        return;
+    }
+
+    if (!strncmp(command, "PRIVMSG", end - command) && params[1]) {
+        /* Make a copy of the message for the always modules */
+        free(irc->message.nick);
+        free(irc->message.host);
+        free(irc->message.channel);
+        free(irc->message.content);
+        irc->message.nick    = strdup(irc_target_nick(prefix));
+        irc->message.host    = strdup(irc_target_host(prefix));
+        irc->message.channel = strdup(params[0]);
+        irc->message.content = strdup(params[1]);
+
+        /* Trim trailing whitespace in message */
+        char *trail = irc->message.content + strlen(irc->message.content) - 1;
+        while (trail > irc->message.content && isspace(*trail))
+            trail--;
+        trail[1] = '\0';
+
+        /* Did someone initiate a module? */
+        if (!strncmp(params[1], irc->pattern, strlen(irc->pattern))) {
+            /* Skip the pattern and strip the string */
+            char *skip  = params[1] + strlen(irc->pattern);
+            char *strip = strchr(skip, ' ');
+            if (strip)
+                *strip = '\0';
+
+            /* Check for the appropriate module for this command */
+            module_t *find = module_manager_module_command(irc->moduleman, skip);
+            if (!find) {
+                /* Couldn't find the module? */
+                irc_write(irc, irc_target_nick(prefix),
+                    "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", skip);
+                return;
+            }
+
+            /* Skip the initial part of the module */
+            char *next = irc->message.content + strlen(irc->pattern) + strlen(skip);
+            while (isspace(*next))
+                next++;
+
+            /*
+             * Create a new command entry for the module and add it to the
+             * command queue.
+             */
+            cmd_channel_push (
+                data,
+                cmd_entry_create (
+                    data,
+                    find,
+                    params[0],
+                    irc_target_nick(prefix),
+                    next
+                )
+            );
+        }
+    } else if (!strncmp(command, "NOTICE", end - command) && params[1]) {
+        /*
+         * This is a special case to support Atheme's nick services.
+         * NickServ sends a NOTICE containing "This nickname is registered",
+         * we check for that and PRIVMSG NickServ to authenticate using
+         * the authentication syntax. NickServ will send a NOTICE when
+         * we're authenticated. For all other NOTICEs from NickServ we
+         * simply ignore them.
+         */
+        if (!strcmp(irc_target_nick(prefix), "NickServ") && irc->auth) {
+            if (strstr(params[1], "You are now identified")) {
+                printf("    irc      => authenticated\n");
+            } else if (strstr(params[1], "This nickname is registered")) {
+                sock_sendf(irc->sock, "PRIVMSG NickServ :IDENTIFY %s %s\r\n", irc->nick, irc->auth);
+            }
+        }
+    } else if (!strncmp(command, "KILL", end - command)) {
+        /* If the IRCd wants to kill us for what ever reason, allow it. */
+        irc_destroy(irc, SOCK_RESTART_NIL, NULL);
+    } else if (!strncmp(command, "JOIN", end - command)) {
+        irc_users_insert(irc, params[0], prefix);
+    } else if (!strncmp(command, "PART", end - command)) {
+        irc_users_remove(irc, params[0], prefix);
+    }
+}
+
+void irc_process(irc_t *irc, void *data) {
+    if (!irc->sock)
+        return;
+
+    if (!irc->ready && !irc->identified) {
+        /*
+         * RFC 1459 mentions that hostname and servername are typically
+         * ignored by the IRCd when the USER command comes directly from a
+         * connected client for security reasons. We simply ignore sending
+         * those fields.
+         */
+        sock_sendf(irc->sock, "NICK %s\r\nUSER %s localhost 0 :redorito\r\n", irc->nick, irc->nick);
+        irc->identified = true;
+    }
+
+    /* Read until we can't anymore */
+    char ch = '\0';
+    while (sock_recv(irc->sock, &ch, 1) != -1) {
+        irc->buffer.data[irc->buffer.offset++] = ch;
+        if (irc->buffer.offset > irc->buffer.size) {
+            irc->buffer.size += 512;
+            irc->buffer.data  = realloc(irc->buffer.data, irc->buffer.size);
+        }
+        /* A newline indicates that we can parse */
+        if (ch == '\n') {
+            /* Some IRCd only send \n instead of \r\n */
+            irc->buffer.data[irc->buffer.offset - 1] = '\0';
+            /* For the ones which don't we can terminate earlier */
+            if (irc->buffer.data[irc->buffer.offset - 2] == '\r')
+                irc->buffer.data[irc->buffer.offset - 2] = '\0';
+
+            irc_parse(irc, data);
+            irc->buffer.offset = 0;
+            break;
+        }
+    }
+}
+
+/* Exposed functionality for the module API */
+const char *irc_nick(irc_t *irc) {
+    return irc->nick;
+}
+
+const char *irc_name(irc_t *irc) {
+    return irc->name;
+}
+
+const char *irc_topic(irc_t *irc, const char *channel) {
+    irc_channel_t *chan = hashtable_find(irc->channels, channel);
+    return (chan) ? chan->topic : "(No topic)";
+}
+
+void irc_users_callback(irc_user_t *user, list_t *list) {
+    list_push(list, user->nick);
+}
+
+list_t *irc_users(irc_t *irc, const char *channel) {
+    irc_channel_t *chan = hashtable_find(irc->channels, channel);
+    if (!chan) return NULL;
+
+    list_t *create = list_create();
+    hashtable_foreach(chan->users, create, &irc_users_callback);
+    return create;
 }
