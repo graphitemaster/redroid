@@ -98,7 +98,6 @@ static void mod_reload_all(irc_t *irc, const char *channel, const char *user) {
 }
 
 static void mod_unload(irc_t *irc, const char *channel, const char *user, const char *module) {
-    irc_write(irc, channel, "%s: RAW [%s]", user, module);
     if (!mod_check(irc, channel, user, module, "unload"))
         return;
 

@@ -171,11 +171,12 @@ void irc_users_insert(irc_t *irc, const char *channel, const char *prefix) {
 
     const char *nick = irc_target_nick(prefix);
     const char *host = irc_target_host(prefix);
-    irc_user_t *user = irc_user_create(nick, host);
 
     /* Don't insert it again if it already exists */
-    if (!hashtable_find(chan->users, nick))
-        hashtable_insert(chan->users, nick, user);
+    if (hashtable_find(chan->users, nick))
+        return;
+
+    hashtable_insert(chan->users, nick, irc_user_create(nick, host));
 }
 
 void irc_users_remove(irc_t *irc, const char *channel, const char *prefix) {

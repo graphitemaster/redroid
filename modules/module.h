@@ -47,9 +47,9 @@ typedef struct list_s                   list_t;
 typedef struct list_iterator_s          list_iterator_t;
 typedef struct string_s                 string_t;
 
-
-#define MODULE_DEFAULT(NAME) char module_name[] = #NAME, module_match[] = #NAME
-#define MODULE_ALWAYS(NAME)  char module_name[] = #NAME, module_match[] = ""
+#define MODULE_DEFAULT(NAME)   char module_name[] = #NAME, module_match[] = #NAME
+#define MODULE_ALWAYS(NAME)    char module_name[] = #NAME, module_match[] = ""
+#define MODULE_HIGHLIGHT(NAME) char module_name[] = #NAME, module_match[]
 
 #define MODULE_TIMED(NAME, INTERVAL) \
     MODULE_ALWAYS(NAME);             \
