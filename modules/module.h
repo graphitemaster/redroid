@@ -73,7 +73,7 @@ typedef struct string_s                 string_t;
     })
 
 /*
- * Function: irc_modules_list
+ * Function: irc_modules_
  *  Obtain a list of the current loaded modules for the IRC instance.
  *
  * Returns:
@@ -86,8 +86,8 @@ typedef struct string_s                 string_t;
  * Remarks:
  *  The list this function returns is garbage collected.
  */
-static inline list_t *irc_modules_list(irc_t *irc) {
-    return MODULE_GC_CALL(irc_modules_list)(irc);
+static inline list_t *irc_modules(irc_t *irc) {
+    return MODULE_GC_CALL(irc_modules)(irc);
 }
 
 /*
@@ -95,8 +95,8 @@ static inline list_t *irc_modules_list(irc_t *irc) {
  *  Obtain a list of the users on a current channel.
  *
  * Returns:
- *  A list of character pointers to string containing the names of
- *  the channel for a given IRC instance.
+ *  A list of character pointers to strings containing the names of
+ *  users in a channel.
  *
  * Parameters:
  *  irc     - IRC instance
@@ -107,6 +107,24 @@ static inline list_t *irc_modules_list(irc_t *irc) {
  */
 static inline list_t *irc_users(irc_t *irc, const char *channel) {
     return MODULE_GC_CALL(irc_users)(irc, channel);
+}
+
+/*
+ * Function: irc_channels
+ *  Obtain a list of the channels on a current network.
+ *
+ * Returns:
+ *  A list of character pointers to strings containing the names
+ *  of all channels on the current network.
+ *
+ * Parameters:
+ *  irc     - IRC instance.
+ *
+ * Remarks:
+ *  The list this function returns is garbage collected.
+ */
+static inline list_t *irc_channels(irc_t *irc) {
+    return MODULE_GC_CALL(irc_channels)(irc);
 }
 
 /*
@@ -598,7 +616,6 @@ void irc_join(irc_t *irc, const char *channel);
 void redroid_restart(irc_t *irc, const char *channel, const char *user);
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user);
 void redroid_recompile(irc_t *irc, const char *channel, const char *user);
-list_t *redroid_instances(irc_t *irc);
 
 const char *build_date(void);
 const char *build_time(void);

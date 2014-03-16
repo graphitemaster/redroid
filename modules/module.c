@@ -82,7 +82,7 @@ static void mod_reload(irc_t *irc, const char *channel, const char *user, const 
 
 static void mod_reload_all(irc_t *irc, const char *channel, const char *user) {
     list_t *fail = list_create();
-    list_t *list = irc_modules_list(irc);
+    list_t *list = irc_modules(irc);
     for (list_iterator_t *it = list_iterator_create(list); !list_iterator_end(it); ) {
         char *name = list_iterator_next(it);
         if (!mod_check(irc, channel, user, name, NULL))
@@ -111,7 +111,7 @@ static void mod_unload(irc_t *irc, const char *channel, const char *user, const 
 
 static void mod_unload_all(irc_t *irc, const char *channel, const char *user) {
     list_t *fail = list_create();
-    list_t *list = irc_modules_list(irc);
+    list_t *list = irc_modules(irc);
     for (list_iterator_t *it = list_iterator_create(list); !list_iterator_end(it); ) {
         char *name = list_iterator_next(it);
         if (!mod_check(irc, channel, user, name, NULL))
@@ -128,7 +128,7 @@ static void mod_unload_all(irc_t *irc, const char *channel, const char *user) {
 }
 
 static void mod_list(irc_t *irc, const char *channel, const char *user) {
-    list_t          *list   = irc_modules_list(irc);
+    list_t          *list   = irc_modules(irc);
     string_t        *string = string_construct();
     list_iterator_t *it     = list_iterator_create(list);
 

@@ -99,6 +99,7 @@ void irc_join(irc_t *irc, const char *channel) {
 }
 
 void irc_part(irc_t *irc, const char *channel) {
+    hashtable_remove(irc->channels, channel);
     irc_enqueue_standard(irc, channel, &irc_part_raw);
 }
 
@@ -172,7 +173,9 @@ void irc_users_insert(irc_t *irc, const char *channel, const char *prefix) {
     const char *host = irc_target_host(prefix);
     irc_user_t *user = irc_user_create(nick, host);
 
-    hashtable_insert(chan->users, nick, user);
+    /* Don't insert it again if it already exists */
+    if (!hashtable_find(chan->users, nick))
+        hashtable_insert(chan->users, nick, user);
 }
 
 void irc_users_remove(irc_t *irc, const char *channel, const char *prefix) {
@@ -297,11 +300,11 @@ bool irc_modules_unload(irc_t *irc, const char *name) {
     return module_manager_module_unload(irc->moduleman, name);
 }
 
-static bool irc_modules_list_sort(const void *a, const void *b) {
+static bool irc_lexicographical_sort(const void *a, const void *b) {
     return strcmp(a, b) >= 0;
 }
 
-list_t *irc_modules_list(irc_t *irc) {
+list_t *irc_modules(irc_t *irc) {
     list_t          *list = list_create();
     list_iterator_t *it   = list_iterator_create(irc->moduleman->modules);
     while (!list_iterator_end(it)) {
@@ -309,7 +312,7 @@ list_t *irc_modules_list(irc_t *irc) {
         list_push(list, (void *)entry->name);
     }
     list_iterator_destroy(it);
-    list_sort(list, &irc_modules_list_sort);
+    list_sort(list, &irc_lexicographical_sort);
     return list;
 }
 
@@ -595,7 +598,7 @@ const char *irc_topic(irc_t *irc, const char *channel) {
     return (chan) ? chan->topic : "(No topic)";
 }
 
-void irc_users_callback(irc_user_t *user, list_t *list) {
+static void irc_users_callback(irc_user_t *user, list_t *list) {
     list_push(list, user->nick);
 }
 
@@ -603,7 +606,19 @@ list_t *irc_users(irc_t *irc, const char *channel) {
     irc_channel_t *chan = hashtable_find(irc->channels, channel);
     if (!chan) return NULL;
 
-    list_t *create = list_create();
-    hashtable_foreach(chan->users, create, &irc_users_callback);
-    return create;
+    list_t *list = list_create();
+    hashtable_foreach(chan->users, list, &irc_users_callback);
+    list_sort(list, &irc_lexicographical_sort);
+    return list;
+}
+
+static void irc_channels_callback(irc_channel_t *channel, list_t *list) {
+    list_push(list, channel->channel);
+}
+
+list_t *irc_channels(irc_t *irc) {
+    list_t *list = list_create();
+    hashtable_foreach(irc->channels, list, &irc_channels_callback);
+    list_sort(list, &irc_lexicographical_sort);
+    return list;
 }

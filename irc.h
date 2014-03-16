@@ -11,7 +11,6 @@
 #define RPL_WELCOME    1
 #define RPL_TOPIC      332
 #define RPL_NAMREPLY   353
-#define RPL_ENDOFNAMES 366
 #define RPL_MOTD       372
 #define RPL_ENDOFMOTD  376
 #define ERR_NOMOTD     422
@@ -70,14 +69,18 @@ irc_t *irc_create(config_t *config);
 void  irc_destroy(irc_t *irc, sock_restart_t *restart, char **name);
 void irc_process(irc_t *irc, void *data);
 const char *irc_name(irc_t *irc);
+const char *irc_nick(irc_t *irc);
 
 bool irc_connect(irc_t *irc, const char *host, const char *port, bool ssl);
 bool irc_reinstate(irc_t *irc, const char *host, const char *port, sock_restart_t *restart);
 
-list_t *irc_modules_list(irc_t *irc);
 list_t *irc_users(irc_t *irc, const char *chan);
+list_t *irc_channels(irc_t *irc);
+list_t *irc_modules(irc_t *irc);
+
 bool irc_modules_add(irc_t *irc, const char *file);
 bool irc_channels_add(irc_t *irc, const char *channel);
+
 void irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_unqueue(irc_t *irc);
