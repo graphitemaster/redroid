@@ -290,8 +290,7 @@ static void *cmd_channel_threader(void *data) {
             pthread_mutex_unlock(&channel->cmd_mutex);
         }
 
-        while (irc_queue_dequeue(module->instance))
-            ;
+        irc_unqueue(module->instance);
     }
 
     cmd_channel_rdclose(channel);

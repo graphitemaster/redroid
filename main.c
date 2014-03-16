@@ -471,7 +471,6 @@ int main(int argc, char **argv) {
             if (!irc_reinstate(instance, entry->host, entry->port, &restdata))
                 redroid_abort();
 
-            instance->flags |= IRC_STATE_READY;
             irc_manager_add(manager, instance);
 
             list_iterator_destroy(ci);

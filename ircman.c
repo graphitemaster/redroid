@@ -43,7 +43,7 @@ static list_t *irc_instances_destroy(irc_instances_t *instances, bool restart) {
     list_t *list = (restart) ? list_create() : NULL;
 
     for (size_t i = 0; i < instances->size; i++) {
-        if (!(instances->data[i]->flags & IRC_STATE_READY)) {
+        if (!irc_ready(instances->data[i])) {
             irc_destroy(instances->data[i], NULL, NULL);
             continue;
         }
@@ -224,8 +224,7 @@ void irc_manager_process(irc_manager_t *manager) {
      */
     size_t total = manager->instances->size;
     for (size_t i = 0; i < total; i++)
-        while (irc_queue_dequeue(manager->instances->data[i]))
-            ;
+        irc_unqueue(manager->instances->data[i]);
 
     int wait = poll(manager->polls, manager->instances->size + 1, -1);
     if (wait == 0 || wait == -1)
@@ -238,7 +237,7 @@ void irc_manager_process(irc_manager_t *manager) {
             irc_process(instance, manager->commander);
 
         /* Don't process modules if we're not ready */
-        if (!(instance->flags & IRC_STATE_READY) || !instance->message.channel)
+        if (!irc_ready(instance) || !instance->message.channel)
             continue;
 
         /*
