@@ -61,7 +61,7 @@ article of our official wiki.
 
 ### Configuration
 Information on how to configure Redroid and its modules can be found
-on the [_Configuring Redroid_](Configuring Redroid) article of our offical
+on the [_Configuring Redroid_](Configuring Redroid) article of our official
 wiki.
 
 ### Miscellaneous
