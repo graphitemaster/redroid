@@ -208,9 +208,8 @@ irc_t *irc_create(config_t *entry) {
     memset(&irc->message, 0, sizeof(irc_message_t));
 
     /* First realloc will make it the correct size */
-    irc->buffer.data     = malloc(512);
+    irc->buffer.data[0]  = '\0';
     irc->buffer.offset   = 0;
-    irc->buffer.size     = 512;
 
     printf("instance: %s\n", irc->name);
     printf("    nick     => %s\n", irc->nick);
@@ -246,8 +245,6 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     free(irc->nick);
     free(irc->name);
     free(irc->pattern);
-    free(irc->buffer.data);
-
     free(irc->message.nick);
     free(irc->message.host);
     free(irc->message.channel);
@@ -423,7 +420,7 @@ static void irc_parse(irc_t *irc, void *data) {
 
     /* Deal with server PING/PONG as early as possible */
     if (command && !strncmp(command, "PING", end - command) && params[0]) {
-        sock_sendf(irc->sock, "PONG :%s", params[0]);
+        sock_sendf(irc->sock, "PONG :%s\r\n", params[0]);
         return;
     }
 
@@ -459,6 +456,13 @@ static void irc_parse(irc_t *irc, void *data) {
                 irc_users_insert(irc, channel->channel, tokenize);
                 tokenize = strtok(NULL, " ");
             }
+            return;
+        } else if (numeric == ERR_NICKNAMEINUSE) {
+            /* Change nickname by appending a tail */
+            string_t *tail = string_format("%s_", irc->nick);
+            free(irc->nick);
+            irc->nick = string_move(tail);
+            sock_sendf(irc->sock, "NICK %s\r\n", irc->nick);
             return;
         }
         return;
@@ -559,29 +563,26 @@ void irc_process(irc_t *irc, void *data) {
         irc->identified = true;
     }
 
-    /* Read until we can't anymore */
-    char ch = '\0';
-    while (sock_recv(irc->sock, &ch, 1) != -1) {
-        irc->buffer.data[irc->buffer.offset++] = ch;
-        if (irc->buffer.offset > irc->buffer.size) {
-            irc->buffer.size += 512;
-            irc->buffer.data  = realloc(irc->buffer.data, irc->buffer.size);
-        }
-        /* A newline indicates that we can parse */
-        if (ch == '\n') {
-            /* Some IRCd only send \n instead of \r\n */
-            irc->buffer.data[irc->buffer.offset - 1] = '\0';
-            /* For the ones which don't we can terminate earlier */
-            if (irc->buffer.data[irc->buffer.offset - 2] == '\r')
-                irc->buffer.data[irc->buffer.offset - 2] = '\0';
+    /* Read in chunks */
+    char temp[256];
+    int read;
+    if ((read = sock_recv(irc->sock, temp, sizeof(temp) - 1)) <= 0)
+        return;
+
+    temp[read] = '\0';
+    for (int i = 0; i < read; ++i) {
+        if (temp[i] == '\r')
+            continue;
+        if (temp[i] == '\n') {
+            irc->buffer.data[irc->buffer.offset] = '\0';
+            irc->buffer.offset                   = 0;
             irc_parse(irc, data);
-            irc->buffer.offset = 0;
-            break;
+        } else {
+            irc->buffer.data[irc->buffer.offset++] = temp[i];
+            if (irc->buffer.offset > sizeof(irc->buffer.data) - 1)
+                raise(SIGUSR1);
         }
     }
-
-    /* Process any data that may exist */
-    irc_unqueue(irc);
 }
 
 /* Exposed functionality for the module API */

@@ -125,7 +125,7 @@ static bool irc_manager_stage(irc_manager_t *manager) {
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         manager->polls[1+i].fd     = sock_getfd(manager->instances->data[i]->sock);
-        manager->polls[1+i].events = POLLIN | POLLERR | POLLPRI;
+        manager->polls[1+i].events = POLLIN | POLLPRI;
     }
 
     /* Begin the command message channel if it isn't already ready */

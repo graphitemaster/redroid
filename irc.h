@@ -8,24 +8,20 @@
 #include "module.h"
 #include "hashtable.h"
 
-#define RPL_WELCOME    1
-#define RPL_TOPIC      332
-#define RPL_NAMREPLY   353
-#define RPL_MOTD       372
-#define RPL_ENDOFMOTD  376
-#define ERR_NOMOTD     422
+#define RPL_WELCOME        1
+#define RPL_TOPIC          332
+#define RPL_NAMREPLY       353
+#define RPL_MOTD           372
+#define RPL_ENDOFMOTD      376
+
+#define ERR_NOMOTD         422
+#define ERR_NICKNAMEINUSE  433
 
 typedef struct irc_manager_s irc_manager_t;
 
-/*
- * Some IRCds don't follow the RFC and send very long lines. This is
- * a self-expanding structure which compensates for the largest sent
- * line by the IRCd.
- */
 typedef struct {
-    char  *data;
+    char   data[513];
     size_t offset;
-    size_t size;
 } irc_buffer_t;
 
 typedef struct {
