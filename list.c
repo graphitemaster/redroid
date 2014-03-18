@@ -233,13 +233,9 @@ void *list_at(list_t *list, size_t index) {
 }
 
 list_t *list_copy(list_t *list) {
-    list_t          *copy = list_create();
-    list_iterator_t *it   = list_iterator_create(list);
-
-    while (!list_iterator_end(it))
-        list_push(copy, list_iterator_next(it));
-
-    list_iterator_destroy(it);
+    list_t *copy = list_create();
+    for (list_node_t *curr = list->head; curr; curr = curr->next)
+        list_push(copy, curr->element);
     return copy;
 }
 
