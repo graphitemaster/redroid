@@ -84,7 +84,7 @@ void *hashtable_find(hashtable_t *hashtable, const char *key);
  *  hashtable   - The hashtable to execute the callback over.
  *  pass        - The additional thing to pass in for the callback to
  *                get as its second argument.
- *  callback    - Pointer to functionc allback.
+ *  callback    - Pointer to function callback.
  */
 #define hashtable_foreach(HASHTABLE, PASS, CALLBACK) \
     hashtable_foreach_impl((HASHTABLE), (PASS), ((void(*)(void*,void*))(CALLBACK)))

@@ -301,11 +301,7 @@ module_manager_t *module_manager_create(irc_t *instance) {
 }
 
 void module_manager_destroy(module_manager_t *manager) {
-    list_iterator_t *it = list_iterator_create(manager->modules);
-    while (!list_iterator_end(it))
-        module_close(list_iterator_next(it), manager);
-    list_iterator_destroy(it);
-
+    list_foreach(manager->modules, manager, &module_close);
     list_destroy(manager->modules);
     list_destroy(manager->unloaded);
 

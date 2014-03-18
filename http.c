@@ -132,7 +132,7 @@ static list_t *http_post_extract(char *content) {
 }
 
 static void http_post_cleanup(list_t *values) {
-    list_foreach(values, (void(*)(void*))&http_post_kv_destroy);
+    list_foreach(values, NULL, &http_post_kv_destroy);
     list_destroy(values);
 }
 

@@ -24,8 +24,8 @@ static void config_entry_destroy(config_t *entry) {
     free(entry->database);
     free(entry->auth);
 
-    list_foreach(entry->modules, &free);
-    list_foreach(entry->channels, &free);
+    list_foreach(entry->modules,  NULL, &free);
+    list_foreach(entry->channels, NULL, &free);
     list_destroy(entry->modules);
     list_destroy(entry->channels);
 
@@ -112,6 +112,6 @@ list_t *config_load(const char *file) {
 }
 
 void config_unload(list_t *list) {
-    list_foreach(list, (void(*)(void*))&config_entry_destroy);
+    list_foreach(list, NULL, &config_entry_destroy);
     list_destroy(list);
 }

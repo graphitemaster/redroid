@@ -220,17 +220,22 @@ list_t *list_copy(list_t *list);
  */
 size_t list_length(list_t *list);
 
+
 /*
  * Function: list_foreach
- *  Execute a callback for every value in a list.
+ *  Execute a callback passing in each value in the entire list
+ *  as well as passing in an additional pointer.
  *
  * Parameters:
- *  list     - The list to iterate through
- *  callback - The callback to execute passing in the current list iterator
- *             value as the first argument.
- *
+ *  list        - The list to execute the callback over.
+ *  pass        - The additional thing to pass in for the callback to
+ *                get as its second argument.
+ *  callback    - Pointer to function callback.
  */
-void list_foreach(list_t *list, void (*callback)(void *));
+#define list_foreach(LIST, PASS, CALLBACK) \
+    list_foreach_impl((LIST), (PASS), (void (*)(void *, void *))(CALLBACK))
+
+void list_foreach_impl(list_t *list, void *pass, void (*callback)(void *, void *));
 
 /*
  * Function: list_erase

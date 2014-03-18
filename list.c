@@ -284,9 +284,9 @@ size_t list_length(list_t *list) {
     return (list) ? list->length : 0;
 }
 
-void list_foreach(list_t *list, void (*callback)(void *)) {
+void list_foreach_impl(list_t *list, void *pass, void (*callback)(void *, void *)) {
     for (list_node_t *curr = list->head; curr; curr = curr->next)
-        callback(curr->element);
+        callback(curr->element, pass);
 }
 
 static list_node_t *list_sort_split(list_node_t *node) {
