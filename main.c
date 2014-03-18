@@ -356,15 +356,6 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-#if 0
-    web_begin(web, manager);
-    while (signal_empty())
-        ;
-    web_destroy(web);
-    irc_manager_destroy(manager);
-    return EXIT_SUCCESS;
-#endif
-
     int tmpfd = -1;
     if (signal_restarted(&argc, &argv, &tmpfd)) {
         if (lseek(tmpfd, 8, SEEK_SET) != 8) { /* 8 bytes to skip 'Redroid\0' */

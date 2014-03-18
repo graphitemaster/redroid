@@ -259,6 +259,7 @@ static void web_admin_create(web_t *web) {
                 "<div class='col-xs-6'>"
                 "<div class='instanceListHeader'>Bot data</div>"
                 "<div class='form-group'>"
+                "<input value='%s' type='hidden' name='instance'>"
                 "<label for='nick'>Nickname</label>"
                 "<input value='%s' type='text' class='form-control' name='nick' placeholder='Bot\'s nickname.'>"
                 "</div>"
@@ -269,6 +270,7 @@ static void web_admin_create(web_t *web) {
                 "<div class='form-group'>"
                 "<label for='modules'>Modules (newline separated)</label>"
                 "<textarea class='form-control' name='modules' placeholder='List of modules you want the bot to load upon start.' rows='4'>",
+                entry->name,
                 entry->name,
                 entry->nick,
                 entry->pattern);
@@ -352,11 +354,11 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
     database_row_t       *row       = NULL;
 
     if (!statement)
-        return http_send_file(client, "invalid.html");
+        return http_send_plain(client, "500 Internal Server Error");
     if (!database_statement_bind(statement, "s", username))
-        return http_send_file(client, "invalid.html");
+        return http_send_plain(client, "500 Internal Server Error");
     if (!(row = database_row_extract(statement, "s")))
-        return http_send_file(client, "invalid.html");
+        return http_send_plain(client, "500 Internal Server Error");
 
     const char    *getsalt         = database_row_pop_string(row);
     string_t      *saltpassword    = string_format("%s%s", getsalt, password);
@@ -369,7 +371,7 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
     free((void *)getsalt);
 
     if (!database_statement_complete(statement))
-        return http_send_file(client, "invalid.html");
+        return http_send_plain(client, "500 Internal Server Error");
 
     for (size_t i = 0; i < 160 / 8; i++)
         string_catf(hashpassword, "%02x", ripemdpass[i]);
@@ -402,7 +404,7 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
 static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
     const char *control = http_post_find(post, "control");
     if (!control)
-        http_send_plain(client, "301 Operation not supported");
+        return http_send_plain(client, "500 Internal Server Error");
 
     if (!strcmp(control, "Logout")) {
         web_session_control(data, client, false);
@@ -410,8 +412,32 @@ static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
     } else if (!strcmp(control, "Settings")) {
         web_template_send(data, client, "system.html");
     } else {
-        http_send_unimplemented(client);
+        http_send_plain(client, "500 Internal Server Error");
     }
+}
+
+static void web_hook_postupdate(sock_t *client, list_t *post, void *data) {
+    const char *name = http_post_find(post, "instance");
+    if (!name)
+        http_send_plain(client, "500 Internal Server Error");
+
+    /* TODO change config */
+    const char *nick     = http_post_find(post, "nick");
+    const char *pattern  = http_post_find(post, "pattern");
+    const char *modules  = http_post_find(post, "modules");
+    const char *host     = http_post_find(post, "host");
+    const char *port     = http_post_find(post, "port");
+    const char *auth     = http_post_find(post, "auth");
+    const char *channels = http_post_find(post, "channels");
+
+    /*
+     * If the host/port change on some instance then the old instance
+     * will need to be disconnected
+     */
+
+
+    web_template_change(data, "update.html", "INSTANCE", name);
+    web_template_send(data, client, "update.html");
 }
 
 static void web_hook_postsystem(sock_t *client, list_t *post, void *data) {
@@ -419,7 +445,7 @@ static void web_hook_postsystem(sock_t *client, list_t *post, void *data) {
     const char *control = http_post_find(post, "control");
 
     if (!control)
-        http_send_plain(client, "301 Operation not supported");
+        return http_send_plain(client, "500 Internal Server Error");
 
     if (!strcmp(control, "Shutdown")) {
         web_template_change(data, "system.html", "ACTION", "Shutting down");
@@ -473,9 +499,10 @@ web_t *web_create(void) {
     http_intercept_post(server, "::login",  &web_hook_postlogin,  web);
     http_intercept_post(server, "::admin",  &web_hook_postadmin,  web);
     http_intercept_post(server, "::system", &web_hook_postsystem, web);
+    http_intercept_post(server, "::update", &web_hook_postupdate, web);
 
     /* Register common landing page redirects */
-    static const char *common_lands[] = { "admin", "index", "login", "home", "system", "" };
+    static const char *common_lands[] = { "admin", "index", "login", "home", "system", "update", "" };
     static const char *common_exts[]  = { "htm",   "html",  "HTM",   "HTML", "" };
     for (size_t i = 0; i < sizeof(common_lands)/sizeof(*common_lands); i++) {
         for (size_t j = 0; j < sizeof(common_exts)/sizeof(*common_exts); j++) {
@@ -530,15 +557,11 @@ void web_destroy(web_t *web) {
     database_destroy(web->database);
 
     /* destroy sessions */
-    web_session_t *session;
-    while ((session = list_pop(web->sessions)))
-        web_session_destroy(session);
+    list_foreach(web->sessions, NULL, &web_session_destroy);
     list_destroy(web->sessions);
 
     /* destroy templates */
-    web_template_t *template;
-    while ((template = list_pop(web->templates)))
-        web_template_destroy(template);
+    list_foreach(web->templates, NULL, &web_template_destroy);
     list_destroy(web->templates);
 
     free(web);

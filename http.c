@@ -63,9 +63,7 @@ static const char *http_mime(const char *extension) {
 
 /* URL */
 static char http_url_fromhex(char ch) {
-    ch = tolower(ch);
-    static char table[] = "0123456789abcdef";
-    return table[ch & 15];
+    return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
 }
 
 static char *http_url_decode(const char *str) {
@@ -89,11 +87,6 @@ static char *http_url_decode(const char *str) {
 }
 
 /* POST keyvalue parser */
-typedef struct {
-    char *key;
-    char *value;
-} http_post_kv_t;
-
 static http_post_kv_t *http_post_kv_create(const char *key, const char *value) {
     http_post_kv_t *kv = malloc(sizeof(*kv));
     kv->key   = http_url_decode(key);

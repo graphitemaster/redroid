@@ -7,6 +7,11 @@
 
 typedef struct http_s http_t;
 
+typedef struct {
+    char *key;
+    char *value;
+} http_post_kv_t;
+
 http_t *http_create(const char *port);
 void http_destroy(http_t *http);
 void http_intercept_post(http_t *http, const char *match, void (*callback)(sock_t *client, list_t *kvs, void *data), void *data);
