@@ -20,8 +20,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#define SIGNAL_ERROR     (SIGRTMIN + 4)
-
 #define RESTART_FILENAME  "redroid_XXXXXX"
 #define RESTART_FILESIZE  sizeof(RESTART_FILENAME)
 #define RESTART_MAGICDATA "Redroid"
@@ -269,35 +267,17 @@ static void signal_daemonize(bool closehandles) {
 }
 
 static void signal_handle(int signal) {
-    bool (*handler)(bool) = NULL;
-    const char *message = NULL;
-
-    if (signal == SIGTERM || signal == SIGINT) {
+    if (signal == SIGTERM || signal == SIGINT)
         printf("Recieved shutdown\n");
-        handler = &signal_shutdown;
-        message = "Shutting down";
-    } else if (signal == SIGNAL_ERROR) {
+    else
         printf("Recieved internal error\n");
-        handler = &signal_shutdown;
-        message = "Shutting down";
-    } else
-        goto signal_error;
-    if (!handler)
-        goto signal_error;
-
-    handler(true);
-    printf("%s ...\n", message);
+    printf("Shutting down ...\n");
     fflush(NULL);
-    return;
-
-signal_error:
-    raise(SIGNAL_ERROR);
 }
 
 static void signal_install(void) {
-    signal(SIGTERM,          &signal_handle);
-    signal(SIGINT,           &signal_handle);
-    signal(SIGNAL_ERROR,     &signal_handle);
+    signal(SIGTERM, &signal_handle);
+    signal(SIGINT,  &signal_handle);
 }
 
 static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
