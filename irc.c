@@ -14,6 +14,23 @@ static const char *irc_target_nick(const char *target);
 static const char *irc_target_host(const char *target);
 
 /* Raw communication protocol */
+typedef int (*irc_func_standard_t)(irc_t *, const char *);
+typedef int (*irc_func_extended_t)(irc_t *, const char *, const char *);
+
+typedef struct {
+    const size_t        baselen; /* Base amount of bytes to represent an empty func */
+    irc_func_standard_t standard;
+    irc_func_extended_t extended;
+} irc_command_func_t;
+
+typedef enum {
+    IRC_COMMAND_JOIN,
+    IRC_COMMAND_PART,
+    IRC_COMMAND_QUIT,
+    IRC_COMMAND_WRITE,
+    IRC_COMMAND_ACTION
+} irc_command_t;
+
 int irc_join_raw(irc_t *irc, const char *channel) {
     return sock_sendf(irc->sock, "JOIN %s\r\n", channel);
 }
@@ -23,9 +40,7 @@ int irc_part_raw(irc_t *irc, const char *channel) {
 }
 
 int irc_quit_raw(irc_t *irc, const char *message) {
-    if (message)
-        return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
-    return sock_sendf(irc->sock, "QUIT\r\n");
+    return sock_sendf(irc->sock, "QUIT :%s\r\n", message);
 }
 
 int irc_write_raw(irc_t *irc, const char *target, const char *message) {
@@ -36,34 +51,37 @@ int irc_action_raw(irc_t *irc, const char *target, const char *action) {
     return sock_sendf(irc->sock, "PRIVMSG %s :\001ACTION %s\001\r\n", target, action);
 }
 
+static const irc_command_func_t irc_commands[] = {
+    [IRC_COMMAND_JOIN]   = { 0,  &irc_join_raw, NULL            },
+    [IRC_COMMAND_PART]   = { 0,  &irc_part_raw, NULL            },
+    [IRC_COMMAND_QUIT]   = { 0,  &irc_quit_raw, NULL            },
+    [IRC_COMMAND_WRITE]  = { 12, NULL,          &irc_write_raw  },
+    [IRC_COMMAND_ACTION] = { 22, NULL,          &irc_action_raw }
+};
+
 /* Buffered protocol */
-typedef int (*irc_queue_func_standard_t)(irc_t *, const char *);
-typedef int (*irc_queue_func_extended_t)(irc_t *, const char *, const char *);
 typedef struct {
-    string_t *target;
-    string_t *payload;
-    union {
-        irc_queue_func_standard_t standard;
-        irc_queue_func_extended_t extended;
-    };
+    string_t     *target;
+    string_t     *payload;
+    irc_command_t command;
 } irc_queued_t;
 
-static void irc_enqueue_standard(irc_t *irc, const char *target, irc_queue_func_standard_t callback) {
+static void irc_enqueue_standard(irc_t *irc, const char *target, irc_command_t command) {
     irc_queued_t *entry = malloc(sizeof(*entry));
 
-    entry->target   = string_create(target);
-    entry->payload  = NULL;
-    entry->standard = callback;
+    entry->target  = string_create(target);
+    entry->payload = NULL;
+    entry->command = command;
 
     list_push(irc->queue, entry);
 }
 
-static void irc_enqueue_extended(irc_t *irc, const char *target, string_t *payload, irc_queue_func_extended_t callback) {
+static void irc_enqueue_extended(irc_t *irc, const char *target, string_t *payload, irc_command_t command) {
     irc_queued_t *entry = malloc(sizeof(*entry));
 
-    entry->target   = string_create(target);
-    entry->payload  = payload;
-    entry->extended = callback;
+    entry->target  = string_create(target);
+    entry->payload = payload;
+    entry->command = command;
 
     list_push(irc->queue, entry);
 }
@@ -71,15 +89,30 @@ static void irc_enqueue_extended(irc_t *irc, const char *target, string_t *paylo
 void irc_unqueue(irc_t *irc) {
     irc_queued_t *entry;
     while ((entry = list_shift(irc->queue))) {
-        const char *target = string_contents(entry->target);
+        const size_t              targetlen = string_length(entry->target);
+        const char               *target    = string_contents(entry->target);
+        const irc_command_func_t *func      = &irc_commands[entry->command];
+
         /* If there is a payload we use the extended call */
         if (entry->payload) {
-            const char *payload = string_contents(entry->payload);
-            entry->extended(irc, target, payload);
+            size_t      payloadlen = string_length(entry->payload);
+            const char *payload    = string_contents(entry->payload);
+
+            /* Split payload for 512 byte IRC line limit */
+            while (func->baselen + targetlen + payloadlen > 512) {
+                size_t size = 512 - func->baselen - targetlen;
+                char truncate[513];
+                strncpy(truncate, payload, size);
+                truncate[size] = '\0';
+                func->extended(irc, target, truncate);
+                payloadlen -= size;
+                payload += size;
+            }
+            func->extended(irc, target, payload);
             string_destroy(entry->payload);
         } else {
             /* Otherwise we do a standard call */
-            entry->standard(irc, target);
+            func->standard(irc, target);
         }
         string_destroy(entry->target);
         free(entry);
@@ -87,30 +120,30 @@ void irc_unqueue(irc_t *irc) {
 }
 
 void irc_quit(irc_t *irc, const char *message) {
-    irc_enqueue_standard(irc, message, &irc_quit_raw);
+    irc_enqueue_standard(irc, message, IRC_COMMAND_QUIT);
 }
 
 void irc_join(irc_t *irc, const char *channel) {
     irc_channels_add(irc, channel);
-    irc_enqueue_standard(irc, channel, &irc_join_raw);
+    irc_enqueue_standard(irc, channel, IRC_COMMAND_JOIN);
 }
 
 void irc_part(irc_t *irc, const char *channel) {
     hashtable_remove(irc->channels, channel);
-    irc_enqueue_standard(irc, channel, &irc_part_raw);
+    irc_enqueue_standard(irc, channel, IRC_COMMAND_PART);
 }
 
 void irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
     va_list  va;
     va_start(va, fmt);
-    irc_enqueue_extended(irc, channel, string_vformat(fmt, va), &irc_action_raw);
+    irc_enqueue_extended(irc, channel, string_vformat(fmt, va), IRC_COMMAND_ACTION);
     va_end(va);
 }
 
 void irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
     va_list  va;
     va_start(va, fmt);
-    irc_enqueue_extended(irc, channel, string_vformat(fmt, va), &irc_write_raw);
+    irc_enqueue_extended(irc, channel, string_vformat(fmt, va), IRC_COMMAND_WRITE);
     va_end(va);
 }
 

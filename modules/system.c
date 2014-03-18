@@ -35,7 +35,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!strcmp(message, "-test-timeout"))
         for (;;) ;
     if (!strcmp(message, "-test-crash"))
-        *((int*){0}) = 0;
+        *((volatile int*){0}) = 0; /* volatile to prevent compiler from optimizing it away */
 
     if (!strncmp(message, "-join", 5)) {
         const char *peek = next(message, ' ');
