@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <regex.h>
+#include <limits.h>
 
 struct module_mem_s {
     module_t          *instance;
