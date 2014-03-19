@@ -229,12 +229,30 @@ void irc_manager_process(irc_manager_t *manager) {
         return;
     }
 
-    for (size_t i = 0; i < manager->instances->size; i++)
+    bool unfinished = false;
+    for (size_t i = 0; i < manager->instances->size; i++) {
         irc_unqueue(manager->instances->data[i]);
+        /*
+         * If we're not finished we don't want to poll any longer than the
+         * flood interval.
+         */
+        if (list_length(manager->instances->data[i]->queue) != 0)
+            unfinished = true;
+    }
 
-    int wait = poll(manager->polls, manager->instances->size + 1, -1);
+    int wait = poll(manager->polls, manager->instances->size + 1, (unfinished) ? IRC_FLOOD_INTERVAL * 1000 : -1);
     if (wait == 0 || wait == -1)
         return;
+
+    /*
+     * If we don't drain the pipe then we'll continue to have an event
+     * on it
+     */
+    if (manager->polls[0].revents & POLLIN) {
+        char buffer[6];
+        read(manager->wakefds[0], buffer, sizeof(buffer));
+        return;
+    }
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         irc_t *instance = manager->instances->data[i];
