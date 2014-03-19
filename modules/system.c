@@ -38,7 +38,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         *((volatile int*){0}) = 0; /* volatile to prevent compiler from optimizing it away */
 
     if (!strcmp(message, "-test-flood-protection")) {
-        for (size_t i = 0; i < 30; i++)
+        for (size_t i = 0; i < 10; i++)
             irc_write(irc, channel, "%s: spam %zu", user, i);
         return;
     }
