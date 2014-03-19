@@ -92,10 +92,8 @@ void irc_unqueue(irc_t *irc) {
     size_t        events = 0;
 
     /* Only when enough time has passed */
-    if (difftime(time(NULL), irc->lastunqueue) <= IRC_FLOOD_INTERVAL) {
-        printf(">> STOP\n");
+    if (difftime(time(NULL), irc->lastunqueue) <= IRC_FLOOD_INTERVAL)
         return;
-    }
 
     while (events != IRC_FLOOD_LINES && (entry = list_shift(irc->queue))) {
         const size_t              targetlen = string_length(entry->target);
