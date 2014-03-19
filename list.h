@@ -101,6 +101,16 @@ void list_destroy(list_t *list);
 void list_push(list_t *list, void *element);
 
 /*
+ * Function: list_prepend
+ *  Push an element onto the list's head end.
+ *
+ * Parameters:
+ *  list    - The list to put the element into.
+ *  element - The element to put in the list.
+ */
+void list_prepend(list_t *list, void *element);
+
+/*
  * Function: list_pop
  *  Pop an element off the list's tail end.
  *

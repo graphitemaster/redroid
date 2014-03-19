@@ -119,14 +119,7 @@ void irc_unqueue(irc_t *irc) {
                     /* Construct a new partial payload */
                     string_destroy(entry->payload);
                     entry->payload = string_create(payload + size);
-
-                    /* Make a new queue */
-                    list_t *newqueue = list_create();
-                    list_push(newqueue, entry);
-                    while ((entry = list_shift(irc->queue)))
-                        list_push(newqueue, entry);
-                    list_destroy(irc->queue);
-                    irc->queue = newqueue;
+                    list_prepend(irc->queue, entry);
                     break;
                 }
                 payloadlen -= size;

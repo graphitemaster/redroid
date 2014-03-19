@@ -181,6 +181,15 @@ void list_push(list_t *list, void *element) {
     list->length++;
 }
 
+void list_prepend(list_t *list, void *element) {
+    list_node_t *node = list_node_create(element);
+    node->next = list->head;
+    node->prev = list->tail;
+    list->head = node;
+    list->atcache.headdirt++;
+    list->length++;
+}
+
 void *list_pop(list_t *list) {
     if (!list->head)
         return NULL;
