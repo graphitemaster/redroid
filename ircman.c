@@ -229,18 +229,10 @@ void irc_manager_process(irc_manager_t *manager) {
         return;
     }
 
-    bool unfinished = false;
-    for (size_t i = 0; i < manager->instances->size; i++) {
+    for (size_t i = 0; i < manager->instances->size; i++)
         irc_unqueue(manager->instances->data[i]);
-        /*
-         * If we're not finished we don't want to poll any longer than the
-         * flood interval.
-         */
-        if (list_length(manager->instances->data[i]->queue) != 0)
-            unfinished = true;
-    }
 
-    int wait = poll(manager->polls, manager->instances->size + 1, (unfinished) ? IRC_FLOOD_INTERVAL * 1000 : -1);
+    int wait = poll(manager->polls, manager->instances->size + 1, -1);
     if (wait == 0 || wait == -1)
         return;
 

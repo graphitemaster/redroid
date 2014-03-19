@@ -19,8 +19,8 @@
 #define ERR_NOMOTD         422
 #define ERR_NICKNAMEINUSE  433
 
-#define IRC_FLOOD_LINES    3 /* lines per IRC_FLOOD_INTERVAL */
-#define IRC_FLOOD_INTERVAL 3 /* seconds */
+#define IRC_FLOOD_LINES    4 /* lines per IRC_FLOOD_INTERVAL */
+#define IRC_FLOOD_INTERVAL 1 /* seconds */
 
 typedef struct irc_manager_s irc_manager_t;
 
