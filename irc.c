@@ -2,6 +2,7 @@
 #include "sock.h"
 #include "module.h"
 #include "command.h"
+#include "ircman.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -88,7 +89,15 @@ static void irc_enqueue_extended(irc_t *irc, const char *target, string_t *paylo
 
 void irc_unqueue(irc_t *irc) {
     irc_queued_t *entry;
-    while ((entry = list_shift(irc->queue))) {
+    size_t        events = 0;
+
+    /* Only when enough time has passed */
+    if (difftime(time(NULL), irc->lastunqueue) <= IRC_FLOOD_INTERVAL) {
+        printf(">> STOP\n");
+        return;
+    }
+
+    while (events != IRC_FLOOD_LINES && (entry = list_shift(irc->queue))) {
         const size_t              targetlen = string_length(entry->target);
         const char               *target    = string_contents(entry->target);
         const irc_command_func_t *func      = &irc_commands[entry->command];
@@ -105,17 +114,40 @@ void irc_unqueue(irc_t *irc) {
                 strncpy(truncate, payload, size);
                 truncate[size] = '\0';
                 func->extended(irc, target, truncate);
+                /* Flood protection */
+                if (++events == IRC_FLOOD_LINES) {
+                    /* Construct a new partial payload */
+                    string_destroy(entry->payload);
+                    entry->payload = string_create(payload + size);
+
+                    /* Make a new queue */
+                    list_t *newqueue = list_create();
+                    list_push(newqueue, entry);
+                    while ((entry = list_shift(irc->queue)))
+                        list_push(newqueue, entry);
+                    list_destroy(irc->queue);
+                    irc->queue = newqueue;
+                    break;
+                }
                 payloadlen -= size;
                 payload += size;
             }
             func->extended(irc, target, payload);
+            events++;
             string_destroy(entry->payload);
         } else {
             /* Otherwise we do a standard call */
             func->standard(irc, target);
+            events++;
         }
         string_destroy(entry->target);
         free(entry);
+    }
+
+    /* Flood protection */
+    if (events == IRC_FLOOD_LINES) {
+        irc->lastunqueue = time(NULL);
+        irc_manager_wake(irc->manager);
     }
 }
 
@@ -237,6 +269,7 @@ irc_t *irc_create(config_t *entry) {
     irc->database        = database_create(entry->database);
     irc->regexprcache    = regexpr_cache_create();
     irc->moduleman       = module_manager_create(irc);
+    irc->lastunqueue     = 0;
 
     memset(&irc->message, 0, sizeof(irc_message_t));
 

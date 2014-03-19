@@ -266,12 +266,17 @@ static void signal_daemonize(bool closehandles) {
     close(STDERR_FILENO);
 }
 
-static void signal_handle(int signal) {
-    if (signal == SIGTERM || signal == SIGINT)
+/* The only true global */
+static irc_manager_t *manager = NULL;
+
+static void signal_handle(int sig) {
+    if (sig == SIGTERM || sig == SIGINT)
         printf("Recieved shutdown\n");
     else
         printf("Recieved internal error\n");
     printf("Shutting down ...\n");
+    irc_manager_wake(manager);
+    signal_shutdown(true);
     fflush(NULL);
 }
 
@@ -308,8 +313,7 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
 }
 
 int main(int argc, char **argv) {
-    irc_manager_t *manager = NULL;
-    web_t         *web     = NULL;
+    web_t *web = NULL;
 
     if (redroid_locked()) {
         fprintf(stderr, "an instance of Redroid is already running\n");
@@ -568,9 +572,8 @@ int main(int argc, char **argv) {
     /* Start the web frontend */
     web_begin(web, manager);
 
-    while (signal_empty()) {
+    while (signal_empty())
         irc_manager_process(manager);
-    }
 
     web_destroy(web);
 

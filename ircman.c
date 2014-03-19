@@ -229,12 +229,7 @@ void irc_manager_process(irc_manager_t *manager) {
         return;
     }
 
-    /*
-     * Process any data that may exist from a restart for instance or
-     * if a module timed out.
-     */
-    size_t total = manager->instances->size;
-    for (size_t i = 0; i < total; i++)
+    for (size_t i = 0; i < manager->instances->size; i++)
         irc_unqueue(manager->instances->data[i]);
 
     int wait = poll(manager->polls, manager->instances->size + 1, -1);

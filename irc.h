@@ -1,5 +1,7 @@
 #ifndef REDROID_IRC_HDR
 #define REDROID_IRC_HDR
+#include <time.h>
+
 #include "sock.h"
 #include "list.h"
 #include "database.h"
@@ -16,6 +18,9 @@
 
 #define ERR_NOMOTD         422
 #define ERR_NICKNAMEINUSE  433
+
+#define IRC_FLOOD_LINES    3 /* lines per IRC_FLOOD_INTERVAL */
+#define IRC_FLOOD_INTERVAL 4 /* seconds */
 
 typedef struct irc_manager_s irc_manager_t;
 
@@ -59,6 +64,7 @@ typedef struct irc_s {
     bool              ready;
     bool              syncronize;
     bool              identified;
+    time_t            lastunqueue;
 } irc_t;
 
 irc_t *irc_create(config_t *config);

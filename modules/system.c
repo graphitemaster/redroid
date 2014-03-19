@@ -37,6 +37,12 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!strcmp(message, "-test-crash"))
         *((volatile int*){0}) = 0; /* volatile to prevent compiler from optimizing it away */
 
+    if (!strcmp(message, "-test-flood-protection")) {
+        for (size_t i = 0; i < 30; i++)
+            irc_write(irc, channel, "%s: spam %zu", user, i);
+        return;
+    }
+
     if (!strncmp(message, "-join", 5)) {
         const char *peek = next(message, ' ');
         if (empty(peek))
