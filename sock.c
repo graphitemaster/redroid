@@ -142,16 +142,10 @@ static int sock_standard_recv(sock_ctx_t *ctx, char *buffer, size_t size) {
 }
 
 static int sock_standard_send(sock_ctx_t *ctx, const char *data, size_t size) {
-    size_t written = 0;
-    int    read;
-
-    while (written < size) {
-        if ((read = send(ctx->fd, data + written, size - written, 0)) <= 0)
-            return -1;
-        written += read;
-    }
-
-    return (int)written;
+    int ret;
+    if ((ret = send(ctx->fd, data, size, 0)) <= 0)
+        return -1;
+    return ret;
 }
 
 static bool sock_standard_destroy(sock_ctx_t *ctx, sock_restart_t *restart) {

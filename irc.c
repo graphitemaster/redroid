@@ -106,19 +106,21 @@ void irc_unqueue(irc_t *irc) {
         if (entry->payload) {
             size_t      payloadlen = string_length(entry->payload);
             const char *payload    = string_contents(entry->payload);
+            size_t      corelen    = func->baselen + targetlen + 63; /* 63 is MAX_HOST_LENGTH */
 
             /* Split payload for 512 byte IRC line limit */
-            while (func->baselen + targetlen + payloadlen > 512) {
-                size_t size = 512 - func->baselen - targetlen;
-                char truncate[513];
+            while (corelen + payloadlen > 512) {
+                char truncate[512];
+                size_t size = sizeof(truncate) - corelen;
                 strncpy(truncate, payload, size);
                 truncate[size] = '\0';
                 func->extended(irc, target, truncate);
                 /* Flood protection */
                 if (++events == IRC_FLOOD_LINES) {
                     /* Construct a new partial payload */
-                    string_destroy(entry->payload);
-                    entry->payload = string_create(payload + size);
+                    char *move = string_move(entry->payload);
+                    entry->payload = string_create(move + (payload - move) + size);
+                    free(move);
                     list_prepend(irc->queue, entry);
                     break;
                 }
