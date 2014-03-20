@@ -4,19 +4,6 @@
 
 MODULE_DEFAULT(system);
 
-#define empty(X) (!(X) || !*(X))
-
-static const char *next(const char *forward, const char ch) {
-    char *input = strchr(forward, ch);
-    if (!input || !*input)
-        return NULL;
-
-    while (*input && isspace(*input))
-        input++;
-
-    return input;
-}
-
 static void system_test_timeout(void) {
     for (;;) ;
 }
