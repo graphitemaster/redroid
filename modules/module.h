@@ -611,6 +611,7 @@ list_t *irc_modules(irc_t *irc);
 
 void irc_part(irc_t *irc, const char *channel);
 void irc_join(irc_t *irc, const char *channel);
+const char *irc_pattern(irc_t *irc, const char *newpattern);
 
 void redroid_restart(irc_t *irc, const char *channel, const char *user);
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user);

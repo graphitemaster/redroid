@@ -40,7 +40,8 @@ static void system_test_large_payload(irc_t *irc, const char *channel, const cha
 static void system_help(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel,
         "%s: system <-shutdown|-restart|-recompile|-test-timeout|-test-crash|"
-        "-topic|-version|-part-all|-users|-channels>|<-join|-part> <channel>",
+        "-topic|-version|-part-all|-users|-channels>|<-join|-part> <channel>|"
+        "<-pattern> <pattern>",
         user
     );
 }
@@ -112,6 +113,15 @@ static void system_topic(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel, "%s: %s", user, irc_topic(irc, channel));
 }
 
+static void system_pattern(irc_t *irc, const char *channel, const char *user, const char *pattern) {
+    if (!pattern)
+        return system_help(irc, channel, user);
+
+    char *oldpattern = strdup(irc_pattern(irc, NULL));
+    irc_pattern(irc, pattern);
+    irc_write(irc, channel, "%s: Ok, changed pattern from `%s` to `%s`", user, oldpattern, pattern);
+}
+
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     list_t     *list   = strnsplit(message, " ", 2);
     const char *method = list_shift(list);
@@ -132,6 +142,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!strcmp(method, "-users"))              return system_users(irc, channel, user);
     if (!strcmp(method, "-channels"))           return system_channels(irc, channel, user);
     if (!strcmp(method, "-topic"))              return system_topic(irc, channel, user);
+    if (!strcmp(method, "-pattern"))            return system_pattern(irc, channel, user, list_shift(list));
 
     return system_help(irc, channel, user);
 }

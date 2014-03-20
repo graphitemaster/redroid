@@ -655,6 +655,14 @@ const char *irc_name(irc_t *irc) {
     return irc->name;
 }
 
+const char *irc_pattern(irc_t *irc, const char *newpattern) {
+    if (newpattern) {
+        free(irc->pattern);
+        irc->pattern = strdup(newpattern);
+    }
+    return irc->pattern;
+}
+
 const char *irc_topic(irc_t *irc, const char *channel) {
     irc_channel_t *chan = hashtable_find(irc->channels, channel);
     return (chan) ? chan->topic : "(No topic)";

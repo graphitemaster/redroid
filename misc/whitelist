@@ -158,6 +158,7 @@ irc_nick
 irc_topic
 irc_join
 irc_part
+irc_pattern
 database_statement_complete
 database_statement_bind
 database_request
