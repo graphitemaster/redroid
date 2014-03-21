@@ -8,11 +8,11 @@
 MODULE_DEFAULT(quote);
 
 static void quote_access_check(irc_t *irc, const char *channel, const char *user) {
-    if (access_range(irc, channel, user, ACCESS))
+    if (access_range(irc, user, ACCESS))
         return;
 
     int access = 0;
-    access_level(irc, channel, user, &access);
+    access_level(irc, user, &access);
     return irc_write(irc, user, "Sorry, you have level %d but need level %d to do that", access, ACCESS);
 }
 

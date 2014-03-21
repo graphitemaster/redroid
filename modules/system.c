@@ -129,7 +129,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     const char *method = list_shift(list);
 
     /* Block it by access */
-    if (!access_check(irc, channel, user, ACCESS))
+    if (!access_check(irc, user, ACCESS))
         return irc_write(irc, channel, "%s: You need level %d", user, ACCESS);
 
     if (!method || !strcmp(method, "-help"))

@@ -542,7 +542,7 @@ static void irc_parse(irc_t *irc, void *data) {
         irc->message.content = strdup(params[1]);
 
         /* The bot ignores anyone who is -1 */
-        if (access_ignore(irc, irc->message.channel, irc->message.nick))
+        if (access_ignore(irc, irc->message.nick))
             return;
 
         /* Trim trailing whitespace in message */
@@ -609,8 +609,8 @@ static void irc_parse(irc_t *irc, void *data) {
         irc_destroy(irc, SOCK_RESTART_NIL, NULL);
     } else if (!strncmp(command, "JOIN", end - command)) {
         /* Automatically kick if on the bot's shitlist */
-        if (access_shitlist(irc, params[0], prefix)) {
-            sock_sendf(irc->sock, "KICK %s :Shit list\r\n", params[0]);
+        if (access_shitlist(irc, prefix)) {
+            sock_sendf(irc->sock, "KICK %s :you are banned\r\n", params[0]);
             /* TODO: ban */
             return;
         }

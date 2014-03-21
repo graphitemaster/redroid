@@ -648,12 +648,12 @@ typedef enum {
     ACCESS_BADRANGE        /* When bad range for access level     */
 } access_t;
 
-bool     access_range (irc_t *irc, const char *channel, const char *target, int check);
-bool     access_check (irc_t *irc, const char *channel, const char *target, int check);
-bool     access_level (irc_t *irc, const char *channel, const char *target, int *level);
-access_t access_remove(irc_t *irc, const char *channel, const char *target, const char *invoke);
-access_t access_insert(irc_t *irc, const char *channel, const char *target, const char *invoke, int level);
-access_t access_change(irc_t *irc, const char *channel, const char *target, const char *invoke, int level);
+bool     access_range (irc_t *irc, const char *target, int check);
+bool     access_check (irc_t *irc, const char *target, int check);
+bool     access_level (irc_t *irc, const char *target, int *level);
+access_t access_remove(irc_t *irc, const char *target, const char *invoke);
+access_t access_insert(irc_t *irc, const char *target, const char *invoke, int level);
+access_t access_change(irc_t *irc, const char *target, const char *invoke, int level);
 
 
 #endif

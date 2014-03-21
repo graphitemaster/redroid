@@ -5,6 +5,8 @@
 
 MODULE_DEFAULT(module);
 
+#define ACCESS 6
+
 /*
  * A list of modules which cannot be unloaded/reloaded
  *
@@ -140,6 +142,9 @@ static void mod_list(irc_t *irc, const char *channel, const char *user) {
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     if (!message)
         return;
+
+    if (!access_check(irc, user, ACCESS))
+        return irc_write(irc, channel, "%s: You need access level %d", user, ACCESS);
 
     list_t     *split  = strnsplit(message, " ", 2);
     const char *method = list_shift(split);
