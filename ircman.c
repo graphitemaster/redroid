@@ -1,6 +1,7 @@
 #include "list.h"
 #include "ircman.h"
 #include "command.h"
+#include "access.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -264,6 +265,9 @@ void irc_manager_process(irc_manager_t *manager) {
         while (!list_iterator_end(it)) {
             module_t *module = list_iterator_next(it);
             if (*module->match != '\0')
+                continue;
+
+            if (access_ignore(instance, instance->message.nick))
                 continue;
 
             if (module->interval == 0) {
