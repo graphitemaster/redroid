@@ -82,7 +82,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         return;
 
     char *id = strdup(message + videoid.soff);
-    id[videoid.eoff - videoid.soff] = 0;
+    id[videoid.eoff - videoid.soff - 1] = 0;
     if (strchr(id, ' '))
         *strchr(id, ' ')=0;
 
