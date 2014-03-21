@@ -644,7 +644,8 @@ typedef enum {
     ACCESS_EXISTS,         /* When the target already exists      */
     ACCESS_DENIED,         /* When access is denied for operation */
     ACCESS_SUCCESS,        /* When operation happens succesfully  */
-    ACCESS_FAILED          /* When operation fails                */
+    ACCESS_FAILED,         /* When operation fails                */
+    ACCESS_BADRANGE        /* When bad range for access level     */
 } access_t;
 
 bool     access_range (irc_t *irc, const char *channel, const char *target, int check);

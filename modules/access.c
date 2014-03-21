@@ -19,6 +19,7 @@ static void access_add(irc_t *irc, const char *channel, const char *target, cons
         case ACCESS_EXISTS:
             return irc_write(irc, channel, "%s: %s already exists", invoke, target);
         case ACCESS_FAILED:
+        case ACCESS_BADRANGE:
             return access_help(irc, channel, invoke);
     }
 }
@@ -40,6 +41,8 @@ static void access_modify(irc_t *irc, const char *channel, const char *target, c
                 (!strcmp(invoke, target)) ? "have" : "has",
                 level
             );
+        case ACCESS_BADRANGE:
+            return access_help(irc, channel, invoke);
     }
 }
 

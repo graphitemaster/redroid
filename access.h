@@ -3,9 +3,12 @@
 #include <stdbool.h>
 
 /* The value required to perform access control */
-#define ACCESS_CONTROL       4
-#define ACCESS_SHITLIST     -2
-#define ACCESS_IGNORE       -1
+#define ACCESS_CONTROL   4
+#define ACCESS_SHITLIST -2
+#define ACCESS_IGNORE   -1
+
+#define ACCESS_MIN      -2
+#define ACCESS_MAX       6
 
 typedef enum {
     ACCESS_NOEXIST_TARGET,
@@ -13,7 +16,8 @@ typedef enum {
     ACCESS_EXISTS,
     ACCESS_DENIED,
     ACCESS_SUCCESS,
-    ACCESS_FAILED
+    ACCESS_FAILED,
+    ACCESS_BADRANGE
 } access_t;
 
 bool     access_range (irc_t *irc, const char *channel, const char *target, int check);

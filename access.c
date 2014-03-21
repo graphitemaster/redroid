@@ -2,6 +2,10 @@
 #include "access.h"
 /* Access control for the bot */
 
+static bool access_clamp(int value) {
+    return !!(value >= ACCESS_MIN && value <= ACCESS_MAX);
+}
+
 bool access_level(irc_t *irc, const char *channel, const char *target, int *level) {
     database_statement_t *statement =
         database_statement_create(irc->database, "SELECT ACCESS FROM ACCESS WHERE NAME=? AND CHANNEL=?");
@@ -25,6 +29,8 @@ bool access_level(irc_t *irc, const char *channel, const char *target, int *leve
 }
 
 access_t access_insert(irc_t *irc, const char *channel, const char *target, const char *invoke, int level) {
+    if (!access_clamp(level))
+        return ACCESS_BADRANGE;
     /* Prevent invoker from adding if they're not part of the access list themselves */
     int invokelevel = 0;
     if (!access_level(irc, channel, invoke, &invokelevel))
@@ -71,8 +77,12 @@ access_t access_remove(irc_t *irc, const char *channel, const char *target, cons
 }
 
 access_t access_change(irc_t *irc, const char *channel, const char *target, const char *invoke, int level) {
+    if (!access_clamp(level))
+        return ACCESS_BADRANGE;
+
     int invokelevel = 0;
     int targetlevel = 0;
+
     if (!access_level(irc, channel, invoke, &invokelevel))
         return ACCESS_NOEXIST_INVOKE;
     if (!access_level(irc, channel, target, &targetlevel))
