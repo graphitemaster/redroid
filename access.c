@@ -45,7 +45,7 @@ access_t access_insert(irc_t *irc, const char *target, const char *invoke, int l
     database_statement_t *statement =
         database_statement_create(irc->database,
             "INSERT INTO ACCESS(NAME, ACCESS) "
-            "VALUES (?, ?, ?)");
+            "VALUES (?, ?)");
 
     if (!database_statement_bind(statement, "si", target, level))
         return ACCESS_FAILED;
