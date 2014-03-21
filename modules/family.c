@@ -62,10 +62,8 @@ static void family_entry_random(irc_t *irc, const char *channel, const char *use
 static void family_entry(irc_t *irc, const char *channel, const char *user, const char *message) {
     const char *get = family_get(message);
 
-    if (!get) {
-        irc_write(irc, channel, "%s: Sorry, \"%s\" is not in my Family list.", user, message);
-        return;
-    }
+    if (!get)
+        return irc_write(irc, channel, "%s: Sorry, \"%s\" is not in my Family list.", user, message);
 
     database_request(irc, "FAMILY");
 
@@ -87,12 +85,10 @@ static void family_add_replace(irc_t *irc, const char *channel, const char *user
         return family_help(irc, channel, user);
 
     const char *exists = family_get(member);
-    if (exists && !replace) {
-        irc_write(irc, channel,
+    if (exists && !replace)
+        return irc_write(irc, channel,
             "%s: Sorry, but \"%s\" is already: \"%s\" - please use -replace or -concat to modify it",
             user, member, exists);
-        return;
-    }
 
     database_statement_t *statement = (replace) ? database_statement_create("UPDATE FAMILY SET CONTENT=? WHERE NAME=?")
                                                 : database_statement_create("INSERT INTO FAMILY (NAME, CONTENT) VALUES ( ?, ? )");
@@ -122,10 +118,8 @@ static void family_concat(irc_t *irc, const char *channel, const char *user, lis
         return family_help(irc, channel, user);
 
     const char *get = family_get(member);
-    if (!get) {
-        irc_write(irc, channel, "Sorry, couldn't find family member \"%s\"", member);
-        return;
-    }
+    if (!get)
+        return irc_write(irc, channel, "Sorry, couldn't find family member \"%s\"", member);
 
     database_statement_t *statement = database_statement_create("UPDATE FAMILY SET CONTENT=? WHERE NAME=?");
     string_t             *content   = string_format("%s %s", get, status);

@@ -45,10 +45,8 @@ static void obit_add(irc_t *irc, const char *channel, const char *user, list_t *
     if (!obit_type(thing))
         return obit_help(irc, channel, user);
 
-    if (obit_select_find(thing, content)) {
-        irc_write(irc, channel, "%s: %s %s already exists", user, thing, content);
-        return;
-    }
+    if (obit_select_find(thing, content))
+        return irc_write(irc, channel, "%s: %s %s already exists", user, thing, content);
 
     string_t *string = string_format("INSERT INTO %s (CONTENT) VALUES ( ? )", thing);
     database_statement_t *statement = database_statement_create(string_contents(string));
@@ -67,10 +65,8 @@ static void obit_forget(irc_t *irc, const char *channel, const char *user, list_
     if (!obit_type(thing))
         return obit_help(irc, channel, user);
 
-    if (!obit_select_find(thing, content)) {
-        irc_write(irc, channel, "%s: %s %s doesn't exist", user, thing, content);
-        return;
-    }
+    if (!obit_select_find(thing, content))
+        return irc_write(irc, channel, "%s: %s %s doesn't exist", user, thing, content);
 
     string_t *string = string_format("DELETE FROM %s WHERE CONTENT=?", thing);
     database_statement_t *statement = database_statement_create(string_contents(string));

@@ -40,10 +40,8 @@ static void faq_entry(irc_t *irc, const char *channel, const char *user, const c
     if (!database_statement_bind(statement, "s", faq))
         return;
     database_row_t *row = database_row_extract(statement, "s");
-    if (!row) {
-        irc_write(irc, channel, "%s: Sorry, \"%s\" is not in my FAQ list.", user, faq);
-        return;
-    }
+    if (!row)
+        return irc_write(irc, channel, "%s: Sorry, \"%s\" is not in my FAQ list.", user, faq);
 
     const char *content = database_row_pop_string(row);
     if (!database_statement_complete(statement))
@@ -71,10 +69,8 @@ static void faq_add(irc_t *irc, const char *channel, const char *user, list_t *l
     if (!faq || !content)
         return;
 
-    if (faq_find(faq)) {
-        irc_write(irc, channel, "%s: FAQ already exists.", user);
-        return;
-    }
+    if (faq_find(faq))
+        return irc_write(irc, channel, "%s: FAQ already exists.", user);
 
     database_statement_t *statement = database_statement_create("INSERT INTO FAQ (NAME, CONTENT, AUTHOR) VALUES ( ?, ?, ? )");
     if (!database_statement_bind(statement, "sss", faq, content, user))
@@ -124,10 +120,8 @@ static void faq_forget(irc_t *irc, const char *channel, const char *user, list_t
     if (!faq)
         return;
 
-    if (!faq_find(faq)) {
-        irc_write(irc, channel, "%s: Sorry, could not find faq \"%s\"", user, faq);
-        return;
-    }
+    if (!faq_find(faq))
+        return irc_write(irc, channel, "%s: Sorry, could not find faq \"%s\"", user, faq);
 
     database_statement_t *statement = database_statement_create("DELETE FROM FAQ WHERE NAME = ?");
     if (!database_statement_bind(statement, "s", faq))
@@ -143,10 +137,8 @@ static void faq_author(irc_t *irc, const char *channel, const char *user, list_t
     if (!faq)
         return;
 
-    if (!faq_find(faq)) {
-        irc_write(irc, channel, "%s: Sorry, could not find faq \"%s\"", user, faq);
-        return;
-    }
+    if (!faq_find(faq))
+        return irc_write(irc, channel, "%s: Sorry, could not find faq \"%s\"", user, faq);
 
     database_statement_t *statement = database_statement_create("SELECT AUTHOR FROM FAQ WHERE NAME = ?");
     if (!database_statement_bind(statement, "s", faq))

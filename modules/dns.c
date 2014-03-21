@@ -22,10 +22,8 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     };
 
     int status;
-    if ((status = getaddrinfo(message, NULL, &hints, &res)) != 0) {
-        irc_write(irc, channel, "%s: domain name resolution failed (%s)", user, message);
-        return;
-    }
+    if ((status = getaddrinfo(message, NULL, &hints, &res)) != 0)
+        return irc_write(irc, channel, "%s: domain name resolution failed (%s)", user, message);
 
     char ipbuffer[INET6_ADDRSTRLEN];
     for (struct addrinfo *p = res; p; p = p->ai_next) {

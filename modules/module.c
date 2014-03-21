@@ -63,10 +63,8 @@ static void mod_help(irc_t *irc, const char *channel, const char *user) {
 }
 
 static void mod_load(irc_t *irc, const char *channel, const char *user, const char *module) {
-    if (!irc_modules_add(irc, module)) {
-        irc_write(irc, channel, "%s: failed to load module %s", user, module);
-        return;
-    }
+    if (!irc_modules_add(irc, module))
+        return irc_write(irc, channel, "%s: failed to load module %s", user, module);
     irc_write(irc, channel, "%s: module %s loaded", user, module);
 }
 
@@ -74,10 +72,8 @@ static void mod_reload(irc_t *irc, const char *channel, const char *user, const 
     if (!mod_check(irc, channel, user, module, "reload"))
         return;
 
-    if (!irc_modules_reload(irc, module)) {
-        irc_write(irc, channel, "%s: failed to reload module %s", user, module);
-        return;
-    }
+    if (!irc_modules_reload(irc, module))
+        return irc_write(irc, channel, "%s: failed to reload module %s", user, module);
     irc_write(irc, channel, "%s: Ok, module %s reloaded", user, module);
 }
 
@@ -102,10 +98,8 @@ static void mod_unload(irc_t *irc, const char *channel, const char *user, const 
     if (!mod_check(irc, channel, user, module, "unload"))
         return;
 
-    if (!irc_modules_unload(irc, module)) {
-        irc_write(irc, channel, "%s: failed to unload module %s", user, module);
-        return;
-    }
+    if (!irc_modules_unload(irc, module))
+        return irc_write(irc, channel, "%s: failed to unload module %s", user, module);
     irc_write(irc, channel, "%s: Ok, module %s unloaded", user, module);
 }
 

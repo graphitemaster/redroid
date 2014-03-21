@@ -90,10 +90,8 @@ static void quote_entry(irc_t *irc, const char *channel, const char *user, const
     if (!database_statement_bind(statement, "s", nick))
         return;
     database_row_t *row = database_row_extract(statement, "ss");
-    if (!row) {
-        irc_write(irc, channel, "%s: Sorry, could not find any quotes like \"%s\"", user, nick);
-        return;
-    }
+    if (!row)
+        return irc_write(irc, channel, "%s: Sorry, could not find any quotes like \"%s\"", user, nick);
 
     const char *quotenick    = database_row_pop_string(row);
     const char *quotemessage = database_row_pop_string(row);
@@ -112,15 +110,12 @@ static void quote_stats(irc_t *irc, const char *channel, const char *user, list_
         int count   = quote_length();
         int request = database_request_count(irc, "QUOTES");
 
-        irc_write(irc, channel, "%s: quote stats -> %d quotes -> requested %d times", user, count, request);
-        return;
+        return irc_write(irc, channel, "%s: quote stats -> %d quotes -> requested %d times", user, count, request);
     }
 
     int count = 0;
-    if (!quote_count(who, &count)) {
-        irc_write(irc, channel, "%s: %s has no quotes", user, who);
-        return;
-    }
+    if (!quote_count(who, &count))
+        return irc_write(irc, channel, "%s: %s has no quotes", user, who);
 
     const char *plural = (count > 1) ? "quotes" : "quote";
     if (strcmp(user, who))
@@ -138,10 +133,8 @@ static void quote_add(irc_t *irc, const char *channel, const char *user, list_t 
 
     quote_nick_stripspecial(&quotenick);
 
-    if (quote_find(quotenick, quotemessage)) {
-        irc_write(irc, channel, "%s: Quote already exists.", user);
-        return;
-    }
+    if (quote_find(quotenick, quotemessage))
+        return irc_write(irc, channel, "%s: Quote already exists.", user);
 
     database_statement_t *statement = database_statement_create("INSERT INTO QUOTES (NAME, CONTENT) VALUES ( ?, ? )");
     if (!database_statement_bind(statement, "ss", quotenick, quotemessage))
@@ -161,14 +154,12 @@ static void quote_forget(irc_t *irc, const char *channel, const char *user, list
 
     quote_nick_stripspecial(&quotenick);
 
-    if (!quote_find(quotenick, quotemessage)) {
-        irc_write(irc, channel, "%s: Sorry, could not find any quotes like \"%s %s\"",
+    if (!quote_find(quotenick, quotemessage))
+        return irc_write(irc, channel, "%s: Sorry, could not find any quotes like \"%s %s\"",
             user,
             quotenick,
             quotemessage
         );
-        return;
-    }
 
     database_statement_t *statement = database_statement_create("DELETE FROM QUOTES WHERE NAME = ? AND CONTENT = ?");
     if (!database_statement_bind(statement, "ss", quotenick, quotemessage))
@@ -191,10 +182,8 @@ static void quote_reauthor(irc_t *irc, const char *channel, const char *user, li
         return quote_help(irc, channel, user);
 
     int count = 0;
-    if (!quote_count(from, &count)) {
-        irc_write(irc, channel, "%s: Sorry, could not find any quotes by \"%s\"", user, from);
-        return;
-    }
+    if (!quote_count(from, &count))
+        return irc_write(irc, channel, "%s: Sorry, could not find any quotes by \"%s\"", user, from);
 
     database_statement_t *statement = database_statement_create("UPDATE QUOTES SET NAME=? WHERE NAME=?");
     if (!database_statement_bind(statement, "ss", to, from))

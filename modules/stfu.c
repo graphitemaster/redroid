@@ -44,10 +44,8 @@ static void stfu_add(irc_t *irc, const char *channel, const char *user, list_t *
     if (!stfu_type(thing))
         return stfu_help(irc, channel, user);
 
-    if (stfu_select_find(thing, content)) {
-        irc_write(irc, channel, "%s: %s %s already exists", user, thing, content);
-        return;
-    }
+    if (stfu_select_find(thing, content))
+        return irc_write(irc, channel, "%s: %s %s already exists", user, thing, content);
 
     string_t *string = string_format("INSERT INTO %s (CONTENT) VALUES ( ? )", thing);
     database_statement_t *statement = database_statement_create(string_contents(string));
@@ -66,10 +64,8 @@ static void stfu_forget(irc_t *irc, const char *channel, const char *user, list_
     if (!stfu_type(thing))
         return stfu_help(irc, channel, user);
 
-    if (!stfu_select_find(thing, content)) {
-        irc_write(irc, channel, "%s: %s %s doesn't exist", user, thing, content);
-        return;
-    }
+    if (!stfu_select_find(thing, content))
+        return irc_write(irc, channel, "%s: %s %s doesn't exist", user, thing, content);
 
     string_t *string = string_format("DELETE FROM %s WHERE CONTENT=?", thing);
     database_statement_t *statement = database_statement_create(string_contents(string));
