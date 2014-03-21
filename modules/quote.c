@@ -3,7 +3,18 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#define ACCESS 4
+
 MODULE_DEFAULT(quote);
+
+static void quote_access_check(irc_t *irc, const char *channel, const char *user) {
+    if (access_range(irc, channel, user, ACCESS))
+        return;
+
+    int access = 0;
+    access_level(irc, channel, user, &access);
+    return irc_write(irc, user, "Sorry, you have level %d but need level %d to do that", access, ACCESS);
+}
 
 static void quote_nick_stripspecial(char **input) {
     char *beg = *input;
@@ -131,6 +142,7 @@ static void quote_add(irc_t *irc, const char *channel, const char *user, list_t 
     if (!quotenick || !quotemessage)
         return;
 
+    quote_access_check(irc, channel, user);
     quote_nick_stripspecial(&quotenick);
 
     if (quote_find(quotenick, quotemessage))
@@ -152,6 +164,7 @@ static void quote_forget(irc_t *irc, const char *channel, const char *user, list
     if (!quotenick || !quotemessage)
         return;
 
+    quote_access_check(irc, channel, user);
     quote_nick_stripspecial(&quotenick);
 
     if (!quote_find(quotenick, quotemessage))
@@ -180,6 +193,8 @@ static void quote_reauthor(irc_t *irc, const char *channel, const char *user, li
 
     if (!from || !to)
         return quote_help(irc, channel, user);
+
+    quote_access_check(irc, channel, user);
 
     int count = 0;
     if (!quote_count(from, &count))
