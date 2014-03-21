@@ -78,7 +78,7 @@ static void access_user(irc_t *irc, const char *channel, const char *target, con
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    list_t     *list       = strnsplit(message, " ", 3);
+    list_t     *list        = strnsplit(message, " ", 3);
     const char *method      = list_shift(list);
     const char *target      = list_shift(list);
     const char *targetlevel = list_shift(list);
