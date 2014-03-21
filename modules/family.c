@@ -27,7 +27,7 @@ static void family_help(irc_t *irc, const char *channel, const char *user) {
 static const char *family_get(const char *nick) {
     database_statement_t *statement = database_statement_create("SELECT CONTENT FROM FAMILY WHERE NAME=?");
 
-    if (!statement || !database_statement_bind(statement, "s", nick))
+    if (!database_statement_bind(statement, "s", nick))
         return NULL;
 
     database_row_t *row = database_row_extract(statement, "s");

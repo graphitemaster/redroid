@@ -266,23 +266,26 @@ void irc_manager_process(irc_manager_t *manager) {
             if (*module->match != '\0')
                 continue;
 
-            cmd_entry_t *entry = cmd_entry_create(
-                manager->commander,
-                module,
-                instance->message.channel,
-                instance->message.nick,
-                instance->message.content
-            );
-
             if (module->interval == 0) {
+                cmd_entry_t *entry = cmd_entry_create(
+                    manager->commander,
+                    module,
+                    instance->message.channel,
+                    instance->message.nick,
+                    instance->message.content
+                );
                 cmd_channel_push(manager->commander, entry);
-                continue;
             } else if (difftime(time(0), module->lastinterval) >= module->interval) {
                 fprintf(stderr, "    module   => %s interval met\n", module->name);
                 module->lastinterval = time(0);
+                cmd_entry_t *entry = cmd_entry_create(
+                    manager->commander,
+                    module,
+                    instance->message.channel,
+                    instance->message.nick,
+                    instance->message.content
+                );
                 cmd_channel_push(manager->commander, entry);
-            } else {
-                cmd_entry_destroy(entry);
             }
         }
         list_iterator_destroy(it);

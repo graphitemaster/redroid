@@ -24,7 +24,7 @@ static void svn_add(svn_entry_t *e) {
     if (svn_find(e->revision))
         return;
     database_statement_t *add = database_statement_create("INSERT INTO SVN (REVISION, AUTHOR, MESSAGE) VALUES ( ?, ?, ? )");
-    if (!add || !database_statement_bind(add, "SSS", e->revision, e->author, e->message))
+    if (!database_statement_bind(add, "SSS", e->revision, e->author, e->message))
         return;
     if (!database_statement_complete(add))
         return;

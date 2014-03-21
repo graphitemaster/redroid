@@ -23,4 +23,6 @@ void                  database_destroy(database_t *database);
 bool                  database_request(irc_t *instance, const char *table);
 int                   database_request_count(irc_t *instance, const char *table);
 
+bool                  database_request_access(irc_t *instance, const char *channel, const char *user, int *level);
+
 #endif

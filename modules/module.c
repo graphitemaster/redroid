@@ -43,7 +43,8 @@ MODULE_DEFAULT(module);
  */
 static const char *mod_mask[] = {
     "system",
-    "module"
+    "module",
+    "access"
 };
 
 static bool mod_check(irc_t *irc, const char *channel, const char *user, const char *module, const char *from) {

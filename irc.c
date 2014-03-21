@@ -3,6 +3,7 @@
 #include "module.h"
 #include "command.h"
 #include "ircman.h"
+#include "access.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -540,6 +541,10 @@ static void irc_parse(irc_t *irc, void *data) {
         irc->message.channel = strdup(params[0]);
         irc->message.content = strdup(params[1]);
 
+        /* The bot ignores anyone who is -1 */
+        if (access_ignore(irc, irc->message.channel, irc->message.nick))
+            return;
+
         /* Trim trailing whitespace in message */
         char *trail = irc->message.content + strlen(irc->message.content) - 1;
         while (trail > irc->message.content && isspace(*trail))
@@ -603,6 +608,12 @@ static void irc_parse(irc_t *irc, void *data) {
         /* If the IRCd wants to kill us for what ever reason, allow it. */
         irc_destroy(irc, SOCK_RESTART_NIL, NULL);
     } else if (!strncmp(command, "JOIN", end - command)) {
+        /* Automatically kick if on the bot's shitlist */
+        if (access_shitlist(irc, params[0], prefix)) {
+            sock_sendf(irc->sock, "KICK %s :Shit list\r\n", params[0]);
+            /* TODO: ban */
+            return;
+        }
         irc_users_insert(irc, params[0], prefix);
     } else if (!strncmp(command, "PART", end - command)) {
         irc_users_remove(irc, params[0], prefix);

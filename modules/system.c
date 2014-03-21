@@ -4,6 +4,8 @@
 
 MODULE_DEFAULT(system);
 
+#define ACCESS 6
+
 static void system_test_timeout(void) {
     for (;;) ;
 }
@@ -125,6 +127,12 @@ static void system_pattern(irc_t *irc, const char *channel, const char *user, co
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
     list_t     *list   = strnsplit(message, " ", 2);
     const char *method = list_shift(list);
+
+    /* Block it by access */
+    if (!access_check(irc, channel, user, ACCESS)) {
+        irc_write(irc, channel, "%s: You need level %d", user, ACCESS);
+        return;
+    }
 
     if (!method || !strcmp(method, "-help"))
         return system_help(irc, channel, user);

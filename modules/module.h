@@ -617,8 +617,42 @@ void redroid_restart(irc_t *irc, const char *channel, const char *user);
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user);
 void redroid_recompile(irc_t *irc, const char *channel, const char *user);
 
+/*
+ * Function: build_date
+ *  Get the date when Redroid was built
+ */
 const char *build_date(void);
+
+/*
+ * Function: build_time
+ *  Get the time when Redroid was built.
+ */
 const char *build_time(void);
+
+/*
+ * Function: build_version
+ *  Get the version of Redroid as a string.
+ */
 const char *build_version(void);
+
+/* The access control level */
+#define ACCESS_CONTROL 4
+
+typedef enum {
+    ACCESS_NOEXIST_TARGET, /* When the target doesn't exist       */
+    ACCESS_NOEXIST_INVOKE, /* When the invoker doesn't exist      */
+    ACCESS_EXISTS,         /* When the target already exists      */
+    ACCESS_DENIED,         /* When access is denied for operation */
+    ACCESS_SUCCESS,        /* When operation happens succesfully  */
+    ACCESS_FAILED          /* When operation fails                */
+} access_t;
+
+bool     access_range (irc_t *irc, const char *channel, const char *target, int check);
+bool     access_check (irc_t *irc, const char *channel, const char *target, int check);
+bool     access_level (irc_t *irc, const char *channel, const char *target, int *level);
+access_t access_remove(irc_t *irc, const char *channel, const char *target, const char *invoke);
+access_t access_insert(irc_t *irc, const char *channel, const char *target, const char *invoke, int level);
+access_t access_change(irc_t *irc, const char *channel, const char *target, const char *invoke, int level);
+
 
 #endif

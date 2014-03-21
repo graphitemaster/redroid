@@ -101,9 +101,11 @@ create:
 }
 
 bool database_statement_complete(database_statement_t *statement) {
-    if (sqlite3_step(statement->statement) != SQLITE_DONE)
-        return false;
-    return true;
+    /* I know it's pretty ugly but sqlite3 hates me */
+    int trystmt = 0;
+    while ((trystmt = sqlite3_step(statement->statement)) == SQLITE_BUSY)
+        ;
+    return !!(trystmt == SQLITE_DONE);
 }
 
 bool database_statement_bind(database_statement_t *statement, const char *mapping, ...) {
@@ -210,24 +212,21 @@ int database_request_count(irc_t *instance, const char *table) {
         return -1;
 
     if (!database_statement_bind(statement, "s", table))
-        goto error;
+        return -1;
 
     database_row_t *row = database_row_extract(statement, "i");
     if (!row)
-        goto error;
+        return -1;
 
     int count = database_row_pop_integer(row);
 
     if (!database_statement_complete(statement)) {
         database_row_destroy(row);
-        goto error;
+        return -1;
     }
 
     database_row_destroy(row);
     return count;
-
-error:
-    return -1;
 }
 
 bool database_request(irc_t *instance, const char *table) {

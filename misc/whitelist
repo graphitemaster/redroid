@@ -164,6 +164,12 @@ database_statement_bind
 database_request
 database_request_count
 database_row_pop_integer
+access_check
+access_range
+access_level
+access_change
+access_insert
+access_remove
 redroid_restart
 redroid_shutdown
 redroid_recompile
