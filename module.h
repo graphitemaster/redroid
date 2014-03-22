@@ -7,15 +7,7 @@
 #include "string.h"
 #include "mt.h"
 
-typedef struct module_s          module_t;
-typedef struct module_mem_s      module_mem_t;
-typedef struct module_mem_node_s module_mem_node_t;
-
-struct module_mem_node_s {
-    void              *data;
-    void             (*cleanup)(void *);
-    module_mem_node_t *next;
-};
+typedef struct module_s  module_t;
 
 struct module_s {
     void         *handle;
@@ -27,7 +19,7 @@ struct module_s {
     void        (*enter)(irc_t *irc, const char *channel, const char *user, const char *message);
     void        (*close)(irc_t *irc);
     irc_t        *instance;
-    module_mem_t *memory;
+    list_t       *memory;
     mt_t         *random;
 };
 
@@ -61,12 +53,8 @@ module_t *module_manager_module_search(module_manager_t *manager, const char *th
 
 
 /* module memory manager */
-void module_mem_mutex_lock(module_t *module);
-void module_mem_mutex_unlock(module_t *module);
 void module_mem_push(module_t *module, void *data, void (*cleanup)(void *));
-module_mem_t *module_mem_create(module_t *instance);
 void module_mem_destroy(module_t *module);
-
 
 /* module singleton */
 module_t **module_get(void);

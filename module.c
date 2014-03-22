@@ -10,65 +10,37 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <pthread.h>
 #include <regex.h>
 #include <limits.h>
+#include <elf.h>
 
-struct module_mem_s {
-    module_t          *instance;
-    module_mem_node_t *head;
-    module_mem_node_t *tail;
-    pthread_mutex_t    mutex;
-};
+/* A simplified GC because we only enter this from one thread */
+typedef struct {
+    void (*callback)(void *data);
+    void  *data;
+} module_mem_node_t;
 
-static module_mem_node_t *module_mem_node_create(void) {
-    return memset(malloc(sizeof(module_mem_node_t)), 0, sizeof(module_mem_node_t));
+static module_mem_node_t *module_mem_node_create(void *data, void (*callback)(void*)) {
+    module_mem_node_t *node = malloc(sizeof(*node));
+    node->data     = data;
+    node->callback = callback;
+    return node;
 }
 
 static void module_mem_node_destroy(module_mem_node_t *node) {
-    if (node->cleanup)
-        node->cleanup(node->data);
+    if (node->callback)
+        node->callback(node->data);
     free(node);
 }
 
-module_mem_t *module_mem_create(module_t *instance) {
-    module_mem_t *mem = malloc(sizeof(*mem));
-
-    mem->instance = instance;
-    mem->head     = module_mem_node_create();
-    mem->tail     = mem->head;
-
-    pthread_mutex_init(&mem->mutex, NULL);
-
-    return mem;
-}
-
-void module_mem_push(module_t *module, void *data, void (*cleanup)(void *)) {
-    module_mem_t *mem  = module->memory;
-    mem->tail->next    = module_mem_node_create();
-    mem->tail->data    = data;
-    mem->tail->cleanup = cleanup;
-    mem->tail          = mem->tail->next;
-}
-
-static bool module_mem_pop(module_mem_t *mem) {
-    if (!mem->head->data)
-        return false;
-
-    module_mem_node_t *temp = mem->head->next;
-    module_mem_node_destroy(mem->head);
-    mem->head = temp;
-
-    return true;
-}
-
 void module_mem_destroy(module_t *module) {
-    module_mem_t *mem = module->memory;
-    while (module_mem_pop(mem))
-        ;
-    module_mem_node_destroy(mem->head);
-    pthread_mutex_destroy(&mem->mutex);
-    free(mem);
+    list_foreach(module->memory, NULL, &module_mem_node_destroy);
+    list_destroy(module->memory);
+}
+
+void module_mem_push(module_t *module, void *data, void (*callback)(void *)) {
+    module_mem_node_t *node = module_mem_node_create(data, callback);
+    list_push(module->memory, node);
 }
 
 static bool module_load(module_t *module) {
@@ -109,8 +81,6 @@ static bool module_load(module_t *module) {
  * a whitelist. This way we can ensure modules don't allocate resources
  * with standard library functions.
  */
-#include <elf.h>
-#include <stdint.h>
 #if ULONG_MAX == 0xffffffff
     typedef Elf32_Ehdr Elf_Ehdr;
     typedef Elf32_Phdr Elf_Phdr;
@@ -277,14 +247,6 @@ void module_close(module_t *module, module_manager_t *manager) {
     free(module);
 }
 
-void module_mem_mutex_lock(module_t *module) {
-    pthread_mutex_lock(&module->memory->mutex);
-}
-
-void module_mem_mutex_unlock(module_t *module) {
-    pthread_mutex_unlock(&module->memory->mutex);
-}
-
 module_t **module_get(void) {
     static module_t *module = NULL;
     return &module;
@@ -379,65 +341,51 @@ module_t *module_manager_module_search(module_manager_t *manager, const char *na
 /* Memory pinners for module API */
 void *module_malloc(size_t bytes) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     void *p = memset(malloc(bytes), 0, bytes);
     module_mem_push(module, p, &free);
-    module_mem_mutex_unlock(module);
     return p;
 }
 
 string_t *module_string_create(const char *input) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     string_t *string = string_create(input);
     module_mem_push(module, string, (void (*)(void *))&string_destroy);
-    module_mem_mutex_unlock(module);
     return string;
 }
 
 string_t *module_string_construct(void) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     string_t *string = string_construct();
     module_mem_push(module, string, (void (*)(void *))&string_destroy);
-    module_mem_mutex_unlock(module);
     return string;
 }
 
 string_t *module_string_vformat(const char *fmt, va_list va) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     string_t *string = string_vformat(fmt, va);
     module_mem_push(module, string, (void (*)(void*))&string_destroy);
-    module_mem_mutex_unlock(module);
     return string;
 }
 
 list_iterator_t *module_list_iterator_create(list_t *list) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     list_iterator_t *it = list_iterator_create(list);
     module_mem_push(module, it, (void (*)(void*))&list_iterator_destroy);
-    module_mem_mutex_unlock(module);
     return it;
 }
 
 list_t *module_list_create(void) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     list_t *list = list_create();
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
-    module_mem_mutex_unlock(module);
     return list;
 }
 
 int module_getaddrinfo(const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     int value = getaddrinfo(mode, service, hints, result);
     if (value == 0)
         module_mem_push(module, *result, (void (*)(void*))&freeaddrinfo);
-    module_mem_mutex_unlock(module);
     return value;
 }
 
@@ -453,90 +401,66 @@ database_statement_t *module_database_statement_create(const char *string) {
 
 database_row_t *module_database_row_extract(database_statement_t *statement, const char *fields) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     database_row_t *row = database_row_extract(statement, fields);
     if (row)
         module_mem_push(module, row, (void(*)(void*))&database_row_destroy);
-    module_mem_mutex_unlock(module);
     return row;
 }
 
 const char *module_database_row_pop_string(database_row_t *row) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     const char *ret = database_row_pop_string(row);
     module_mem_push(module, (void *)ret, (void(*)(void*))&free);
-    module_mem_mutex_unlock(module);
     return ret;
 }
 
 list_t *module_irc_modules(irc_t *irc) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     list_t *ret = irc_modules(irc);
-    if (!ret) {
-        module_mem_mutex_unlock(module);
+    if (!ret)
         return NULL;
-    }
     module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
-    module_mem_mutex_unlock(module);
     return ret;
 }
 
 list_t *module_irc_users(irc_t *irc, const char *channel) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     list_t *ret = irc_users(irc, channel);
-    if (!ret) {
-        module_mem_mutex_unlock(module);
+    if (!ret)
         return NULL;
-    }
     module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
-    module_mem_mutex_unlock(module);
     return ret;
 }
 
 list_t *module_irc_channels(irc_t *irc) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     list_t *ret = irc_channels(irc);
-    if (!ret) {
-        module_mem_mutex_unlock(module);
+    if (!ret)
         return NULL;
-    }
     module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
-    module_mem_mutex_unlock(module);
     return ret;
 }
 
 void module_list_push(list_t *list, void *element) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
+    /* TODO: mutex for this */
     list_push(list, element);
-    module_mem_mutex_unlock(module);
 }
 
 char *module_strdup(const char *str) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     char *dup = strdup(str);
-    if (dup)
-        module_mem_push(module, dup, &free);
-    module_mem_mutex_unlock(module);
+    module_mem_push(module, dup, &free);
     return dup;
 }
 
 list_t* module_strsplit(const char *str_, const char *delim) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
-
     list_t *list = list_create();
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
 
     if (str_ && *str_) {
         char *str = strdup(str_);
-        module_mem_push(module, str, &free);
-
         char *saveptr;
         char *tok = strtok_r(str, delim, &saveptr);
         while (tok) {
@@ -544,8 +468,6 @@ list_t* module_strsplit(const char *str_, const char *delim) {
             tok = strtok_r(NULL, delim, &saveptr);
         }
     }
-
-    module_mem_mutex_unlock(module);
     return list;
 }
 
@@ -580,7 +502,6 @@ list_t* module_strnsplit_impl(char *str, const char *delim, size_t count) {
 
 list_t* module_strnsplit(const char *str_, const char *delim, size_t count) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
 
     list_t *list;
     if (str_ && *str_) {
@@ -590,10 +511,7 @@ list_t* module_strnsplit(const char *str_, const char *delim, size_t count) {
     }
     else
         list = list_create();
-
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
-
-    module_mem_mutex_unlock(module);
     return list;
 }
 
@@ -630,10 +548,8 @@ static char *strdur(unsigned long long duration) {
 
 char *module_strdur(unsigned long long duration) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     char *data = strdur(duration);
     module_mem_push(module, data, &free);
-    module_mem_mutex_unlock(module);
     return data;
 }
 
@@ -652,18 +568,13 @@ bool module_regexpr_execute(const regexpr_t *expr, const char *string, size_t nm
     module_t        *module     = *module_get();
     regexpr_match_t *storearray = NULL;
 
-    module_mem_mutex_lock(module);
-    if (!regexpr_execute(expr, string, nmatch, &storearray)) {
-        module_mem_mutex_unlock(module);
+    if (!regexpr_execute(expr, string, nmatch, &storearray))
         return false;
-    }
 
     if (storearray) {
         module_mem_push(module, storearray, (void (*)(void *))&regexpr_execute_destroy);
         *array = storearray;
     }
-
-    module_mem_mutex_unlock(module);
     return true;
 }
 
@@ -784,12 +695,9 @@ static list_t *module_svnlog_read(const char *url, size_t depth) {
 
 list_t *module_svnlog(const char *url, size_t depth) {
     module_t *module = *module_get();
-    module_mem_mutex_lock(module);
     list_t *list = module_svnlog_read(url, depth);
-    if (!list) {
-        module_mem_mutex_unlock(module);
+    if (!list)
         return NULL;
-    }
 
     /*
      * A copy of the list needs to be created because a module may pop
@@ -800,7 +708,6 @@ list_t *module_svnlog(const char *url, size_t depth) {
     list_t *copy = list_copy(list);
     module_mem_push(module, list, (void(*)(void* ))&module_svnlog_destroy);
     module_mem_push(module, copy, (void(*)(void* ))&list_destroy);
-    module_mem_mutex_unlock(module);
     return copy;
 }
 

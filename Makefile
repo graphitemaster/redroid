@@ -2,7 +2,7 @@
 # Do not make changes here.
 
 CC               ?= clang
-CFLAGS            = -std=c11 -D_XOPEN_SOURCE=700 -Wall -Wextra -ggdb3 -DHAS_SSL
+CFLAGS            = -export-dynamic -std=c11 -D_GNU_SOURCE -Wall -Wextra -ggdb3 -DHAS_SSL
 LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lssl -lcrypto -Wl,--export-dynamic
 SOURCES           = $(shell echo *.c)
 HEADERS           = $(shell echo *.h)

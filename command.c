@@ -189,7 +189,8 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
     if (entry->user)    string_destroy(entry->user);
     if (entry->message) string_destroy(entry->message);
 
-    module_mem_destroy(entry->instance);
+    module_t *load = entry->instance;
+    module_mem_destroy(load);
 
     free(entry);
 }
@@ -215,11 +216,9 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
         return;
     }
 
-    module_mem_mutex_lock(instance);
     pthread_kill(channel->thread, SIGUSR2);
     pthread_join(channel->thread, NULL);
     pthread_mutex_unlock(&channel->cmd_mutex);
-    module_mem_mutex_unlock(instance);
 
     cmd_entry_t *entry = channel->cmd_entry;
     channel->cmd_entry = NULL;
@@ -264,7 +263,7 @@ static void *cmd_channel_threader(void *data) {
         if (module->enter) {
             channel->cmd_entry = entry;
             *module_get()      = module; /* Save module instance */
-            module->memory     = module_mem_create(module);
+            module->memory     = list_create();
 
             /* Initiate the timer for the module */
             struct itimerspec its = {
