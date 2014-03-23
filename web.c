@@ -421,6 +421,7 @@ static void web_hook_postupdate(sock_t *client, list_t *post, void *data) {
     if (!name)
         http_send_plain(client, "500 Internal Server Error");
 
+#if 0
     /* TODO change config */
     const char *nick     = http_post_find(post, "nick");
     const char *pattern  = http_post_find(post, "pattern");
@@ -429,12 +430,7 @@ static void web_hook_postupdate(sock_t *client, list_t *post, void *data) {
     const char *port     = http_post_find(post, "port");
     const char *auth     = http_post_find(post, "auth");
     const char *channels = http_post_find(post, "channels");
-
-    /*
-     * If the host/port change on some instance then the old instance
-     * will need to be disconnected
-     */
-
+#endif
 
     web_template_change(data, "update.html", "INSTANCE", name);
     web_template_send(data, client, "update.html");

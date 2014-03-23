@@ -14,8 +14,18 @@ static bool pass(const char *string) {
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    if (message && pass(message)) {
-        string_t *reply = string_format("%s%c", message, dotchars[urand() % (sizeof(dotchars) - 1)]);
-        irc_write(irc, channel, string_contents(reply));
-    }
+    (void)user; /* ignored */
+
+    if (!message || !pass(message))
+        return;
+
+    irc_write(irc, channel,
+        string_contents(
+            string_format(
+                "%s %c",
+                message,
+                dotchars[urand() % (sizeof(dotchars) - 1)]
+            )
+        )
+    );
 }

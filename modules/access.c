@@ -18,8 +18,7 @@ static void access_add(irc_t *irc, const char *channel, const char *target, cons
             return irc_write(irc, channel, "%s: Ok, added %s with level %d", invoke, target, level);
         case ACCESS_EXISTS:
             return irc_write(irc, channel, "%s: %s already exists", invoke, target);
-        case ACCESS_FAILED:
-        case ACCESS_BADRANGE:
+        default:
             return access_help(irc, channel, invoke);
     }
 }
@@ -41,7 +40,7 @@ static void access_modify(irc_t *irc, const char *channel, const char *target, c
                 (!strcmp(invoke, target)) ? "have" : "has",
                 level
             );
-        case ACCESS_BADRANGE:
+        default:
             return access_help(irc, channel, invoke);
     }
 }
@@ -49,8 +48,7 @@ static void access_modify(irc_t *irc, const char *channel, const char *target, c
 static void access_forget(irc_t *irc, const char *channel, const char *target, const char *invoke) {
     int targetlevel = 0;
     switch (access_remove(irc, target, invoke)) {
-        case ACCESS_FAILED:
-        case ACCESS_NOEXIST_INVOKE:
+        default:
             return access_help(irc, channel, invoke);
         case ACCESS_NOEXIST_TARGET:
             return irc_write(irc, channel, "%s: %s doesn't exist", invoke, target);

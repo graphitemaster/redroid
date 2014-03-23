@@ -52,7 +52,7 @@ static list_t *irc_instances_destroy(irc_instances_t *instances, bool restart) {
         if (restart) {
             irc_manager_restart_t *restdata = malloc(sizeof(*restdata));
             char                  *restname = NULL;
-            sock_restart_t         restinfo = {0};
+            sock_restart_t         restinfo;
 
             irc_destroy(instances->data[i], &restinfo, &restname);
 

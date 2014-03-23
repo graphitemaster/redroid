@@ -7,7 +7,7 @@
 
 MODULE_DEFAULT(quote);
 
-static void quote_access_check(irc_t *irc, const char *channel, const char *user) {
+static void quote_access_check(irc_t *irc, const char *user) {
     if (access_range(irc, user, ACCESS))
         return;
 
@@ -142,7 +142,7 @@ static void quote_add(irc_t *irc, const char *channel, const char *user, list_t 
     if (!quotenick || !quotemessage)
         return;
 
-    quote_access_check(irc, channel, user);
+    quote_access_check(irc, user);
     quote_nick_stripspecial(&quotenick);
 
     if (quote_find(quotenick, quotemessage))
@@ -164,7 +164,7 @@ static void quote_forget(irc_t *irc, const char *channel, const char *user, list
     if (!quotenick || !quotemessage)
         return;
 
-    quote_access_check(irc, channel, user);
+    quote_access_check(irc, user);
     quote_nick_stripspecial(&quotenick);
 
     if (!quote_find(quotenick, quotemessage))
@@ -194,7 +194,7 @@ static void quote_reauthor(irc_t *irc, const char *channel, const char *user, li
     if (!from || !to)
         return quote_help(irc, channel, user);
 
-    quote_access_check(irc, channel, user);
+    quote_access_check(irc, user);
 
     int count = 0;
     if (!quote_count(from, &count))

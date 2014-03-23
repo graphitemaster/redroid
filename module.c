@@ -441,12 +441,6 @@ list_t *module_irc_channels(irc_t *irc) {
     return ret;
 }
 
-void module_list_push(list_t *list, void *element) {
-    module_t *module = *module_get();
-    /* TODO: mutex for this */
-    list_push(list, element);
-}
-
 char *module_strdup(const char *str) {
     module_t *module = *module_get();
     char *dup = strdup(str);

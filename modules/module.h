@@ -234,21 +234,6 @@ static inline list_t *list_create(void) {
 }
 
 /*
- * Function: list_push
- *  Append an element to the list.
- *
- * Parameters:
- *  list    - Pointer to the list object
- *  element - Pointer to the element to append to the list
- *
- * Remarks:
- *  The resources this function allocates are garbage collected.
- */
-static inline void list_push(list_t *list, void *element) {
-    return MODULE_GC_CALL(list_push)(list, element);
-}
-
-/*
  * Function: getaddrinfo
  *  Network address and service translation.
  *
@@ -533,6 +518,8 @@ void list_sort(list_t *list, bool (*predicate)(const void *, const void *));
 void *list_search(list_t *list, bool (*predicate)(const void *, const void *), const void *pass);
 
 void *list_at(list_t *list, size_t index);
+
+void list_push(list_t *list, void *element);
 
 /*
  * Function: string_catf
