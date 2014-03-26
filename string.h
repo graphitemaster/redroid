@@ -20,4 +20,5 @@ char *string_contents(string_t *string);
 char *string_move(string_t *string);
 char *string_end(string_t *string);
 void string_replace(string_t *string, const char *substr, const char *replace);
+void string_reassociate(string_t *oldstr, string_t *newstr);
 #endif

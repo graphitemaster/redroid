@@ -61,6 +61,90 @@ static const irc_command_func_t irc_commands[] = {
     [IRC_COMMAND_ACTION] = { 22, NULL,          &irc_action_raw }
 };
 
+/* Colors (come first for the buffered protocol) */
+static const char *irc_colors[] = {
+    "WHITE",
+    "BLACK",
+    "DARKBLUE",
+    "DARKGREEN",
+    "RED",
+    "BROWN",
+    "PURPLE",
+    "OLIVE",
+    "YELLOW",
+    "GREEN",
+    "TEAL",
+    "CYAN",
+    "BLUE",
+    "MAGENTA",
+    "DARKGRAY",
+    "LIGHTGRAY",
+    0
+};
+
+static size_t irc_color_lookup(const char *color) {
+    for (size_t i = 0; i < sizeof(irc_colors)/sizeof(*irc_colors); i++)
+        if (!strcmp(irc_colors[i], color))
+            return i;
+    return 15;
+}
+
+static string_t *irc_color_parse_code(const char *source) {
+    const char *p1;
+    const char *p2;
+    const char *cur    = source;
+    string_t   *string = string_construct();
+
+    while ((p1 = strchr(cur, '['))) {
+        const char *replaced = NULL;
+        /* Suitable tag found */
+        if (p1[1] != '\0' && (p2 = strchr(p1, ']')) && (p2 - p1) > 1 && (p2 - p1) < 31) {
+            /* Extract the tag */
+            size_t taglen = p2 - p1 - 1;
+            char tagdata[32];
+            memcpy(tagdata, p1 + 1, taglen);
+            tagdata[taglen] = '\0';
+            /* Termination */
+            if (!strcmp(tagdata, "/COLOR"))
+                replaced = "\x0F";
+            else if (strstr(tagdata, "COLOR=") == tagdata) {
+                /* Parse the color line */
+                int fgc;
+                int bgc = -2;
+                /* Background color */
+                char *find = strchr(tagdata + 6, '/');
+                if (find) {
+                    *find++ = '\0';
+                    bgc = irc_color_lookup(find);
+                }
+                /* Foreground color */
+                fgc = irc_color_lookup(tagdata + 6);
+                if (fgc != -1 && bgc == -2) {
+                    snprintf(tagdata, sizeof(tagdata), "\x03%02d", fgc);
+                    replaced = tagdata;
+                } else if (fgc != -1 && bgc >= 0) {
+                    snprintf(tagdata, sizeof(tagdata), "\x03%02d,%02d", fgc, bgc);
+                    replaced = tagdata;
+                }
+            }
+            /* Deal with the other tags */
+            else if (!strcmp(tagdata, "B") || !strcmp(tagdata, "/B")) replaced = "\x02";
+            else if (!strcmp(tagdata, "U") || !strcmp(tagdata, "/U")) replaced = "\x1F";
+            else if (!strcmp(tagdata, "I") || !strcmp(tagdata, "/I")) replaced = "\x16";
+        }
+        if (replaced) {
+            string_catf(string, "%.*s%s", (int)(p1 - cur), cur, replaced);
+            cur = p2 + 1;
+        } else {
+            if (!p2) p2 = cur + strlen(cur);
+            string_catf(string, "%.*s", (int)(p2 - cur + 1), cur);
+            cur = p2 + 1;
+        }
+    }
+    string_catf(string, "%s", cur);
+    return string;
+}
+
 /* Buffered protocol */
 typedef struct {
     string_t     *target;
@@ -79,7 +163,10 @@ static void irc_enqueue_standard(irc_t *irc, const char *target, irc_command_t c
 }
 
 static void irc_enqueue_extended(irc_t *irc, const char *target, string_t *payload, irc_command_t command) {
-    irc_queued_t *entry = malloc(sizeof(*entry));
+    irc_queued_t *entry    = malloc(sizeof(*entry));
+    const char   *contents = string_contents(payload);
+
+    string_reassociate(payload, irc_color_parse_code(contents));
 
     entry->target  = string_create(target);
     entry->payload = payload;
@@ -643,8 +730,27 @@ void irc_process(irc_t *irc, void *data) {
 
     temp[read] = '\0';
     for (int i = 0; i < read; ++i) {
-        if (temp[i] == '\r')
+        /* Ignore MIRC characters */
+        if (temp[i] == '\r')   continue;
+        if (temp[i] == '\x02') continue; /* bold      */
+        if (temp[i] == '\x1f') continue; /* underline */
+        if (temp[i] == '\x16') continue; /* reverse   */
+        if (temp[i] == '\x0f') continue; /* reset     */
+
+
+        /* Dealing with color control */
+        int color = 0;
+        if (temp[i] == '\x03') {
+            color = !(color & 1);
             continue;
+        }
+        if ((color & 1) && isdigit(temp[i])) { color |= 2; continue; }
+        if ((color & 7) && isdigit(temp[i])) { color |= 8; continue; }
+        if ((color & 3) && temp[i] == ',') {
+            color |= 4;
+            continue;
+        }
+
         if (temp[i] == '\n') {
             irc->buffer.data[irc->buffer.offset] = '\0';
             irc->buffer.offset                   = 0;

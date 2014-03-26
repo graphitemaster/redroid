@@ -257,7 +257,7 @@ int sock_sendf(sock_t *socket, const char *fmt, ...) {
     size_t  length;
     va_list args;
 
-    if (!strlen(fmt))
+    if (!*fmt)
         return 0;
 
     va_start(args, fmt);

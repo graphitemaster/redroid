@@ -21,7 +21,7 @@ static void string_reallocate(string_t *string) {
     string->allocated = size;
 }
 
-static void string_reassociate(string_t *oldstr, string_t *newstr) {
+void string_reassociate(string_t *oldstr, string_t *newstr) {
     size_t allocated = newstr->allocated;
     size_t length    = newstr->length;
     char  *move      = string_move(newstr);

@@ -120,8 +120,6 @@ static inline list_t *list_create(void) {
 /* Database API */
 bool database_statement_complete(database_statement_t *statement);
 bool database_statement_bind(database_statement_t *statement, const char *mapping, ...);
-database_row_t *database_row_extract(database_statement_t *statement, const char *fields);
-const char *database_row_pop_string(database_row_t *row);
 int  database_row_pop_integer(database_row_t *row);
 bool database_request(irc_t *instance, const char *table);
 int database_request_count(irc_t *instance, const char *table);
@@ -187,11 +185,12 @@ access_t access_change(irc_t *irc, const char *target, const char *invoke, int l
 static inline void *malloc(size_t size) {
     return MODULE_GC_CALL(malloc)(size);
 }
-static inline int getaddrinfo(const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
+static inline int getaddrinfo_(const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
     return MODULE_GC_CALL(getaddrinfo)(mode, service, hints, result);
 }
 static inline list_t *svnlog(const char *url, size_t depth) {
     return MODULE_GC_CALL(svnlog)(url, depth);
 }
 
+#define getaddrinfo getaddrinfo_
 #endif

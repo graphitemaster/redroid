@@ -140,6 +140,7 @@ list_iterator_next
 list_iterator_prev
 list_iterator_end
 list_pop
+list_push
 list_shift
 list_length
 list_sort
