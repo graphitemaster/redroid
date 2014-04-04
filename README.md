@@ -17,7 +17,8 @@ Redroid is a modular rewrite of the redroid mIRC bot.
     reloaded from within IRC, making module development incredibly quick and
     easy. Redroid comes with a plethora of already written, tested and
     configurable modules. A list of these modules can be found on the
-    [_Modules_](Modules) article of our official wiki.
+    [_Modules_](https://github.com/graphitemaster/redroid/wiki/Modules)
+    article of our official wiki.
 
 * __Restartable__
     Redroid can be restarted from within IRC by an administrator, or from
@@ -61,10 +62,11 @@ article of our official wiki.
 
 ### Configuration
 Information on how to configure Redroid and its modules can be found
-on the [_Configuring Redroid_](https://github.com/graphitemaster/redroid/wiki/Configuring%20Redroid) article of our official
-wiki.
+on the [_Configuring Redroid_](https://github.com/graphitemaster/redroid/wiki/Configuring%20Redroid)
+article of our official wiki.
 
 ### Miscellaneous
-Additional information of Redroid can be found on our [_official wiki_](Home).
+Additional information of Redroid can be found on our
+[_official wiki_](https://github.com/graphitemaster/redroid/wiki).
 
 [![Bitdeli Badge](https://d2weczhvl823v0.arsefront.net/graphitemaster/redroid/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
