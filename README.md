@@ -56,15 +56,15 @@ Redroid is a modular rewrite of the redroid mIRC bot.
 
 ### Building
 Information on the supported build options, prerequisites, and on how to
-build Redroid can be found on the [_Building Redroid_](Building Redroid)
+build Redroid can be found on the [_Building Redroid_](https://github.com/graphitemaster/redroid/wiki/Building%20Redroid)
 article of our official wiki.
 
 ### Configuration
 Information on how to configure Redroid and its modules can be found
-on the [_Configuring Redroid_](Configuring Redroid) article of our official
+on the [_Configuring Redroid_](https://github.com/graphitemaster/redroid/wiki/Configuring%20Redroid) article of our official
 wiki.
 
 ### Miscellaneous
 Additional information of Redroid can be found on our [_official wiki_](Home).
 
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/graphitemaster/redroid/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+[![Bitdeli Badge](https://d2weczhvl823v0.arsefront.net/graphitemaster/redroid/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
