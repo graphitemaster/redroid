@@ -4,14 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #define MT_N 624
 #define MT_M 397
 
 struct mt_s {
-    uint32_t  state[MT_N];
-    uint32_t *next;
-    size_t    remaining;
+    pthread_mutex_t lock;
+    uint32_t        state[MT_N];
+    uint32_t       *next;
+    size_t          remaining;
 };
 
 enum {
@@ -42,15 +44,15 @@ static unsigned long mt_seed(void) {
     return (unsigned long)c;
 }
 
-static mt_t *mt_init(mt_t *mt, unsigned long seed) {
-    *mt->state = (uint32_t)(seed & FMASK);
+static void mt_init(mt_t *mt, unsigned long seed) {
+    mt->state[0] = (uint32_t)(seed & FMASK);
     for (size_t i = 1; i < MT_N; i++) {
         mt->state[i] = (1812433253U * (mt->state[i - 1] ^ (mt->state[i - 1] >> 30)) + i);
         mt->state[i] &= FMASK;
     }
     mt->remaining = 0;
     mt->next      = NULL;
-    return mt;
+    pthread_mutex_init(&mt->lock, 0);
 }
 
 static void mt_update(mt_t *mt) {
@@ -66,23 +68,26 @@ static void mt_update(mt_t *mt) {
     mt->next      = mt->state;
 }
 
-
 mt_t *mt_create(void) {
-    mt_t *mt = memset(malloc(sizeof(mt_t)), 0, sizeof(mt_t));
-    return mt_init(mt, mt_seed());
+    mt_t *mt = calloc(1, sizeof(*mt));
+    mt_init(mt, mt_seed());
+    return mt;
 }
 
 void mt_destroy(mt_t *mt) {
+    pthread_mutex_destroy(&mt->lock);
     free(mt);
 }
 
 uint32_t mt_urand(mt_t *mt) {
     uint32_t r;
+    pthread_mutex_lock(&mt->lock);
     if (!mt->remaining)
         mt_update(mt);
 
     r = *mt->next++;
     mt->remaining--;
+    pthread_mutex_unlock(&mt->lock);
 
     /* standard tempering */
     r ^= (r >> 11);

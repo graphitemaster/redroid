@@ -63,23 +63,9 @@ static const irc_command_func_t irc_commands[] = {
 
 /* Colors (come first for the buffered protocol) */
 static const char *irc_colors[] = {
-    "WHITE",
-    "BLACK",
-    "DARKBLUE",
-    "DARKGREEN",
-    "RED",
-    "BROWN",
-    "PURPLE",
-    "OLIVE",
-    "YELLOW",
-    "GREEN",
-    "TEAL",
-    "CYAN",
-    "BLUE",
-    "MAGENTA",
-    "DARKGRAY",
-    "LIGHTGRAY",
-    0
+    "WHITE",    "BLACK",   "DARKBLUE", "DARKGREEN", "RED",  "BROWN",
+    "PURPLE",   "OLIVE",   "YELLOW",   "GREEN",     "TEAL", "CYAN",
+    "BLUE",     "MAGENTA", "DARKGRAY", "LIGHTGRAY"
 };
 
 static size_t irc_color_lookup(const char *color) {
@@ -367,7 +353,7 @@ irc_t *irc_create(config_t *entry) {
     printf("    database => %s\n", entry->database);
     printf("    host     => %s\n", entry->host);
     printf("    port     => %s\n", entry->port);
-    printf("    ssl      => %s\n", entry->ssl ? "Yes" : "No");
+    printf("    ssl      => %s\n", entry->ssl ? "(Yes)" : "(No)");
 
     return irc;
 }
@@ -736,7 +722,6 @@ void irc_process(irc_t *irc, void *data) {
         if (temp[i] == '\x1f') continue; /* underline */
         if (temp[i] == '\x16') continue; /* reverse   */
         if (temp[i] == '\x0f') continue; /* reset     */
-
 
         /* Dealing with color control */
         int color = 0;
