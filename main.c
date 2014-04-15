@@ -246,9 +246,9 @@ static irc_manager_t *manager = NULL;
 
 static void signal_handle(int sig) {
     if (sig == SIGTERM || sig == SIGINT)
-        printf("Recieved shutdown\n");
+        printf("Received shutdown\n");
     else
-        printf("Recieved internal error\n");
+        printf("Received internal error\n");
     printf("Shutting down ...\n");
     irc_manager_wake(manager);
     signal_shutdown(true);
