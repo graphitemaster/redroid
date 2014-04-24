@@ -1,6 +1,7 @@
 #ifndef REDROID_MODULE_HDR
 #define REDROID_MODULE_HDR
 #include <time.h>
+#include <pthread.h>
 
 #include "database.h"
 #include "irc.h"
@@ -56,7 +57,7 @@ module_t *module_manager_module_search(module_manager_t *manager, const char *th
 void module_mem_push(module_t *module, void *data, void (*cleanup)(void *));
 void module_mem_destroy(module_t *module);
 
-/* module singleton */
-module_t **module_get(void);
-
+/* singleton */
+void module_singleton_set(module_t *module);
+module_t *module_singleton_get(void);
 #endif

@@ -261,8 +261,8 @@ static void *cmd_channel_threader(void *data) {
             continue;
 
         if (module->enter) {
+            module_singleton_set(module);
             channel->cmd_entry = entry;
-            *module_get()      = module; /* Save module instance */
             module->memory     = list_create();
 
             /* Initiate the timer for the module */

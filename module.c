@@ -247,19 +247,42 @@ void module_close(module_t *module, module_manager_t *manager) {
     free(module);
 }
 
-module_t **module_get(void) {
-    static module_t *module = NULL;
-    return &module;
+/* thread-safe module singleton */
+typedef struct {
+    pthread_mutex_t mutex;
+    module_t       *handle;
+} module_get_t;
+
+static module_get_t *module_singleton(void) {
+    static module_get_t get = {
+        .mutex  = PTHREAD_MUTEX_INITIALIZER,
+        .handle = NULL
+    };
+    return &get;
+}
+
+void module_singleton_set(module_t *module) {
+    module_get_t *get = module_singleton();
+    pthread_mutex_lock(&get->mutex);
+    get->handle = module;
+    pthread_mutex_unlock(&get->mutex);
+}
+
+module_t *module_singleton_get(void) {
+    module_get_t *get = module_singleton();
+    module_t *mod = NULL;
+    pthread_mutex_lock(&get->mutex);
+    mod = get->handle;
+    pthread_mutex_unlock(&get->mutex);
+    return mod;
 }
 
 module_manager_t *module_manager_create(irc_t *instance) {
     module_manager_t *manager = malloc(sizeof(*manager));
-
     manager->instance  = instance;
     manager->modules   = list_create();
     manager->unloaded  = list_create();
     manager->whitelist = database_create("whitelist.db");
-
     return manager;
 }
 
@@ -267,9 +290,7 @@ void module_manager_destroy(module_manager_t *manager) {
     list_foreach(manager->modules, manager, &module_close);
     list_destroy(manager->modules);
     list_destroy(manager->unloaded);
-
     database_destroy(manager->whitelist);
-
     free(manager);
 }
 
@@ -277,10 +298,8 @@ bool module_manager_module_unload(module_manager_t *manager, const char *name) {
     module_t *find = module_manager_module_search(manager, name, MMSEARCH_NAME);
     if (!find)
         return false;
-
     if (!list_erase(manager->modules, find))
         return false;
-
     return true;
 }
 
@@ -288,10 +307,8 @@ bool module_manager_module_reload(module_manager_t *manager, const char *name) {
     module_t *find = module_manager_module_search(manager, name, MMSEARCH_NAME);
     if (!find)
         return false;
-
     if (!module_reload(find, manager))
         return false;
-
     return true;
 }
 
@@ -340,49 +357,49 @@ module_t *module_manager_module_search(module_manager_t *manager, const char *na
 
 /* Memory pinners for module API */
 void *module_malloc(size_t bytes) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     void *p = memset(malloc(bytes), 0, bytes);
     module_mem_push(module, p, &free);
     return p;
 }
 
 string_t *module_string_create(const char *input) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     string_t *string = string_create(input);
     module_mem_push(module, string, (void (*)(void *))&string_destroy);
     return string;
 }
 
 string_t *module_string_construct(void) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     string_t *string = string_construct();
     module_mem_push(module, string, (void (*)(void *))&string_destroy);
     return string;
 }
 
 string_t *module_string_vformat(const char *fmt, va_list va) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     string_t *string = string_vformat(fmt, va);
     module_mem_push(module, string, (void (*)(void*))&string_destroy);
     return string;
 }
 
 list_iterator_t *module_list_iterator_create(list_t *list) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     list_iterator_t *it = list_iterator_create(list);
     module_mem_push(module, it, (void (*)(void*))&list_iterator_destroy);
     return it;
 }
 
 list_t *module_list_create(void) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     list_t *list = list_create();
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
     return list;
 }
 
 int module_getaddrinfo(const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     int value = getaddrinfo(mode, service, hints, result);
     if (value == 0)
         module_mem_push(module, *result, (void (*)(void*))&freeaddrinfo);
@@ -396,11 +413,11 @@ database_statement_t *module_database_statement_create(const char *string) {
      * deal with freeing database statements. Instead we need the GC call
      * to access the modules instance database
      */
-    return database_statement_create((*module_get())->instance->database, string);
+    return database_statement_create((module_singleton_get())->instance->database, string);
 }
 
 database_row_t *module_database_row_extract(database_statement_t *statement, const char *fields) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     database_row_t *row = database_row_extract(statement, fields);
     if (row)
         module_mem_push(module, row, (void(*)(void*))&database_row_destroy);
@@ -408,14 +425,14 @@ database_row_t *module_database_row_extract(database_statement_t *statement, con
 }
 
 const char *module_database_row_pop_string(database_row_t *row) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     const char *ret = database_row_pop_string(row);
     module_mem_push(module, (void *)ret, (void(*)(void*))&free);
     return ret;
 }
 
 list_t *module_irc_modules(irc_t *irc) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     list_t *ret = irc_modules(irc);
     if (!ret)
         return NULL;
@@ -424,7 +441,7 @@ list_t *module_irc_modules(irc_t *irc) {
 }
 
 list_t *module_irc_users(irc_t *irc, const char *channel) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     list_t *ret = irc_users(irc, channel);
     if (!ret)
         return NULL;
@@ -433,7 +450,7 @@ list_t *module_irc_users(irc_t *irc, const char *channel) {
 }
 
 list_t *module_irc_channels(irc_t *irc) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     list_t *ret = irc_channels(irc);
     if (!ret)
         return NULL;
@@ -442,14 +459,14 @@ list_t *module_irc_channels(irc_t *irc) {
 }
 
 char *module_strdup(const char *str) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     char *dup = strdup(str);
     module_mem_push(module, dup, &free);
     return dup;
 }
 
 list_t* module_strsplit(const char *str_, const char *delim) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     list_t *list = list_create();
     module_mem_push(module, list, (void (*)(void*))&list_destroy);
 
@@ -495,7 +512,7 @@ list_t* module_strnsplit_impl(char *str, const char *delim, size_t count) {
 }
 
 list_t* module_strnsplit(const char *str_, const char *delim, size_t count) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
 
     list_t *list;
     if (str_ && *str_) {
@@ -541,7 +558,7 @@ static char *strdur(unsigned long long duration) {
 }
 
 char *module_strdur(unsigned long long duration) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     char *data = strdur(duration);
     module_mem_push(module, data, &free);
     return data;
@@ -554,12 +571,12 @@ regexpr_t *module_regexpr_create(const char *string, bool icase) {
      * deal with freeing regexpr_t objects automatically. Instead we
      * need the GC call to access the modules instances regexpr cache.
      */
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     return regexpr_create(module->instance->regexprcache, string, icase);
 }
 
 bool module_regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
-    module_t        *module     = *module_get();
+    module_t        *module     = module_singleton_get();
     regexpr_match_t *storearray = NULL;
 
     if (!regexpr_execute(expr, string, nmatch, &storearray))
@@ -688,7 +705,7 @@ static list_t *module_svnlog_read(const char *url, size_t depth) {
 }
 
 list_t *module_svnlog(const char *url, size_t depth) {
-    module_t *module = *module_get();
+    module_t *module = module_singleton_get();
     list_t *list = module_svnlog_read(url, depth);
     if (!list)
         return NULL;
@@ -706,9 +723,9 @@ list_t *module_svnlog(const char *url, size_t depth) {
 }
 
 uint32_t module_urand(void) {
-    return mt_urand((*module_get())->random);
+    return mt_urand((module_singleton_get())->random);
 }
 
 double module_drand(void) {
-    return mt_drand((*module_get())->random);
+    return mt_drand((module_singleton_get())->random);
 }

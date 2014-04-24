@@ -233,8 +233,28 @@ void irc_manager_process(irc_manager_t *manager) {
     for (size_t i = 0; i < manager->instances->size; i++)
         irc_unqueue(manager->instances->data[i]);
 
-    int wait = poll(manager->polls, manager->instances->size + 1, -1);
-    if (wait == 0 || wait == -1)
+    /*
+     * Calculate the shortest interval module duration, this is what we'll
+     * use for the poll timeout otherwise that module won't be executed
+     * until something on the pipe happens.
+     */
+    int timeout_sec = 0;
+    for (size_t i = 0; i < manager->instances->size; i++) {
+        list_iterator_t *it = list_iterator_create(manager->instances->data[i]->moduleman->modules);
+        while (!list_iterator_end(it)) {
+            module_t *module = list_iterator_next(it);
+            if (*module->match != '\0')
+                continue;
+
+            if (module->interval != 0 && module->interval < timeout_sec)
+                timeout_sec = module->interval;
+        }
+        list_iterator_destroy(it);
+    }
+
+    int timeout_ms = timeout_sec * 1000;
+    int wait = poll(manager->polls, manager->instances->size + 1, timeout_ms == 0 ? -1 : timeout_ms);
+    if (wait == -1)
         return;
 
     /*

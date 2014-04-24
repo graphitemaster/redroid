@@ -18,15 +18,11 @@ static void quote_access_check(irc_t *irc, const char *user) {
 
 static void quote_nick_stripspecial(char **input) {
     char *beg = *input;
-    char *end = &((*input)[strlen(beg)-1]);
-
-    /* deal with "<nick>" -> "nick" */
-    if (*beg == '<' && *end == '>')
-        beg++, *--end = '\0';
-
-    if (*end == ':') *--end = '\0'; /* strip nicks like "foo:" -> "foo" */
-    if (*beg == '@') beg++;         /* strip nicks like "@foo" -> "foo" */
-
+    char *end = &beg[strlen(beg)-1];
+    if (*beg == '<') beg++;
+    if (*beg == '@') beg++;
+    if (*end == '>' || *end == ':') end--;
+    *++end ='\0';
     *input = beg;
 }
 
@@ -155,6 +151,7 @@ static void quote_add(irc_t *irc, const char *channel, const char *user, list_t 
         return;
 
     irc_write(irc, channel, "%s: Ok, added quote: <%s> %s", user, quotenick, quotemessage);
+    irc_write(irc, channel, "%s: NICK[%s], MESSAGE[%s]", user, quotenick, quotemessage);
 }
 
 static void quote_forget(irc_t *irc, const char *channel, const char *user, list_t *list) {
@@ -188,13 +185,15 @@ static void quote_forget(irc_t *irc, const char *channel, const char *user, list
 }
 
 static void quote_reauthor(irc_t *irc, const char *channel, const char *user, list_t *list) {
-    const char *from = list_shift(list);
-    const char *to   = list_shift(list);
+    char *from = list_shift(list);
+    char *to   = list_shift(list);
 
     if (!from || !to)
         return quote_help(irc, channel, user);
 
     quote_access_check(irc, user);
+    quote_nick_stripspecial(&from);
+    quote_nick_stripspecial(&to);
 
     int count = 0;
     if (!quote_count(from, &count))
@@ -213,7 +212,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!message)
         return quote_entry_random(irc, channel, user);
 
-    list_t     *list   = strnsplit(message, " ", 3);
+    list_t     *list   = strnsplit(message, " ", 2);
     const char *method = list_shift(list);
 
     if (!strcmp(method, "-help"))     return quote_help(irc, channel, user);
