@@ -102,12 +102,8 @@ void list_iterator_reset(list_iterator_t *iterator);
 bool list_iterator_end(list_iterator_t *iterator);
 void *list_iterator_next(list_iterator_t *iterator);
 void *list_iterator_prev(list_iterator_t *iterator);
-void *list_pop(list_t *list) {
-    return MODULE_GC_CALL(list_pop)(list);
-}
-void *list_shift(list_t *list) {
-    return MODULE_GC_CALL(list_shift)(list);
-}
+void *list_pop(list_t *list);
+void *list_shift(list_t *list);
 size_t list_length(list_t *list);
 void list_sort(list_t *list, bool (*predicate)(const void *, const void *));
 void *list_search(list_t *list, bool (*predicate)(const void *, const void *), const void *pass);
