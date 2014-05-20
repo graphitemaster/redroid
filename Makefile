@@ -3,7 +3,7 @@
 
 CC               ?= clang
 CFLAGS            = -std=c11 -D_XOPEN_SOURCE=700 -Wall -Wextra -ggdb3 -DHAS_SSL
-LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lssl -lcrypto -Wl,--export-dynamic
+LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lgnutls -Wl,--export-dynamic
 SOURCES           = $(shell echo *.c)
 HEADERS           = $(shell echo *.h)
 OBJECTS           = $(SOURCES:.c=.o)

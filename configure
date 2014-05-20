@@ -162,8 +162,7 @@ fi
 
 # only need these if building with SSL support
 if test "$ssl" = yes ; then
-trylib ssl "openssl/ssl.h" LDFLAGS
-trylib crypto "openssl/crypto.h" LDFLAGS
+trylib gnutls "gnutls/gnutls.h" LDFLAGS
 CFLAGS="${CFLAGS} -DHAS_SSL"
 fi
 

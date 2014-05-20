@@ -246,8 +246,13 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
     fd = sock_connection(host, port, &resolved);
     if (fd == -1)
         return NULL;
-
+#ifdef HAS_SSL
+    sock_t *sock = restart->ssl
+                       ? ssl_create(fd, restart)
+                       : sock_standard_create(fd, false, resolved, true);
+#else
     sock_t *sock = sock_standard_create(fd, false, resolved, true);
+#endif
     free(resolved);
     return sock;
 }
