@@ -91,7 +91,7 @@ static int sock_connection(const char *host, const char *port, char **resolved) 
     if (!sock_nonblock(sock))
         goto sock_get_error;
 
-    /* try all of them until it succeeds */
+    /* Try all of them until it succeeds */
     bool failed = false;
     for (struct addrinfo *current = result; current; current = current->ai_next) {
         char ipbuffer[INET6_ADDRSTRLEN];
@@ -104,8 +104,15 @@ static int sock_connection(const char *host, const char *port, char **resolved) 
             addr = &(ipv6->sin6_addr);
         }
 
+        /* The socket needs to also change for this */
+        close(sock);
+        if ((sock = socket(current->ai_family, current->ai_socktype, current->ai_protocol)) < 0)
+            goto sock_get_error;
+        if (!sock_nonblock(sock))
+            goto sock_get_error;
+
         inet_ntop(current->ai_family, addr, ipbuffer, sizeof(ipbuffer));
-        if (connect(sock, result->ai_addr, result->ai_addrlen) != 0 && errno != EINPROGRESS) {
+        if (connect(sock, current->ai_addr, current->ai_addrlen) != 0 && errno != EINPROGRESS) {
             if (current->ai_next)
                 fprintf(stderr, "failed to connect: %s:%s (trying next address in list)\n", host, ipbuffer);
             else
