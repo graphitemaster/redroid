@@ -229,7 +229,7 @@ cat << EOF
 
 CC= $CC
 CFLAGS= $CFLAGS
-LDFLAGS= $LDFLAGS
+LDFLAGS= $LDFLAGS -Wl,-rpath-link,/usr/musl/lib/
 MODULE_LDFLAGS= $MODULE_LDFLAGS
 MODULE_CFLAGS= -Imodules/ -fno-asm $MODULE_CFLAGS
 

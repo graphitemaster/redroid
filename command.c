@@ -2,6 +2,7 @@
 #include "command.h"
 #include "string.h"
 
+#include <execinfo.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -11,8 +12,12 @@
 #include <stdio.h>
 
 #define COMMAND_TIMEOUT_SECONDS 5
+#define COMMAND_BACKTRACE_LIMIT 5
+#define COMMAND_BACKTRACE_DEPTH 10
 
-static volatile bool cmd_channel_crashed = false;
+static bool   cmd_channel_crashed         = false;
+static size_t cmd_channel_backtrace_count = 0;
+static char **cmd_channel_backtrace_lines = NULL;
 
 struct cmd_link_s {
     cmd_entry_t *data;
@@ -195,10 +200,20 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
     free(entry);
 }
 
+static void cmd_channel_backtrace_generate(void) {
+    void *array[COMMAND_BACKTRACE_DEPTH];
+    if ((cmd_channel_backtrace_count = backtrace(array, COMMAND_BACKTRACE_DEPTH)) == 0)
+        return;
+    if (!(cmd_channel_backtrace_lines = backtrace_symbols(array, cmd_channel_backtrace_count)))
+        return;
+}
+
 static void cmd_channel_signalhandle_quit(int sig) {
     /* not a timeout, i.e module crashed */
-    if (sig != SIGUSR2)
+    if (sig != SIGUSR2) {
         cmd_channel_crashed = true;
+        cmd_channel_backtrace_generate();
+    }
     pthread_exit(NULL);
 }
 
@@ -229,14 +244,28 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
      * down and we don't want those showing up here.
      */
     if (!entry->instance->interval) {
-        irc_write(
-            entry->instance->instance,
-            string_contents(entry->channel),
-            "%s: command %s",
-            string_contents(entry->user),
-            cmd_channel_crashed ? "crashed"
-                                : "timed out"
-        );
+        irc_t      *irc     = entry->instance->instance;
+        const char *channel = string_contents(entry->channel);
+        const char *user    = string_contents(entry->user);
+
+        if (cmd_channel_crashed) {
+            irc_write(irc, channel, "%s: command crashed", user);
+            if (cmd_channel_backtrace_lines) {
+                size_t limit = cmd_channel_backtrace_count;
+                if (limit > COMMAND_BACKTRACE_LIMIT)
+                    limit = COMMAND_BACKTRACE_LIMIT;
+
+                for (size_t i = 0; i < limit; i++)
+                    irc_write(irc, channel, "%s: %s", user, cmd_channel_backtrace_lines[i]);
+                if (limit != cmd_channel_backtrace_count)
+                    irc_write(irc, channel, "%s: (backtrace truncated)", user);
+
+                free(cmd_channel_backtrace_lines);
+                cmd_channel_backtrace_lines = NULL;
+            }
+        } else {
+            irc_write(irc, channel, "%s: command timeout", user);
+        }
     }
 
     cmd_entry_destroy(entry);
