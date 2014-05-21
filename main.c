@@ -478,14 +478,14 @@ int main(int argc, char **argv) {
         if (argc == 2 && argv[1][0] == '-') {
             switch (argv[1][1]) {
                 case 'l': /* Logging */
-                    freopen(&argv[0][3], "w", stdout);
-                    freopen(&argv[0][3], "w", stderr);
+                    (void)!freopen(&argv[0][3], "w", stdout);
+                    (void)!freopen(&argv[0][3], "w", stderr);
                     signal_daemonize(false);
                     break;
 
                 case 'q': /* Quiet */
-                    freopen("/dev/null", "w", stdout);
-                    freopen("/dev/null", "w", stderr);
+                    (void)!freopen("/dev/null", "w", stdout);
+                    (void)!freopen("/dev/null", "w", stderr);
                     signal_daemonize(false);
                     break;
 

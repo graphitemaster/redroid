@@ -49,7 +49,7 @@ struct cmd_entry_s {
 };
 
 cmd_link_t *cmd_link_create(void) {
-    return memset(malloc(sizeof(cmd_link_t)), 0, sizeof(cmd_link_t));
+    return calloc(1, sizeof(cmd_link_t));
 }
 
 void cmd_link_destroy(cmd_link_t *link, void (*destroy)(cmd_entry_t *)) {

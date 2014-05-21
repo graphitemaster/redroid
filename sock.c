@@ -190,6 +190,7 @@ static sock_t *sock_standard_create(int fd, bool listen, const char *host, bool 
     socket->host    = strdup(host);
 
     if (nonblocking && !sock_nonblock(fd)) {
+        free(socket->host);
         free(socket);
         free(data);
         return NULL;
@@ -251,8 +252,11 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
 
     char *resolved = NULL;
     fd = sock_connection(host, port, &resolved);
-    if (fd == -1)
+    if (fd == -1) {
+        free(resolved);
         return NULL;
+    }
+
 #ifdef HAS_SSL
     sock_t *sock = restart->ssl
                        ? ssl_create(fd, restart)

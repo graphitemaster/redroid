@@ -39,7 +39,7 @@ struct database_row_s {
 };
 
 static database_row_data_t *database_row_data_create(void) {
-    return memset(malloc(sizeof(database_row_data_t)), 0, sizeof(database_row_data_t));
+    return calloc(1, sizeof(database_row_data_t));
 }
 
 static void database_row_data_destroy(database_row_data_t *data) {
