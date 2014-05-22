@@ -8,7 +8,7 @@
 #include "string.h"
 #include "mt.h"
 
-typedef struct module_s  module_t;
+typedef struct module_s module_t;
 
 struct module_s {
     void         *handle;

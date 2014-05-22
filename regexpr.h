@@ -1,12 +1,11 @@
 #ifndef REDROID_REGEXPR_HDR
 #define REDROID_REGEXPR_HDR
 #include "hashtable.h"
-
 typedef struct regexpr_s regexpr_t;
 
 typedef struct {
-    size_t soff;
-    size_t eoff;
+    int soff;
+    int eoff;
 } regexpr_match_t;
 
 /* regular expression management */

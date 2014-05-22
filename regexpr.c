@@ -60,11 +60,12 @@ bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, r
     }
 
     if (nmatch) {
-        *array = malloc(sizeof(regexpr_match_t) * nmatch);
+        regexpr_match_t *matches = malloc(sizeof(regexpr_match_t) * nmatch);
         for (size_t i = 0; i < nmatch; i++) {
-            (*array)[i].soff = temp[i].rm_so;
-            (*array)[i].eoff = temp[i].rm_eo;
+            matches[i].soff = temp[i].rm_so;
+            matches[i].eoff = temp[i].rm_eo;
         }
+        *array = matches;
         free(temp);
     }
 

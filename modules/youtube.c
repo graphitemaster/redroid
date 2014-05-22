@@ -82,8 +82,8 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         return;
 
     char *id = strdup(message);
-    id[videoid.soff] = '\0';
     id += videoid.soff;
+    id[videoid.eoff - videoid.soff] = '\0';
 
     youtube_t data;
     if (youtube_find(id, &data)) {
