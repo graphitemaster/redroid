@@ -151,7 +151,7 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
     if (fread(binread, binsize, 1, fp) != 1) {
         fclose(fp);
         error = "backing up redroid binary (failed reading for backup)";
-        goto redroid_recompile_fail;
+        goto redroid_recompile_fail_file;
     }
 
     fclose(fp);
@@ -159,35 +159,35 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
     backupname = string_format("%s.bak", redroid_binary);
     if (!(fp = fopen(string_contents(backupname), "wb"))) {
         error = "backing up redroid binary (failed creating backup file)";
-        goto redroid_recompile_fail;
+        goto redroid_recompile_fail_file;
     }
 
     if (fwrite(binread, binsize, 1, fp) != 1) {
         error = "backing up redroid binary (failed writing backup file)";
-        goto redroid_recompile_fail;
+        goto redroid_recompile_fail_file;
     }
 
     /* Make sure the binary can be executed */
     if (chmod(string_contents(backupname), S_IRWXU) != 0) {
         error = "backing up redroid binary (failed setting executable permissions for backup file)";
-        goto redroid_recompile_fail;
+        goto redroid_recompile_fail_file;
     }
 
     fclose(fp);
 
     if (!(fp = popen("make clean", "r"))) {
-        irc_write(irc, channel, "%s: failed to recompile ([make clean] %s)", user, strerror(errno));
+        error = strerror(errno);
         goto redroid_recompile_fail;
     }
 
     if (pclose(fp) == -1) {
-        irc_write(irc, channel, "%s: failed to recompile ([make clean] %s)", user, strerror(errno));
+        error = strerror(errno);
         goto redroid_recompile_fail;
     }
 
     /* Now try the recompile */
     if (!(fp = popen("make 2>&1", "r"))) {
-        irc_write(irc, channel, "%s: failed to recompile ([make 2>&1] %s)", user, strerror(errno));
+        error = strerror(errno);
         goto redroid_recompile_fail;
     }
 
@@ -238,13 +238,15 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
     list_destroy(lines);
     return;
 
+redroid_recompile_fail_file:
+    /* fp can be opened from a path coming to here */
+    if (fp)
+        fclose(fp);
+
 redroid_recompile_fail:
     /* backupname can be allocated from a path coming to here */
     if (backupname)
         string_destroy(backupname);
-    /* fp can be opened from a path coming to here */
-    if (fp)
-        fclose(fp);
 
     irc_write(irc, channel, "%s: failed recompiling", user);
     irc_write(irc, channel, "%s: %s", user, error);
@@ -294,7 +296,6 @@ static void signal_handle(int sig) {
 static void signal_install(void) {
     signal(SIGTERM, &signal_handle);
     signal(SIGINT,  &signal_handle);
-    signal(SIGCHLD, SIG_IGN);
 }
 
 static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
