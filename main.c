@@ -117,7 +117,7 @@ static bool redroid_daemon(bool closehandles) {
 
 void redroid_daemonize(irc_t *irc, const char *channel, const char *user) {
     if (redroid_daemon(true))
-        irc_write(irc, channel, "%s: deamonization successful", user);
+        irc_write(irc, channel, "%s: daemonization successful", user);
     else {
         if (getppid() != 1)
             irc_write(irc, channel, "%s: daemonization failed", user);
@@ -175,12 +175,21 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
 
     fclose(fp);
 
-    /* Cleanup the instance. This will erase the binary */
-    pclose(popen("make clean", "r"));
+    if (!(fp = popen("make clean", "r"))) {
+        irc_write(irc, channel, "%s: failed to recompile ([make clean] %s)", user, strerror(errno));
+        goto redroid_recompile_fail;
+    }
+
+    if (pclose(fp) == -1) {
+        irc_write(irc, channel, "%s: failed to recompile ([make clean] %s)", user, strerror(errno));
+        goto redroid_recompile_fail;
+    }
 
     /* Now try the recompile */
-    if (!(fp = popen("make 2>&1", "r")))
-        irc_write(irc, channel, "%s: failed to recompile", user);
+    if (!(fp = popen("make 2>&1", "r"))) {
+        irc_write(irc, channel, "%s: failed to recompile ([make 2>&1] %s)", user, strerror(errno));
+        goto redroid_recompile_fail;
+    }
 
     list_t *lines = list_create();
     char   *line  = NULL;
@@ -190,7 +199,10 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
         list_push(lines, strdup(line));
     free(line);
 
-    if (pclose(fp) != 0) {
+    int tryclose = pclose(fp);
+    if (tryclose == -1)
+        irc_write(irc, channel, "%s: recompiled failed (%s)\n", user, strerror(errno));
+    else if (tryclose != 0) {
         /* it failed to recompile, search for errors */
         list_t *errors = list_create();
         while ((line = list_shift(lines))) {
@@ -335,7 +347,9 @@ int main(int argc, char **argv) {
     if (pid != 0) {
         /* Establish SIGINT handler for process termination */
         signal(SIGINT, &signal_handle_parent);
-        for (;;) pause();
+        int status;
+        waitpid(pid, &status, 0);
+        _exit(status);
     }
 
     /* Run the entire thing as a child process */
