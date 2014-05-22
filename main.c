@@ -89,10 +89,20 @@ void redroid_shutdown(irc_t *irc, const char *channel, const char *user) {
     redroid_shutdown_global(irc->manager);
 }
 
-static bool redroid_daemon(bool closehandles) {
+typedef enum {
+    DAEMONIZATION_REDUNDANT,
+    DAEMONIZATION_FAILED,
+    DAEMONIZATION_SUCCESSFUL
+} daemon_status_t;
+
+static daemon_status_t redroid_daemon(bool closehandles) {
+    static bool daemonized = false;
+    if (daemonized)
+        return DAEMONIZATION_REDUNDANT;
+
     pid_t sid;
     if ((sid = setsid()) == -1)
-        return false;
+        return DAEMONIZATION_FAILED;
 
     /* Now we can kill the parent process */
     pid_t pid = getppid();
@@ -102,27 +112,32 @@ static bool redroid_daemon(bool closehandles) {
      * as we're already daemonized.
      */
     if (pid == 1)
-        return false;
+        return DAEMONIZATION_REDUNDANT;
 
     if (kill(pid, SIGINT) == -1)
-        return false;
+        return DAEMONIZATION_FAILED;
 
     if (closehandles) {
         (void)!freopen("/dev/null", "w", stdout);
         (void)!freopen("/dev/null", "w", stderr);
     }
 
-    return true;
+    daemonized = true;
+    return DAEMONIZATION_SUCCESSFUL;
 }
 
 void redroid_daemonize(irc_t *irc, const char *channel, const char *user) {
-    if (redroid_daemon(true))
-        irc_write(irc, channel, "%s: daemonization successful", user);
-    else {
-        if (getppid() != 1)
-            irc_write(irc, channel, "%s: daemonization failed", user);
-        else
+    daemon_status_t status = redroid_daemon(true);
+    switch (status) {
+        case DAEMONIZATION_SUCCESSFUL:
+            irc_write(irc, channel, "%s: daemonization successful", user);
+            break;
+        case DAEMONIZATION_REDUNDANT:
             irc_write(irc, channel, "%s: already daemonized", user);
+            break;
+        case DAEMONIZATION_FAILED:
+            irc_write(irc, channel, "%s: daemonization failed", user);
+            break;
     }
     irc_manager_wake(irc->manager);
 }
