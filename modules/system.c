@@ -41,7 +41,7 @@ static void system_test_large_payload(irc_t *irc, const char *channel, const cha
 
 static void system_help(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel,
-        "%s: system <-shutdown|-restart|-recompile|-test-timeout|-test-crash|"
+        "%s: system <-shutdown|-restart|-recompile|-daemonize|-test-timeout|-test-crash|"
         "-topic|-version|-part-all|-users|-channels>|<-join|-part> <channel>|"
         "<-pattern> <pattern>",
         user
@@ -138,6 +138,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!strcmp(method, "-shutdown"))           return redroid_shutdown(irc, channel, user);
     if (!strcmp(method, "-restart"))            return redroid_restart(irc, channel, user);
     if (!strcmp(method, "-recompile"))          return redroid_recompile(irc, channel, user);
+    if (!strcmp(method, "-daemonize"))          return redroid_daemonize(irc, channel, user);
     if (!strcmp(method, "-test-timeout"))       return system_test_timeout();
     if (!strcmp(method, "-test-crash"))         return system_test_crash();
     if (!strcmp(method, "-test-large-payload")) return system_test_large_payload(irc, channel, user);

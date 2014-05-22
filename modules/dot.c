@@ -22,7 +22,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     irc_write(irc, channel,
         string_contents(
             string_format(
-                "%s %c",
+                "%s%c",
                 message,
                 dotchars[urand() % (sizeof(dotchars) - 1)]
             )

@@ -156,6 +156,7 @@ static inline double drand(void) {
 void redroid_restart(irc_t *irc, const char *channel, const char *user);
 void redroid_shutdown(irc_t *irc, const char *channel, const char *user);
 void redroid_recompile(irc_t *irc, const char *channel, const char *user);
+void redroid_daemonize(irc_t *irc, const char *channel, const char *user);
 
 const char *build_date(void);
 const char *build_time(void);

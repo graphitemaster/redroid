@@ -89,6 +89,44 @@ void redroid_shutdown(irc_t *irc, const char *channel, const char *user) {
     redroid_shutdown_global(irc->manager);
 }
 
+static bool redroid_daemon(bool closehandles) {
+    pid_t sid;
+    if ((sid = setsid()) == -1)
+        return false;
+
+    /* Now we can kill the parent process */
+    pid_t pid = getppid();
+
+    /*
+     * Child's parent becomes init process which means we cannot daemonize
+     * as we're already daemonized.
+     */
+    if (pid == 1)
+        return false;
+
+    if (kill(pid, SIGINT) == -1)
+        return false;
+
+    if (closehandles) {
+        (void)!freopen("/dev/null", "w", stdout);
+        (void)!freopen("/dev/null", "w", stderr);
+    }
+
+    return true;
+}
+
+void redroid_daemonize(irc_t *irc, const char *channel, const char *user) {
+    if (redroid_daemon(true))
+        irc_write(irc, channel, "%s: deamonization successful", user);
+    else {
+        if (getppid() != 1)
+            irc_write(irc, channel, "%s: daemonization failed", user);
+        else
+            irc_write(irc, channel, "%s: already daemonized", user);
+    }
+    irc_manager_wake(irc->manager);
+}
+
 void redroid_abort(void) {
     fprintf(stderr, "Aborted\n");
     exit(EXIT_FAILURE);
@@ -220,29 +258,15 @@ static bool signal_empty(void) {
     return true;
 }
 
-static void signal_daemonize(bool closehandles) {
-    pid_t pid;
-    pid_t sid;
-
-    pid = fork();
-    if (pid == -1)
-        exit(EXIT_FAILURE);
-    if (pid != 0)
-        exit(EXIT_SUCCESS);
-
-    if ((sid = setsid()) == -1)
-        exit(EXIT_FAILURE);
-
-    if (!closehandles)
-        return;
-
-    close(STDIN_FILENO);
-    close(STDOUT_FILENO);
-    close(STDERR_FILENO);
-}
-
 /* The only true global */
 static irc_manager_t *manager = NULL;
+
+static void signal_handle_parent(int sig) {
+    (void)sig;
+
+    /* Parent signal handler just kills the parent */
+    exit(EXIT_SUCCESS);
+}
 
 static void signal_handle(int sig) {
     if (sig == SIGTERM || sig == SIGINT)
@@ -258,6 +282,7 @@ static void signal_handle(int sig) {
 static void signal_install(void) {
     signal(SIGTERM, &signal_handle);
     signal(SIGINT,  &signal_handle);
+    signal(SIGCHLD, SIG_IGN);
 }
 
 static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
@@ -288,6 +313,32 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
 }
 
 int main(int argc, char **argv) {
+    /*
+     * Okay a little explination what we're doing here.
+     *  There is no sensible way to 'detach' a parent process from the
+     *  underlying terminal which launched the process because it's
+     *  waitpid()'n on it. This means there is really no clean way to
+     *  do daemonization within the middle of process execution without
+     *  restarting the entire process.
+     *
+     *  How this works is quite simple. We fork and run the entire
+     *  bot within the child process letting the parent do nothing but
+     *  pause. When we get a deamonization request we can simply setsid
+     *  within the child to get a new session and kill the parent.
+     *
+     *  This gives the underlying shell which invoked the process the
+     *  status it wants from waitpid while the process can continue to
+     *  run as a child which has now been promoted to the controlling
+     *  session leader.
+     */
+    pid_t pid = fork();
+    if (pid != 0) {
+        /* Establish SIGINT handler for process termination */
+        signal(SIGINT, &signal_handle_parent);
+        for (;;) pause();
+    }
+
+    /* Run the entire thing as a child process */
     web_t *web = NULL;
 
     /*
@@ -480,17 +531,11 @@ int main(int argc, char **argv) {
                 case 'l': /* Logging */
                     (void)!freopen(&argv[0][3], "w", stdout);
                     (void)!freopen(&argv[0][3], "w", stderr);
-                    signal_daemonize(false);
-                    break;
-
-                case 'q': /* Quiet */
-                    (void)!freopen("/dev/null", "w", stdout);
-                    (void)!freopen("/dev/null", "w", stderr);
-                    signal_daemonize(false);
+                    redroid_daemon(false);
                     break;
 
                 case 'd': /* Daemonize */
-                    signal_daemonize(true);
+                    redroid_daemon(true);
                     break;
             }
         }
