@@ -54,7 +54,7 @@ static void access_forget(irc_t *irc, const char *channel, const char *target, c
             return irc_write(irc, channel, "%s: %s doesn't exist", invoke, target);
         case ACCESS_DENIED:
             access_level(irc, target, &targetlevel);
-            return irc_write(irc, channel, "%s: You need access level %d or higher", targetlevel);
+            return irc_write(irc, channel, "%s: You need access level %d or higher", invoke, targetlevel);
         case ACCESS_SUCCESS:
             return irc_write(irc, channel, "%s: Ok, removed %s", invoke, target);
     }

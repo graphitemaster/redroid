@@ -62,7 +62,13 @@ access_t access_remove(irc_t *irc, const char *target, const char *invoke) {
         return ACCESS_NOEXIST_INVOKE;
     if (!access_level(irc, target, &targetlevel))
         return ACCESS_NOEXIST_TARGET;
-    if (invokelevel < ACCESS_CONTROL || targetlevel >= invokelevel)
+    /* If the target to remove has a better access level or is the same
+     * access level then the invoker cannot remove him. The exception
+     * being ACCESS_MAX. If the invoker has that access level than the
+     * invokers access level doesn't matter, even if the target has ACCESS_MAX
+     * too.
+     */
+    if (invokelevel != ACCESS_MAX && (invokelevel < ACCESS_CONTROL || targetlevel >= invokelevel))
         return ACCESS_DENIED;
 
     database_statement_t *statement =
