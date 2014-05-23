@@ -1,3 +1,5 @@
+![logo](logo.png)
+
 ### Synopsis
 Redroid is a modular rewrite of the redroid mIRC bot.
 
