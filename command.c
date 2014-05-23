@@ -2,7 +2,14 @@
 #include "command.h"
 #include "string.h"
 
-#include <execinfo.h>
+#ifdef HAS_BACKTRACES
+#   include <execinfo.h>
+#   define COMMAND_BACKTRACE_LIMIT 5
+#   define COMMAND_BACKTRACE_DEPTH 10
+    static size_t cmd_channel_backtrace_count = 0;
+    static char **cmd_channel_backtrace_lines = NULL;
+#endif /*!HAS_BACKTRACES */
+
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -12,12 +19,8 @@
 #include <stdio.h>
 
 #define COMMAND_TIMEOUT_SECONDS 5
-#define COMMAND_BACKTRACE_LIMIT 5
-#define COMMAND_BACKTRACE_DEPTH 10
 
-static bool   cmd_channel_crashed         = false;
-static size_t cmd_channel_backtrace_count = 0;
-static char **cmd_channel_backtrace_lines = NULL;
+static bool cmd_channel_crashed = false;
 
 struct cmd_link_s {
     cmd_entry_t *data;
@@ -200,6 +203,7 @@ void cmd_entry_destroy(cmd_entry_t *entry) {
     free(entry);
 }
 
+#ifdef HAS_BACKTRACES
 static void cmd_channel_backtrace_generate(void) {
     void *array[COMMAND_BACKTRACE_DEPTH];
     if ((cmd_channel_backtrace_count = backtrace(array, COMMAND_BACKTRACE_DEPTH)) == 0)
@@ -207,12 +211,15 @@ static void cmd_channel_backtrace_generate(void) {
     if (!(cmd_channel_backtrace_lines = backtrace_symbols(array, cmd_channel_backtrace_count)))
         return;
 }
+#endif /*!HAS_BACKTRACES*/
 
 static void cmd_channel_signalhandle_quit(int sig) {
     /* not a timeout, i.e module crashed */
     if (sig != SIGUSR2) {
         cmd_channel_crashed = true;
+#ifdef HAS_BACKTRACES
         cmd_channel_backtrace_generate();
+#endif /*!HAS_BACKTRACES*/
     }
     pthread_exit(NULL);
 }
@@ -250,6 +257,7 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
 
         if (cmd_channel_crashed) {
             irc_write(irc, channel, "%s: command crashed", user);
+#ifdef HAS_BACKTRACES
             if (cmd_channel_backtrace_lines) {
                 size_t limit = cmd_channel_backtrace_count;
                 if (limit > COMMAND_BACKTRACE_LIMIT)
@@ -263,6 +271,7 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
                 free(cmd_channel_backtrace_lines);
                 cmd_channel_backtrace_lines = NULL;
             }
+#endif
         } else {
             irc_write(irc, channel, "%s: command timeout", user);
         }

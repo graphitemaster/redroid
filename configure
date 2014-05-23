@@ -9,7 +9,9 @@ VAR=VALUE. See below for descriptions of some of the useful variables.
 
 Optional features:
     --disable-ssl           inhibit building Redroid with SSL support [disabled]
+    --disable-backtraces    inhibit building Redroid with backtraces [disabled]
     --enable-ssl            build with SSL support [default]
+    --enable-backtraces     build with backtraces [default]
     --enable-debug          build with debugging information [disabled]
     --disable-debug         build without debugging information [enabled]
 
@@ -90,15 +92,18 @@ LDFLAGS=
 MODULE_LDFLAGS=
 MODULE_CFLAGS=
 ssl=yes
+backtraces=yes
 debug=no
 ggdb3=no
 
 for arg ; do
 case "$arg" in
 --help) usage ;;
---disable-ssl) ssl=no ;;
---enable-ssl) ssl=yes ;;
+--disable-ssl|--enable-ssl=no) ssl=no ;;
+--disable-backtraces|--enable-backtraces=no) backtraces=no ;;
+--enable-ssl|--enable-ssl=yes) ssl=yes ;;
 --enable-debug|--enable-debug=yes) debug=yes ;;
+--enable-backtraces|--enable-backtraces=yes) backtraces=yes ;;
 --disable-debug|--enable-debug=no) debug=no ;;
 -* ) echo "$0: unknown option $arg" ;;
 CC=*) CC-${arg#*=} ;;
@@ -166,6 +171,10 @@ trylib gnutls "gnutls/gnutls.h" LDFLAGS
 CFLAGS="${CFLAGS} -DHAS_SSL"
 fi
 
+if test "$backtraces" = yes ; then
+CFLAGS="${CFLAGS} -DHAS_BACKTRACES"
+fi
+
 trylib sqlite3 "sqlite3.h" LDFLAGS
 trylib pthread "pthread.h" LDFLAGS
 
@@ -229,7 +238,7 @@ cat << EOF
 
 CC= $CC
 CFLAGS= $CFLAGS
-LDFLAGS= $LDFLAGS -Wl,-rpath-link,/usr/musl/lib/
+LDFLAGS= $LDFLAGS
 MODULE_LDFLAGS= $MODULE_LDFLAGS
 MODULE_CFLAGS= -Imodules/ -fno-asm $MODULE_CFLAGS
 
