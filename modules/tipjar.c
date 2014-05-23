@@ -40,9 +40,8 @@ static void tipjar_status(irc_t *irc, const char *channel, const char *target) {
     int  mcents    = cents % 100;
     bool neg       = false;
 
-    if (mcents   < 0) { mcents   = -mcents;   neg = true; }
-    if (mdollars < 0) { mdollars = -mdollars; neg = true; }
-
+    if (mcents   < 0) mcents   = -mcents,   neg = true;
+    if (mdollars < 0) mdollars = -mdollars, neg = true;
 
     irc_write(irc, channel,
         ((neg) ? "If %s had %d cents for every request, they would have: $-%d.%02d"
