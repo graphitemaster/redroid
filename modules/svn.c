@@ -44,9 +44,9 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         if (svn_find(e->revision))
             continue;
 
-        irc_write(irc, channel, "%s -> r%s -> %s%s -> %s",
-            string_contents(e->author),
+        irc_write(irc, channel, "[B]r%s[/B] by [B]%s[/B] -> %s%s -> %s",
             string_contents(e->revision),
+            string_contents(e->author),
             SVN_LINK,
             string_contents(e->revision),
             string_contents(e->message)
