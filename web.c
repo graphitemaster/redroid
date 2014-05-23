@@ -162,7 +162,6 @@ static void web_template_update(web_template_t *template) {
         if (!(end = strstr(beg, "]]-->")))
             continue;
 
-        /* terminate the identifier name */
         end[0] = '\0';
         web_template_entry_t *entry = hashtable_find(template->replaces, beg);
         char *ending = list_iterator_next(it);
@@ -181,8 +180,6 @@ static void web_template_update(web_template_t *template) {
         continue;
     }
     list_iterator_destroy(it);
-
-    /* perform string replacements on the formatted data */
     hashtable_foreach(template->replaces, NULL, &web_template_entries_update);
 }
 
@@ -491,7 +488,6 @@ web_t *web_create(void) {
     web->sessions  = list_create();
     web->templates = list_create();
 
-    /* register intercepts for post POST */
     http_intercept_post(server, "::login",  &web_hook_postlogin,  web);
     http_intercept_post(server, "::admin",  &web_hook_postadmin,  web);
     http_intercept_post(server, "::system", &web_hook_postsystem, web);
@@ -508,12 +504,10 @@ web_t *web_create(void) {
         }
     }
 
-    /* register some templates */
     web_template_register(web, "admin.html",  2, "INSTANCES", "VERSION");
     web_template_register(web, "index.html",  2, "ERROR",     "VERSION");
     web_template_register(web, "system.html", 2, "ACTION",    "VERSION");
 
-    /* register common replacements */
     const char *build_version();
     web_template_change(web, "admin.html",  "VERSION", build_version());
     web_template_change(web, "index.html",  "VERSION", build_version());
@@ -531,9 +525,9 @@ web_t *web_create(void) {
 }
 
 void web_destroy(web_t *web) {
-    /* Unlock to terminate*/
-
+    /* Unlock will cause termination */
     pthread_mutex_unlock(&web->mutex);
+
     /*
      * The http server needs to be shutdown before we join the thread.
      * The reason for this is that the http_process may be in a blocking
@@ -547,16 +541,11 @@ void web_destroy(web_t *web) {
     /* We can gracefully leave the thread now */
     pthread_join(web->thread, NULL);
 
-    /* destroy any other things */
     mt_destroy(web->rand);
     ripemd_destroy(web->ripemd);
     database_destroy(web->database);
-
-    /* destroy sessions */
     list_foreach(web->sessions, NULL, &web_session_destroy);
     list_destroy(web->sessions);
-
-    /* destroy templates */
     list_foreach(web->templates, NULL, &web_template_destroy);
     list_destroy(web->templates);
 

@@ -279,7 +279,6 @@ static void cmd_channel_signalhandle_timeout(int sig, siginfo_t *si, void *ignor
 
     cmd_entry_destroy(entry);
 
-    /* Reopen the reading end of the message queue */
     channel->rdend = false;
     cmd_channel_begin(channel);
 }
@@ -303,7 +302,6 @@ static void *cmd_channel_threader(void *data) {
             channel->cmd_entry = entry;
             module->memory     = list_create();
 
-            /* Initiate the timer for the module */
             struct itimerspec its = {
                 .it_value = {
                     .tv_sec  = COMMAND_TIMEOUT_SECONDS
@@ -327,7 +325,7 @@ static void *cmd_channel_threader(void *data) {
             pthread_mutex_lock(&channel->cmd_mutex);
             cmd_entry_destroy(entry);
 
-            /* Setting the expiration to 0 will disarm the timer. */
+            /* Disarm timer */
             its.it_value.tv_sec = 0;
             timer_settime(channel->timerid, 0, &its, NULL);
 

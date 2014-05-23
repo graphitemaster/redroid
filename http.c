@@ -276,11 +276,9 @@ void http_send_file(sock_t *client, const char *file) {
     size_t length = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
-    /* Send the header */
     const char *mimetype = http_mime(strrchr(file, '.') + 1);
     http_send_header(client, length, mimetype);
 
-    /* Send contents one line at a time */
     while (getline(&data, &size, fp) != EOF)
         sock_send(client, data, strlen(data));
 
@@ -299,7 +297,6 @@ static bool http_client_search(const void *a, const void *b) {
 static http_client_t *http_client_create(http_t *http, sock_t *client) {
     http_client_t *find = list_search(http->clients, &http_client_search, client);
     if (find) {
-        /* Don't create new clients if we don't need to */
         sock_destroy(client, NULL);
         find->refs++;
         return find;
@@ -319,7 +316,6 @@ static void http_client_destroy(http_t *http, http_client_t *client) {
 
     sock_destroy(client->sock, NULL);
 
-    /* remove it from the list */
     list_erase(http->clients, client);
 
     free(client);
@@ -337,14 +333,11 @@ static void http_client_process(http_t *http, sock_t *client) {
     char buffer[HTTP_BUFFERSIZE];
     int  count;
 
-    /* Ignore nothing */
     if ((count = sock_recv(client, buffer, sizeof(buffer))) <= 0)
         return;
 
-    /* Terminate */
     buffer[count] = '\0';
 
-    /* Handle GET */
     if (!strncmp(buffer, "GET /", 5)) {
         char *file_beg = &buffer[5];
         char *file_end = strchr(file_beg, ' ');
@@ -366,7 +359,6 @@ static void http_client_process(http_t *http, sock_t *client) {
         if (!post_end)
             return;
 
-        /* Terminate to get the right data */
         *post_end = '\0';
 
         /* Find the data for the POST */
@@ -374,7 +366,6 @@ static void http_client_process(http_t *http, sock_t *client) {
         if (post_data)
             post_data += 4;
 
-        /* Find the post intercept */
         http_intercept_t *intercept = list_search(http->intercepts, &http_intercept_search, post_beg);
         if (!intercept || !intercept->post)
             return http_send_plain(client, post_beg);
@@ -390,22 +381,15 @@ static void http_client_process(http_t *http, sock_t *client) {
 }
 
 void http_process(http_t *http) {
-    /* Blocking poll */
     int wait = poll(http->polls, 2, -1);
     if (wait == 0 || wait == -1)
         return;
 
-    /*
-     * if there is a read event on the wakeup pipe i.e http server
-     * cancelation then we immediately return.
-     */
     if (http->polls[0].revents & POLLIN)
         return;
 
-    /* we can do a non blocking accept now */
     http_client_accept(http);
 
-    /* Process clients */
     list_iterator_t *it = list_iterator_create(http->clients);
     while (!list_iterator_end(it)) {
         http_client_t *client = list_iterator_next(it);
@@ -413,11 +397,9 @@ void http_process(http_t *http) {
     }
     list_iterator_destroy(it);
 
-    /* Destroy clients */
     it = list_iterator_create(http->clients);
     while (!list_iterator_end(it)) {
         http_client_t *client = list_iterator_next(it);
-        /* After two minutes destroy clients */
         if (difftime(client->time, time(0)) >= 60 * 2)
             http_client_destroy(http, client);
     }
@@ -429,10 +411,8 @@ static void http_terminate(http_t *http) {
      * write some data to the wakefd pipe so that if there is any block
      * in poll at the http_process level we'll leave it quickly.
      */
-    if (write(http->wakefds[1], "wakeup", 6) == -1) {
-        /* something went wrong */
+    if (write(http->wakefds[1], "wakeup", 6) == -1)
         redroid_abort();
-    }
 }
 
 void http_destroy(http_t *http) {
@@ -440,7 +420,6 @@ void http_destroy(http_t *http) {
     http_intercepts_destroy(http);
     sock_destroy(http->host, NULL);
 
-    /* Destroy any active clients */
     http_client_t *client;
     while ((client = list_pop(http->clients)))
         http_client_destroy(http, client);
@@ -448,7 +427,6 @@ void http_destroy(http_t *http) {
     list_destroy(http->clients);
     list_destroy(http->intercepts);
 
-    /* close the wakeup pipe descriptors */
     close(http->wakefds[0]);
     close(http->wakefds[1]);
 

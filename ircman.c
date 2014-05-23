@@ -92,10 +92,6 @@ static irc_t *irc_instances_find(irc_instances_t *instances, const char *name) {
 static bool irc_manager_stage(irc_manager_t *manager) {
     manager->polls = malloc(sizeof(struct pollfd) * (manager->instances->size + 1));
 
-    /*
-     * Self-pipe to do awake in signal handler for poll. This works because
-     * UNIX is awesome.
-     */
     if (pipe(manager->wakefds) == -1) {
         free(manager->polls);
         return false;
@@ -200,7 +196,6 @@ void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
 
 void irc_manager_wake(irc_manager_t *manager) {
     if (write(manager->wakefds[1], "wakeup", 6) == -1) {
-        /* Something went terribly wrong */
         irc_manager_cleanup(manager);
         redroid_abort();
     }
@@ -252,7 +247,6 @@ void irc_manager_process(irc_manager_t *manager) {
         if (manager->polls[1+i].revents & (POLLIN | POLLOUT))
             irc_process(instance, manager->commander);
 
-        /* Don't process modules if we're not ready */
         if (!instance->ready || !instance->message.channel)
             continue;
 

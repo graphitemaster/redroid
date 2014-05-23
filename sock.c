@@ -217,13 +217,8 @@ sock_t *sock_create(const char *host, const char *port, sock_restart_t *restart)
         socklen_t               size = sizeof(addr);
         char                    resolved[INET6_ADDRSTRLEN];
 
-        /*
-         * Can't resolve after restart means the client or the host is
-         * without internet.
-         */
         if (getpeername(restart->fd, (struct sockaddr*)&addr, &size) == -1)
             return NULL;
-
 
         if (addr.ss_family == AF_INET) {
             struct sockaddr_in *ipv4 = (struct sockaddr_in*)&addr;
@@ -304,7 +299,6 @@ int sock_getfd(const sock_t *socket) {
 }
 
 sock_t *sock_accept(sock_t *socket) {
-    /* Can only accept on listening sockets */
     if (!socket->listen)
         return NULL;
 

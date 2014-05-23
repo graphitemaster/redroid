@@ -303,7 +303,6 @@ void irc_users_insert(irc_t *irc, const char *channel, const char *prefix) {
     const char *nick = irc_target_nick(prefix);
     const char *host = irc_target_host(prefix);
 
-    /* Don't insert it again if it already exists */
     if (hashtable_find(chan->users, nick))
         return;
 
@@ -342,7 +341,6 @@ irc_t *irc_create(config_t *entry) {
 
     memset(&irc->message, 0, sizeof(irc_message_t));
 
-    /* First realloc will make it the correct size */
     irc->buffer.data[0]  = '\0';
     irc->buffer.offset   = 0;
 
@@ -359,7 +357,6 @@ irc_t *irc_create(config_t *entry) {
 }
 
 void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
-    /* Process any left over things in the queue before destroying */
     irc_unqueue(irc);
 
     if (irc->sock && !restart)
@@ -604,7 +601,6 @@ static void irc_parse(irc_t *irc, void *data) {
     }
 
     if (!strncmp(command, "PRIVMSG", end - command) && params[1]) {
-        /* Make a copy of the message for the always modules */
         free(irc->message.nick);
         free(irc->message.host);
         free(irc->message.channel);
@@ -618,7 +614,7 @@ static void irc_parse(irc_t *irc, void *data) {
         if (access_ignore(irc, irc->message.nick))
             return;
 
-        /* Trim trailing whitespace in message */
+        /* Trim trailing whitespace */
         char *trail = irc->message.content + strlen(irc->message.content) - 1;
         while (trail > irc->message.content && isspace(*trail))
             trail--;
@@ -635,7 +631,6 @@ static void irc_parse(irc_t *irc, void *data) {
             /* Check for the appropriate module for this command */
             module_t *find = module_manager_module_command(irc->moduleman, skip);
             if (!find) {
-                /* Couldn't find the module? */
                 irc_write(irc, irc_target_nick(prefix),
                     "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", skip);
                 return;
@@ -646,10 +641,6 @@ static void irc_parse(irc_t *irc, void *data) {
             while (isspace(*next))
                 next++;
 
-            /*
-             * Create a new command entry for the module and add it to the
-             * command queue.
-             */
             cmd_channel_push (
                 data,
                 cmd_entry_create (
@@ -678,10 +669,8 @@ static void irc_parse(irc_t *irc, void *data) {
             }
         }
     } else if (!strncmp(command, "KILL", end - command)) {
-        /* If the IRCd wants to kill us for what ever reason, allow it. */
         irc_destroy(irc, SOCK_RESTART_NIL, NULL);
     } else if (!strncmp(command, "JOIN", end - command)) {
-        /* Automatically kick if on the bot's shitlist */
         if (access_shitlist(irc, prefix)) {
             sock_sendf(irc->sock, "KICK %s :you are banned\r\n", params[0]);
             /* TODO: ban */
@@ -708,7 +697,6 @@ void irc_process(irc_t *irc, void *data) {
         irc->identified = true;
     }
 
-    /* Read in chunks */
     char temp[256];
     int read;
     if ((read = sock_recv(irc->sock, temp, sizeof(temp) - 1)) <= 0)

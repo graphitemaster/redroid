@@ -104,7 +104,6 @@ static daemon_status_t redroid_daemon(bool closehandles) {
     if ((sid = setsid()) == -1)
         return DAEMONIZATION_FAILED;
 
-    /* Now we can kill the parent process */
     pid_t pid = getppid();
 
     /*
@@ -218,7 +217,6 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
     if (tryclose == -1)
         irc_write(irc, channel, "%s: recompiled failed (%s)\n", user, strerror(errno));
     else if (tryclose != 0) {
-        /* it failed to recompile, search for errors */
         list_t *errors = list_create();
         while ((line = list_shift(lines))) {
             if (strstr(line, "error:"))
@@ -242,7 +240,6 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
         list_destroy(errors);
         rename(string_contents(backupname), redroid_binary);
     } else {
-        /* if everything went fine then do the restart */
         irc_write(irc, channel, "%s: recompiled successfully", user);
         redroid_restart(irc, channel, user);
         remove(string_contents(backupname));
@@ -254,12 +251,9 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
     return;
 
 redroid_recompile_fail_file:
-    /* fp can be opened from a path coming to here */
     if (fp)
         fclose(fp);
-
 redroid_recompile_fail:
-    /* backupname can be allocated from a path coming to here */
     if (backupname)
         string_destroy(backupname);
 
@@ -292,8 +286,6 @@ static irc_manager_t *manager = NULL;
 
 static void signal_handle_parent(int sig) {
     (void)sig;
-
-    /* Parent signal handler just kills the parent */
     exit(EXIT_SUCCESS);
 }
 
@@ -319,7 +311,6 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
     if (sscanf(&((*argv)[1][2]), "%d", tmpfd) != 1)
         return false;
 
-    /* Check if valid file descriptor */
     struct stat b;
     if (fstat(*tmpfd, &b) == -1)
         return false;
@@ -361,7 +352,6 @@ int main(int argc, char **argv) {
      */
     pid_t pid = fork();
     if (pid != 0) {
-        /* Establish SIGINT handler for process termination */
         signal(SIGINT, &signal_handle_parent);
         int status;
         waitpid(pid, &status, 0);
@@ -393,7 +383,7 @@ int main(int argc, char **argv) {
 
     int tmpfd = -1;
     if (signal_restarted(&argc, &argv, &tmpfd)) {
-        if (lseek(tmpfd, 8, SEEK_SET) != 8) { /* 8 bytes to skip 'Redroid\0' */
+        if (lseek(tmpfd, RESTART_MAGICSIZE, SEEK_SET) != RESTART_MAGICSIZE) {
             fprintf(stderr, "%s: restart failed (lseek failed) [%s]\n", *argv, strerror(errno));
             irc_manager_destroy(manager);
             return EXIT_FAILURE;
@@ -433,7 +423,6 @@ int main(int argc, char **argv) {
 
         for (;;) {
             char ch;
-            /* Read to EOF */
             int r;
             if ((r = read(tmpfd, &ch, 1)) == -1 || r == 0) {
                 string_destroy(string);
@@ -449,7 +438,6 @@ int main(int argc, char **argv) {
             string_catf(string, "%c", ch);
         }
 
-        /* Load configuration */
         list_t *config = config_load("config.ini");
 
         /* Now back to where sockets themselfs are stored */
@@ -516,7 +504,7 @@ int main(int argc, char **argv) {
         char *date     = strdup(strtok(NULL,     "|"));
         char *time     = strdup(strtok(NULL,     "|"));
 
-        /* no suitable restart information whenc oming from web client */
+        /* no suitable restart information when coming from web client */
         if (strcmp(instance, ";webclient")) {
             irc_t *update = irc_manager_find(manager, instance);
             irc_write(update, channel, "%s: successfully restarted", user);
@@ -614,7 +602,6 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    /* Start the web frontend */
     web_begin(web, manager);
 
     while (signal_empty())
@@ -671,9 +658,7 @@ int main(int argc, char **argv) {
         /* String table will be stored at the end of the file */
         string_t *stringtable = string_construct();
 
-        /* Store number of file descriptors */
         size_t count = list_length(fds);
-
         write(fd, &count, sizeof(size_t));
         printf("Restart state with %zu network(s):\n", count);
 

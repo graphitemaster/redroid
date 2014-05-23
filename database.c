@@ -197,7 +197,6 @@ database_t *database_create(const char *file) {
 }
 
 void database_destroy(database_t *database) {
-    /* Clear the statement cache */
     hashtable_foreach(database->statements, NULL, &database_statement_destroy);
     hashtable_destroy(database->statements);
 

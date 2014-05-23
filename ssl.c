@@ -147,7 +147,6 @@ ssl_ctx_error:
 static bool ssl_destroy(ssl_t *ssl, sock_restart_t *restart) {
     (void)restart;
 
-    /* Keep trying */
     int bye;
     do {
         bye = gnutls_bye(ssl->session, GNUTLS_SHUT_RDWR);

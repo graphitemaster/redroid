@@ -1,6 +1,5 @@
 #include "irc.h"
 #include "access.h"
-/* Access control for the bot */
 
 static bool access_clamp(int value) {
     return !!(value >= ACCESS_MIN && value <= ACCESS_MAX);
@@ -38,7 +37,6 @@ access_t access_insert(irc_t *irc, const char *target, const char *invoke, int l
     /* Prevent double add */
     if (access_level(irc, target, &(int){0}))
         return ACCESS_EXISTS;
-    /* Prevent access control higher than invokers */
     if (invokelevel < ACCESS_CONTROL)
         return ACCESS_DENIED;
 
@@ -93,11 +91,8 @@ access_t access_change(irc_t *irc, const char *target, const char *invoke, int l
         return ACCESS_NOEXIST_INVOKE;
     if (!access_level(irc, target, &targetlevel))
         return ACCESS_NOEXIST_TARGET;
-
-    /* If the target has >= senority than the invoker then deny */
     if (targetlevel > invokelevel)
         return ACCESS_DENIED;
-    /* If the level is greater than that of the invokers then deny */
     if (level > invokelevel)
         return ACCESS_DENIED;
 
