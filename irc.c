@@ -613,6 +613,9 @@ static void irc_parse(irc_t *irc, void *data) {
         /* The bot ignores anyone who is -1 */
         if (access_ignore(irc, irc->message.nick))
             return;
+        /* It also ignores itself */
+        if (!strcmp(irc->message.nick, irc->nick))
+            return;
 
         /* Trim trailing whitespace */
         char *trail = irc->message.content + strlen(irc->message.content) - 1;
