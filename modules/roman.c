@@ -73,7 +73,7 @@ static void roman_decimal(irc_t *irc, const char *channel, const char *user, con
     int       i = 3;
 
     if (n > 3999 || n < 1)
-        return irc_write(irc, channel, "%s: must be between 1 and 4999", user);
+        return irc_write(irc, channel, "%s: must be between 1 and 3999", user);
 
     while (n > 0) {
         int d = (int)pow(10, i);
