@@ -7,13 +7,14 @@
 
 MODULE_DEFAULT(quote);
 
-static void quote_access_check(irc_t *irc, const char *user) {
+static bool quote_access_check(irc_t *irc, const char *user) {
     if (access_range(irc, user, ACCESS))
-        return;
+        return true;
 
     int access = 0;
     access_level(irc, user, &access);
-    return irc_write(irc, user, "Sorry, you have level %d but need level %d to do that", access, ACCESS);
+    irc_write(irc, user, "Sorry, you have level %d but need level %d to do that", access, ACCESS);
+    return false;
 }
 
 static void quote_nick_stripspecial(char **input) {
@@ -137,8 +138,9 @@ static void quote_add(irc_t *irc, const char *channel, const char *user, list_t 
 
     if (!quotenick || !quotemessage)
         return;
+    if (!quote_access_check(irc, user))
+        return;
 
-    quote_access_check(irc, user);
     quote_nick_stripspecial(&quotenick);
 
     if (quote_find(quotenick, quotemessage))
@@ -151,7 +153,6 @@ static void quote_add(irc_t *irc, const char *channel, const char *user, list_t 
         return;
 
     irc_write(irc, channel, "%s: Ok, added quote: <%s> %s", user, quotenick, quotemessage);
-    irc_write(irc, channel, "%s: NICK[%s], MESSAGE[%s]", user, quotenick, quotemessage);
 }
 
 static void quote_forget(irc_t *irc, const char *channel, const char *user, list_t *list) {
@@ -160,8 +161,9 @@ static void quote_forget(irc_t *irc, const char *channel, const char *user, list
 
     if (!quotenick || !quotemessage)
         return;
+    if (!quote_access_check(irc, user))
+        return;
 
-    quote_access_check(irc, user);
     quote_nick_stripspecial(&quotenick);
 
     if (!quote_find(quotenick, quotemessage))
@@ -190,8 +192,9 @@ static void quote_reauthor(irc_t *irc, const char *channel, const char *user, li
 
     if (!from || !to)
         return quote_help(irc, channel, user);
+    if (!quote_access_check(irc, user))
+        return;
 
-    quote_access_check(irc, user);
     quote_nick_stripspecial(&from);
     quote_nick_stripspecial(&to);
 
