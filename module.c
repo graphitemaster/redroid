@@ -484,13 +484,13 @@ list_t* module_strsplit(const char *str_, const char *delim) {
 
 list_t* module_strnsplit_impl(char *str, const char *delim, size_t count) {
     list_t *list = list_create();
-    if (count < 2) {
-        while (*str && strchr(delim, *str))
-            ++str;
-        if (*str)
-            list_push(list, str);
-        return list;
-    }
+    //if (count < 2) {
+    //    while (*str && strchr(delim, *str))
+    //        ++str;
+    //    if (*str)
+    //        list_push(list, str);
+    //    return list;
+    //}
     char *saveptr;
     char *end = str + strlen(str);
     char *tok = strtok_r(str, delim, &saveptr);
