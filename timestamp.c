@@ -22,9 +22,6 @@
                      (__DATE__[1]+__DATE__[2] == 213) ? 9  : (__DATE__[1]+__DATE__[2] == 215) ? 10 : \
                      (__DATE__[1]+__DATE__[2] == 229) ? 11 : (__DATE__[1]+__DATE__[2] == 200) ? 12 : 0)
 
-#undef D
-#undef T
-
 static string_t *build_string = NULL;
 
 static void build_stamp_free(void) {
