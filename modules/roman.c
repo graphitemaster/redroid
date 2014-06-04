@@ -88,8 +88,8 @@ static void roman_decimal(irc_t *irc, const char *channel, const char *user, con
 }
 
 void module_enter(irc_t *irc, const char *channel, const char *user, const char *message) {
-    if (!*message)
-        return;
+    if (!message || !*message)
+        return roman_help(irc, channel, user);
     if (!strcmp(message, "-help"))
         return roman_help(irc, channel, user);
     if (!roman_check_roman(message)) {

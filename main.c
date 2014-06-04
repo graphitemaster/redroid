@@ -25,8 +25,7 @@
 #define RESTART_MAGICDATA "Redroid"
 #define RESTART_MAGICSIZE sizeof(RESTART_MAGICDATA)
 
-extern const char *build_date();
-extern const char *build_time();
+extern const char *build_info(void);
 
 static char *redroid_binary;
 
@@ -501,26 +500,25 @@ int main(int argc, char **argv) {
         char *instance = strdup(strtok(infoline, "|"));
         char *channel  = strdup(strtok(NULL,     "|"));
         char *user     = strdup(strtok(NULL,     "|"));
-        char *date     = strdup(strtok(NULL,     "|"));
-        char *time     = strdup(strtok(NULL,     "|"));
+        char *info     = strdup(strtok(NULL,     "|"));
 
         /* no suitable restart information when coming from web client */
         if (strcmp(instance, ";webclient")) {
             irc_t *update = irc_manager_find(manager, instance);
             irc_write(update, channel, "%s: successfully restarted", user);
 
-            if (strcmp(date, build_date()) || strcmp(time, build_time())) {
-                irc_write(update, channel, "%s: last instance build timestamp %s %s", user, date, time);
-                irc_write(update, channel, "%s: this instance build timestamp %s %s", user, build_date(), build_time());
+            if (strcmp(info, build_info())) {
+                irc_write(update, channel, "%s: last instance %s", user, info);
+                irc_write(update, channel, "%s: this instance %s", user, build_info());
             } else {
                 irc_write(update, channel, "%s: this instance is the same binary as last instance", user);
             }
         } else {
             /* broadcast to all channels and servers */
             irc_manager_broadcast(manager, "successfully restarted");
-            if (strcmp(date, build_date()) || strcmp(time, build_time())) {
-                irc_manager_broadcast(manager, "last instance build timestamp %s %s", date, time);
-                irc_manager_broadcast(manager, "this instance build timestamp %s %s", build_date(), build_time());
+            if (strcmp(info, build_info())) {
+                irc_manager_broadcast(manager, "last instance %s", info);
+                irc_manager_broadcast(manager, "this instance %s", build_info());
             } else {
                 irc_manager_broadcast(manager, "this instance is the same binary as last instance");
             }
@@ -528,8 +526,7 @@ int main(int argc, char **argv) {
 
         unlink(tmpfilename);
 
-        free(time);
-        free(date);
+        free(info);
         free(user);
         free(channel);
         free(instance);
@@ -636,12 +633,11 @@ int main(int argc, char **argv) {
         /* Write the filename */
         write(fd, unique, sizeof(unique));
 
-        string_t *infoline = string_format("%s|%s|%s|%s|%s",
+        string_t *infoline = string_format("%s|%s|%s|%s",
             restinfo->instance,
             restinfo->channel,
             restinfo->user,
-            build_date(),
-            build_time()
+            build_info()
         );
 
         /*
