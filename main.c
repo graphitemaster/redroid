@@ -681,6 +681,14 @@ int main(int argc, char **argv) {
 
         char buffer[1024];
         snprintf(buffer, sizeof(buffer), "-r%d", fd);
+        /*
+         * Before actually starting the new process we need to kill the parent
+         * process as the bot runs as a child. If we don't each restart will
+         * keep around an additional parent process which won't exit until the
+         * bot is killed. We can do this by forcing daemonization; which per its'
+         * semantics will kill the parent process.
+         */
+        redroid_daemon(true);
         return execv(*argv, (char *[]){ *argv, buffer, (char *)NULL });
     }
 
