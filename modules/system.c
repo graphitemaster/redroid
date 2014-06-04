@@ -76,7 +76,7 @@ static void system_part_all(irc_t *irc, const char *channel, const char *user) {
 }
 
 static void system_version(irc_t *irc, const char *channel, const char *user) {
-    irc_write(irc, channel, "%s: %s", user, build_version());
+    irc_write(irc, channel, "%s: %s", user, build_info());
 }
 
 static void system_users(irc_t *irc, const char *channel, const char *user) {

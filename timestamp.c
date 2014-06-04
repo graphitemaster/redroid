@@ -28,13 +28,6 @@ static void build_stamp_free(void) {
     string_destroy(build_string);
 }
 
-const char *build_version(void) {
-    static char table[32];
-    if (!*table)
-        snprintf(table, sizeof(table), "v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
-    return table;
-}
-
 static string_t *build_stamp_create(void) {
     if (!build_string) {
         struct tm stamp = {
@@ -49,7 +42,11 @@ static string_t *build_stamp_create(void) {
         mktime(&stamp);
         char buffer[256];
         strftime(buffer, sizeof(buffer), "%B %d, %Y %I:%M %p", &stamp);
-        build_string = string_format("Redroid %s (%s)", build_version(), buffer);
+        build_string = string_format("Redroid v%d.%d.%d (%s)",
+                                     VERSION_MAJOR,
+                                     VERSION_MINOR,
+                                     VERSION_PATCH,
+                                     buffer);
         atexit(build_stamp_free);
     }
     return build_string;

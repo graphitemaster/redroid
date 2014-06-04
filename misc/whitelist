@@ -175,6 +175,4 @@ redroid_restart
 redroid_shutdown
 redroid_recompile
 redroid_daemonize
-build_date
-build_time
-build_version
+build_info

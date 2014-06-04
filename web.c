@@ -508,10 +508,10 @@ web_t *web_create(void) {
     web_template_register(web, "index.html",  2, "ERROR",     "VERSION");
     web_template_register(web, "system.html", 2, "ACTION",    "VERSION");
 
-    const char *build_version();
-    web_template_change(web, "admin.html",  "VERSION", build_version());
-    web_template_change(web, "index.html",  "VERSION", build_version());
-    web_template_change(web, "system.html", "VERSION", build_version());
+    const char *build_info();
+    web_template_change(web, "admin.html",  "VERSION", build_info());
+    web_template_change(web, "index.html",  "VERSION", build_info());
+    web_template_change(web, "system.html", "VERSION", build_info());
 
     /*
      * The thread will keep running for as long as the mutex is locked.
