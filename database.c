@@ -91,7 +91,11 @@ database_statement_t *database_statement_create(database_t *database, const char
 
 create:
     find = malloc(sizeof(*find));
-    if (sqlite3_prepare_v2(database->handle, string, -1, &find->statement, NULL) != SQLITE_OK) {
+    /* Keep trying */
+    int prepare;
+    while ((prepare = sqlite3_prepare_v2(database->handle, string, -1, &find->statement, NULL)) == SQLITE_BUSY)
+        ;
+    if (prepare != SQLITE_OK) {
         free(find);
         return NULL;
     }
