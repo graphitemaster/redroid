@@ -285,6 +285,7 @@ static irc_manager_t *manager = NULL;
 
 static void signal_handle_parent(int sig) {
     (void)sig;
+
     exit(EXIT_SUCCESS);
 }
 
@@ -354,7 +355,10 @@ int main(int argc, char **argv) {
         signal(SIGINT, &signal_handle_parent);
         int status;
         waitpid(pid, &status, 0);
-        _exit(status);
+        /* Send the signal to the child */
+        if (WIFSIGNALED(status))
+            kill(pid, WTERMSIG(status));
+        _exit(WEXITSTATUS(status));
     }
 
     /* Run the entire thing as a child process */
@@ -467,14 +471,10 @@ int main(int argc, char **argv) {
              * where we originally left off.
              */
             irc_t *instance = irc_create(entry);
-            list_iterator_t *jt = list_iterator_create(entry->modules);
-            while (!list_iterator_end(jt))
-                irc_modules_add(instance, (const char *)list_iterator_next(jt));
-            list_iterator_destroy(jt);
 
-            jt = list_iterator_create(entry->channels);
+            list_iterator_t *jt = list_iterator_create(entry->channels);
             while (!list_iterator_end(jt))
-                irc_channels_add(instance, (const char *)list_iterator_next(jt));
+                irc_channels_add(instance, (config_channel_t*)list_iterator_next(jt));
             list_iterator_destroy(jt);
 
             /* Prepare the restart data */
@@ -568,16 +568,10 @@ int main(int argc, char **argv) {
             config_t *entry = list_iterator_next(it);
             irc_t    *irc   = irc_create(entry);
 
-            /* Add all the modules for this instance */
-            list_iterator_t *jt = list_iterator_create(entry->modules);
-            while (!list_iterator_end(jt))
-                irc_modules_add(irc, (const char *)list_iterator_next(jt));
-            list_iterator_destroy(jt);
-
             /* Add all the channels for this instance */
-            jt = list_iterator_create(entry->channels);
+            list_iterator_t *jt = list_iterator_create(entry->channels);
             while (!list_iterator_end(jt))
-                irc_channels_add(irc, (const char *)list_iterator_next(jt));
+                irc_channels_add(irc, (config_channel_t*)list_iterator_next(jt));
             list_iterator_destroy(jt);
 
             if (!irc_connect(irc, entry->host, entry->port, entry->ssl)) {

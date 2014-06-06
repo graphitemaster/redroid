@@ -38,6 +38,7 @@ typedef struct {
     char        *channel;
     char        *topic;
     hashtable_t *users;
+    hashtable_t *modules;
 } irc_channel_t;
 
 typedef struct {
@@ -78,10 +79,10 @@ bool irc_reinstate(irc_t *irc, const char *host, const char *port, sock_restart_
 
 list_t *irc_users(irc_t *irc, const char *chan);
 list_t *irc_channels(irc_t *irc);
-list_t *irc_modules(irc_t *irc);
+list_t *irc_modules_loaded(irc_t *irc);
+list_t *irc_modules_enabled(irc_t *irc, const char *channel);
 
-bool irc_modules_add(irc_t *irc, const char *file);
-bool irc_channels_add(irc_t *irc, const char *channel);
+bool irc_channels_add(irc_t *irc, config_channel_t *channel);
 
 void irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_action(irc_t *irc, const char *channel, const char *fmt, ...);

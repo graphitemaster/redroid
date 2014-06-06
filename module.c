@@ -431,12 +431,21 @@ const char *module_database_row_pop_string(database_row_t *row) {
     return ret;
 }
 
-list_t *module_irc_modules(irc_t *irc) {
+list_t *module_irc_modules_loaded(irc_t *irc) {
     module_t *module = module_singleton_get();
-    list_t *ret = irc_modules(irc);
+    list_t *ret = irc_modules_loaded(irc);
     if (!ret)
         return NULL;
     module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
+    return ret;
+}
+
+list_t *module_irc_modules_enabled(irc_t *irc, const char *channel) {
+    module_t *module = module_singleton_get();
+    list_t *ret = irc_modules_enabled(irc, channel);
+    if (!ret)
+        return NULL;
+    module_mem_push(module, (void *)ret, (void (*)(void*))&list_destroy);
     return ret;
 }
 

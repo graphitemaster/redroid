@@ -147,6 +147,9 @@ static void irc_manager_cleanup(irc_manager_t *manager) {
 
     free(manager->polls);
     free(manager);
+
+    /* Flush any unwritten files to make debugging easier */
+    fflush(NULL);
 }
 
 irc_manager_t *irc_manager_create(void) {
@@ -192,6 +195,7 @@ void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
     }
 
     va_end(va);
+    string_destroy(string);
 }
 
 void irc_manager_wake(irc_manager_t *manager) {

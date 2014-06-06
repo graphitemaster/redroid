@@ -225,8 +225,22 @@ void irc_quit(irc_t *irc, const char *message) {
 }
 
 void irc_join(irc_t *irc, const char *channel) {
-    irc_channels_add(irc, channel);
+    config_channel_t chan = {
+        .name    = strdup(channel),
+        .modules = list_create()
+    };
+
+    /* For channels join from IRC we will enable the following modules by default */
+    list_push(chan.modules, "module");
+    list_push(chan.modules, "system");
+    list_push(chan.modules, "access");
+
     irc_enqueue_standard(irc, channel, IRC_COMMAND_JOIN);
+
+    irc_channels_add(irc, &chan);
+
+    free(chan.name);
+    list_destroy(chan.modules);
 }
 
 void irc_part(irc_t *irc, const char *channel) {
@@ -255,6 +269,8 @@ static void irc_channel_destroy(irc_channel_t *channel) {
     free(channel->topic);
     hashtable_foreach(channel->users, NULL, &irc_user_destroy);
     hashtable_destroy(channel->users);
+    hashtable_foreach(channel->modules, NULL, &free);
+    hashtable_destroy(channel->modules);
     free(channel);
 }
 
@@ -266,19 +282,69 @@ static void irc_channels_join(irc_t *irc) {
     hashtable_foreach(irc->channels, irc, &irc_channel_join);
 }
 
-bool irc_channels_add(irc_t *irc, const char *channel) {
-    if (hashtable_find(irc->channels, channel)) {
+/* This should be the same in modules/module.h */
+typedef enum {
+    MODULE_STATUS_REFERENCED,
+    MODULE_STATUS_SUCCESS,
+    MODULE_STATUS_FAILURE,
+    MODULE_STATUS_ALREADY,
+    MODULE_STATUS_NONEXIST
+} module_status_t;
+
+module_status_t irc_modules_add(irc_t *irc, const char *name) {
+    string_t *error  = NULL;
+    module_t *module = NULL;
+
+    if (strstr(name, "//") || strstr(name, "./"))
+        return MODULE_STATUS_FAILURE;
+
+    string_t *file = string_format("modules/%s.so", name);
+    if ((module = module_manager_module_search(irc->moduleman, string_contents(file), MMSEARCH_FILE))) {
+        printf("    module   => %s [%s] already loaded\n", module->name, name);
+        string_destroy(file);
+        return MODULE_STATUS_ALREADY;
+    }
+
+    if ((module = module_open(string_contents(file), irc->moduleman, &error))) {
+        printf("    module   => %s [%s] loaded\n", module->name, module->file);
+        string_destroy(file);
+        return MODULE_STATUS_SUCCESS;
+    }
+
+    if (error) {
+        printf("    module   => %s loading failed (%s)\n", name, string_contents(error));
+        string_destroy(error);
+    } else {
+        printf("    module   => %s loading failed\n", name);
+    }
+
+    string_destroy(file);
+    return MODULE_STATUS_FAILURE;
+}
+
+bool irc_channels_add(irc_t *irc, config_channel_t *channel) {
+    if (hashtable_find(irc->channels, channel->name)) {
         printf("    channel  => %s already exists\n", channel);
         return false;
     }
 
     irc_channel_t *chan = malloc(sizeof(*chan));
     chan->users   = hashtable_create(32);
-    chan->channel = strdup(channel);
+    chan->channel = strdup(channel->name);
     chan->topic   = NULL;
 
-    hashtable_insert(irc->channels, channel, chan);
-    printf("    channel  => %s added\n", channel);
+    /* Copy module list (we also load any modules not loaded) */
+    chan->modules = hashtable_create(32);
+    list_iterator_t *it = list_iterator_create(channel->modules);
+    while (!list_iterator_end(it)) {
+        const char *module = list_iterator_next(it);
+        irc_modules_add(irc, module);
+        hashtable_insert(chan->modules, module, strdup(module));
+    }
+    list_iterator_destroy(it);
+
+    hashtable_insert(irc->channels, channel->name, chan);
+    printf("    channel  => %s added\n", channel->name);
     return true;
 }
 
@@ -388,50 +454,96 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
 }
 
 /* Module management */
-bool irc_modules_reload(irc_t *irc, const char *name) {
-    return module_manager_module_reload(irc->moduleman, name);
-}
-
-bool irc_modules_add(irc_t *irc, const char *name) {
-    string_t *error  = NULL;
-    module_t *module = NULL;
-
-    if (strstr(name, "//") || strstr(name, "./"))
-        return false;
-
-    string_t *file = string_format("modules/%s.so", name);
-    if ((module = module_manager_module_search(irc->moduleman, string_contents(file), MMSEARCH_FILE))) {
-        printf("    module   => %s [%s] already loaded\n", module->name, name);
-        string_destroy(file);
-        return false;
+static bool irc_modules_exists(irc_t *irc, const char *name) {
+    list_iterator_t *it = list_iterator_create(irc->moduleman->modules);
+    while (!list_iterator_end(it)) {
+        if (!strcmp(((module_t*)list_iterator_next(it))->name, name)) {
+            list_iterator_destroy(it);
+            return true;
+        }
     }
-
-    if ((module = module_open(string_contents(file), irc->moduleman, &error))) {
-        printf("    module   => %s [%s] loaded\n", module->name, module->file);
-        string_destroy(file);
-        return true;
-    }
-
-    if (error) {
-        printf("    module   => %s loading failed (%s)\n", name, string_contents(error));
-        string_destroy(error);
-    } else {
-        printf("    module   => %s loading failed\n", name);
-    }
-
-    string_destroy(file);
+    list_iterator_destroy(it);
     return false;
 }
 
-bool irc_modules_unload(irc_t *irc, const char *name) {
-    return module_manager_module_unload(irc->moduleman, name);
+typedef struct {
+    const char *exclude;
+    const char *module;
+    size_t      count;
+} irc_module_ref_t;
+
+static void irc_modules_refs_modules(const char *module, irc_module_ref_t *refs) {
+    if (!strcmp(module, refs->module))
+        refs->count++;
+}
+
+static void irc_modules_refs_channels(irc_channel_t *channel, irc_module_ref_t *refs) {
+    /* We exclude the channel we come from as a reference */
+    if (!strcmp(refs->exclude, channel->channel))
+        return;
+    hashtable_foreach(channel->modules, refs, &irc_modules_refs_modules);
+}
+
+static size_t irc_modules_refs(irc_t *irc, const char *module, const char *exclude) {
+    /* Will exclude `exclude' from the reference search */
+    irc_module_ref_t refs = {
+        .module  = module,
+        .exclude = exclude,
+        .count   = 0
+    };
+    hashtable_foreach(irc->channels, &refs, &irc_modules_refs_channels);
+    return refs.count;
+}
+module_status_t irc_modules_reload(irc_t *irc, const char *name) {
+    /* Reloading a module reloads it everywhere */
+    if (!module_manager_module_reload(irc->moduleman, name))
+        return MODULE_STATUS_FAILURE;
+    return MODULE_STATUS_SUCCESS;
+}
+
+module_status_t irc_modules_unload(irc_t *irc, const char *channel, const char *module, bool force) {
+    size_t refs = irc_modules_refs(irc, module, channel);
+    if (refs != 0)
+        return MODULE_STATUS_REFERENCED;
+    if (!module_manager_module_unload(irc->moduleman, module))
+        return MODULE_STATUS_FAILURE;
+    return MODULE_STATUS_SUCCESS;
+}
+
+module_status_t irc_modules_disable(irc_t *irc, const char *chan, const char *name) {
+    irc_channel_t *channel = hashtable_find(irc->channels, chan);
+    if (hashtable_find(channel->modules, name)) {
+        return hashtable_remove(channel->modules, name)
+                   ? MODULE_STATUS_SUCCESS
+                   : MODULE_STATUS_FAILURE;
+    }
+    if (irc_modules_exists(irc, name))
+        return MODULE_STATUS_ALREADY;
+    return MODULE_STATUS_NONEXIST;
+}
+
+module_status_t irc_modules_enable(irc_t *irc, const char *chan, const char *name) {
+    irc_channel_t *channel = hashtable_find(irc->channels, chan);
+    if (hashtable_find(channel->modules, name))
+        return MODULE_STATUS_ALREADY;
+    if (!irc_modules_exists(irc, name))
+        return MODULE_STATUS_NONEXIST;
+    hashtable_insert(channel->modules, name, strdup(name));
+    return MODULE_STATUS_SUCCESS;
 }
 
 static bool irc_lexicographical_sort(const void *a, const void *b) {
     return strcmp(a, b) >= 0;
 }
 
-list_t *irc_modules(irc_t *irc) {
+static void irc_modules_channel_create(char *module, list_t *list) {
+    list_push(list, (void *)module);
+}
+
+/* The one function gets all loaded modules, while the other shows all the
+ * modules on the given channel.
+ */
+list_t *irc_modules_loaded(irc_t *irc) {
     list_t          *list = list_create();
     list_iterator_t *it   = list_iterator_create(irc->moduleman->modules);
     while (!list_iterator_end(it)) {
@@ -439,6 +551,16 @@ list_t *irc_modules(irc_t *irc) {
         list_push(list, (void *)entry->name);
     }
     list_iterator_destroy(it);
+    list_sort(list, &irc_lexicographical_sort);
+    return list;
+}
+
+list_t *irc_modules_enabled(irc_t *irc, const char *chan) {
+    irc_channel_t *channel = hashtable_find(irc->channels, chan);
+    if (!channel)
+        return NULL;
+    list_t *list = list_create();
+    hashtable_foreach(channel->modules, list, &irc_modules_channel_create);
     list_sort(list, &irc_lexicographical_sort);
     return list;
 }
@@ -630,6 +752,16 @@ static void irc_parse(irc_t *irc, void *data) {
             char *strip = strchr(skip, ' ');
             if (strip)
                 *strip = '\0';
+
+            /* If the channel doesn't have this module enabled then don't bother */
+            irc_channel_t *channel = hashtable_find(irc->channels, irc->message.channel);
+
+            /* We may not be coming from a channel */
+            if (channel) {
+                /* If the channel doesn't have the module we don't bother */
+                if (!hashtable_find(channel->modules, skip))
+                    return;
+            }
 
             /* Check for the appropriate module for this command */
             module_t *find = module_manager_module_command(irc->moduleman, skip);

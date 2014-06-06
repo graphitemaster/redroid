@@ -46,8 +46,11 @@ void irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_part(irc_t *irc, const char *channel);
 void irc_join(irc_t *irc, const char *channel);
 
-static inline list_t *irc_modules(irc_t *irc) {
-    return MODULE_GC_CALL(irc_modules)(irc);
+static inline list_t *irc_modules_loaded(irc_t *irc) {
+    return MODULE_GC_CALL(irc_modules_loaded)(irc);
+}
+static inline list_t *irc_modules_enabled(irc_t *irc, const char *channel) {
+    return MODULE_GC_CALL(irc_modules_enabled)(irc, channel);
 }
 static inline list_t *irc_users(irc_t *irc, const char *channel) {
     return MODULE_GC_CALL(irc_users)(irc, channel);
@@ -59,10 +62,19 @@ const char *irc_nick(irc_t *irc);
 const char *irc_topic(irc_t *irc, const char *channel);
 const char *irc_pattern(irc_t *irc, const char *newpattern);
 
-bool irc_modules_reload(irc_t *irc, const char *name);
-bool irc_modules_unload(irc_t *irc, const char *name);
-bool irc_modules_add(irc_t *irc, const char *file);
+typedef enum {
+    MODULE_STATUS_REFERENCED,
+    MODULE_STATUS_SUCCESS,
+    MODULE_STATUS_FAILURE,
+    MODULE_STATUS_ALREADY,
+    MODULE_STATUS_NONEXIST
+} module_status_t;
 
+module_status_t irc_modules_add(irc_t *irc, const char *file);
+module_status_t irc_modules_reload(irc_t *irc, const char *name);
+module_status_t irc_modules_unload(irc_t *irc, const char *channel, const char *name, bool force);
+module_status_t irc_modules_disable(irc_t *irc, const char *channel, const char *name);
+module_status_t irc_modules_enable(irc_t *irc, const char *channel, const char *name);
 
 /* string API */
 static inline string_t *string_create(const char *input) {

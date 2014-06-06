@@ -153,6 +153,8 @@ string_vcatf
 irc_modules_add
 irc_modules_reload
 irc_modules_unload
+irc_modules_enable
+irc_modules_disable
 irc_action
 irc_write
 irc_nick

@@ -3,6 +3,11 @@
 #include "list.h"
 
 typedef struct {
+    list_t *modules;
+    char   *name;
+} config_channel_t;
+
+typedef struct {
     char   *name;       /* network name                   */
     char   *nick;       /* nick on this network           */
     char   *pattern;    /* bot pattern                    */
@@ -11,7 +16,6 @@ typedef struct {
     char   *auth;       /* auth password (NickServ)       */
     char   *database;   /* database file for IRC instance */
     bool    ssl;        /* SSL network                    */
-    list_t *modules;    /* list of modules                */
     list_t *channels;   /* list of channels               */
 } config_t;
 
