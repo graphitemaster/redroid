@@ -1,18 +1,25 @@
 ; Standard ini file with ; or # denoting comments
 
-[freenode1]                   ; Instance name
+[name]                        ; Instance name
     nick     = nickname       ; Nickname for this instance
     host     = irc.server.net ; IRC host address
     port     = 6667           ; IRC host port
     ssl      = False          ; Use SSL?
     auth     = somepassword   ; NickServ password
     pattern  = ~              ; The pattern the bot uses to interpret a command
-    channels = #channel       ; Comma seperated channels
-    modules  = *              ; Comma seperate modules to load or * for all
+    channels = #droid, #help  ; Comma seperated channels
     database = database.db    ; The database the bot should use for this instance
 
-; You can have multiple instances too, e.g
-; [anynameyouwant]
-;   nick    = nickname
-;   host    = irc.anynameyouwant.org
-;   ...
+; Per channel options take on the form:
+; <instance_name>:<channel_name>
+[name:#droid]
+    modules  = *              ; Comma separated list of modules or `*' for all
+
+[name:#help]
+    modules  = *
+
+; If no modules are specified for a channel then the channel defaults with
+; the following three modules:
+; * system
+; * module
+; * access

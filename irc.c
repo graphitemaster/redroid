@@ -753,6 +753,14 @@ static void irc_parse(irc_t *irc, void *data) {
             if (strip)
                 *strip = '\0';
 
+            /* Check for the appropriate module for this command */
+            module_t *find = module_manager_module_command(irc->moduleman, skip);
+            if (!find) {
+                irc_write(irc, irc_target_nick(prefix),
+                    "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", skip);
+                return;
+            }
+
             /* If the channel doesn't have this module enabled then don't bother */
             irc_channel_t *channel = hashtable_find(irc->channels, irc->message.channel);
 
@@ -761,14 +769,6 @@ static void irc_parse(irc_t *irc, void *data) {
                 /* If the channel doesn't have the module we don't bother */
                 if (!hashtable_find(channel->modules, skip))
                     return;
-            }
-
-            /* Check for the appropriate module for this command */
-            module_t *find = module_manager_module_command(irc->moduleman, skip);
-            if (!find) {
-                irc_write(irc, irc_target_nick(prefix),
-                    "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", skip);
-                return;
             }
 
             /* Skip the initial part of the module */
