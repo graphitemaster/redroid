@@ -331,6 +331,10 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
     return true;
 }
 
+static void redroid_channel_add(config_channel_t *channel, irc_t *instance) {
+    irc_channels_add(instance, channel);
+}
+
 int main(int argc, char **argv) {
     /*
      * Okay a little explination what we're doing here.
@@ -456,13 +460,7 @@ int main(int argc, char **argv) {
             printf("    Network %s on socket %d will be restored\n", string_contents(name), sock);
 
             /* Find configuration for that instance */
-            config_t        *entry = NULL;
-            list_iterator_t *ci    = list_iterator_create(config);
-            while (!list_iterator_end(ci)) {
-                entry = list_iterator_next(ci);
-                if (!strcmp(string_contents(name), entry->name))
-                    break;
-            }
+            config_instance_t *instance = config_instance_find(config, string_contents(name));
 
             /*
              * Create instance and add all appropriate modules and or
@@ -470,25 +468,19 @@ int main(int argc, char **argv) {
              * connected. This should be sufficent enough to pickup
              * where we originally left off.
              */
-            irc_t *instance = irc_create(entry);
-
-            list_iterator_t *jt = list_iterator_create(entry->channels);
-            while (!list_iterator_end(jt))
-                irc_channels_add(instance, (config_channel_t*)list_iterator_next(jt));
-            list_iterator_destroy(jt);
+            irc_t *irc = irc_create(instance);
+            hashtable_foreach(instance->channels, irc, &redroid_channel_add);
 
             /* Prepare the restart data */
             sock_restart_t restdata = {
-                .ssl  = entry->ssl,
+                .ssl  = instance->ssl,
                 .fd   = sock,
             };
 
-            if (!irc_reinstate(instance, entry->host, entry->port, &restdata))
+            if (!irc_reinstate(irc, instance->host, instance->port, &restdata))
                 redroid_abort();
 
-            irc_manager_add(manager, instance);
-
-            list_iterator_destroy(ci);
+            irc_manager_add(manager, irc);
             string_destroy(name);
         }
 
@@ -565,16 +557,13 @@ int main(int argc, char **argv) {
         /* Create all IRC instances */
         list_iterator_t *it = list_iterator_create(list);
         while (!list_iterator_end(it)) {
-            config_t *entry = list_iterator_next(it);
-            irc_t    *irc   = irc_create(entry);
+            config_instance_t *instance = list_iterator_next(it);
+            irc_t             *irc      = irc_create(instance);
 
             /* Add all the channels for this instance */
-            list_iterator_t *jt = list_iterator_create(entry->channels);
-            while (!list_iterator_end(jt))
-                irc_channels_add(irc, (config_channel_t*)list_iterator_next(jt));
-            list_iterator_destroy(jt);
+            hashtable_foreach(instance->channels, irc, &redroid_channel_add);
 
-            if (!irc_connect(irc, entry->host, entry->port, entry->ssl)) {
+            if (!irc_connect(irc, instance->host, instance->port, instance->ssl)) {
                 irc_destroy(irc, NULL, NULL);
                 fprintf(stderr, "    irc      => cannot connect (ignoring instance)\n");
                 continue;

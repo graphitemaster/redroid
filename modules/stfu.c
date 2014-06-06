@@ -96,7 +96,7 @@ static int stfu_count(const char *thing) {
 
 static void stfu_stats(irc_t *irc, const char *channel, const char *user) {
     int stfus    = database_request_count(irc, "STFU");
-    int inserts  = stfu_count("INSERT");
+    int inserts  = stfu_count("INSERTS");
     int objects  = stfu_count("OBJECT");
     int orifices = stfu_count("ORIFICE");
 
@@ -105,7 +105,7 @@ static void stfu_stats(irc_t *irc, const char *channel, const char *user) {
 }
 
 static void stfu_random(irc_t *irc, const char *channel, const char *user, const char *victim) {
-    database_statement_t *insert   = database_statement_create("SELECT * FROM INSERT ORDER BY RANDOM() LIMIT 1");
+    database_statement_t *insert   = database_statement_create("SELECT * FROM INSERTS ORDER BY RANDOM() LIMIT 1");
     database_statement_t *object   = database_statement_create("SELECT * FROM OBJECT ORDER BY RANDOM() LIMIT 1");
     database_statement_t *orifice  = database_statement_create("SELECT * FROM ORIFICE ORDER BY RANDOM() LIMIT 1");
     database_row_t       *irow     = database_row_extract(insert,  "s");

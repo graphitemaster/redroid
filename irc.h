@@ -35,10 +35,16 @@ typedef struct {
 } irc_user_t;
 
 typedef struct {
+    char        *module;
+    hashtable_t *kvs;
+} irc_module_t;
+
+typedef struct {
     char        *channel;
     char        *topic;
-    hashtable_t *users;
-    hashtable_t *modules;
+    hashtable_t *users;   /* map<irc_user_t>   */
+    hashtable_t *modules; /* map<irc_module_t> */
+    irc_t       *instance;
 } irc_channel_t;
 
 typedef struct {
@@ -54,7 +60,7 @@ typedef struct irc_s {
     char             *pattern;
     char             *auth;
     sock_t           *sock;
-    hashtable_t      *channels;
+    hashtable_t      *channels;     /* map<irc_channel_t> */
     list_t           *queue;
     module_manager_t *moduleman;
     database_t       *database;
@@ -68,7 +74,7 @@ typedef struct irc_s {
     time_t            lastunqueue;
 } irc_t;
 
-irc_t *irc_create(config_t *config);
+irc_t *irc_create(config_instance_t *config);
 void  irc_destroy(irc_t *irc, sock_restart_t *restart, char **name);
 void irc_process(irc_t *irc, void *data);
 const char *irc_name(irc_t *irc);
