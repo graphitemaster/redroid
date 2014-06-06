@@ -93,34 +93,34 @@ static bool config_entry_handler(void *user, const char *section, const char *na
             *modulename = '\0';
             /* Per module configuration */
             if (!*++modulename) {
-                fprintf(stderr, "    config => [%s] expected module name\n", find);
+                fprintf(stderr, "    config   => [%s] expected module name\n", find);
                 goto config_entry_error;
             }
             config_instance_t *instance = config_instance_find(config, find);
             if (!instance) {
-                fprintf(stderr, "    config => failed finding instance `%s'\n", find);
+                fprintf(stderr, "    config   => failed finding instance `%s'\n", find);
                 goto config_entry_error;
             }
             config_channel_t *channel = config_channel_find(instance, channelname);
             if (!channel) {
-                fprintf(stderr, "    config => [%s] failed finding channel `%s'\n", find, channelname);
+                fprintf(stderr, "    config   => [%s] failed finding channel `%s'\n", find, channelname);
                 goto config_entry_error;
             }
             config_module_t *module = config_module_find(channel, modulename);
             if (!module) {
-                fprintf(stderr, "    config => [%s] failed finding module `%s' for channel `%s'\n", find, modulename, channelname);
+                fprintf(stderr, "    config   => [%s] failed finding module `%s' for channel `%s'\n", find, modulename, channelname);
                 goto config_entry_error;
             }
             hashtable_insert(module->kvs, name, strdup(value));
         } else {
             config_instance_t *instance = config_instance_find(config, find);
             if (!instance) {
-                fprintf(stderr, "    config => failed finding instance `%s'\n", find);
+                fprintf(stderr, "    config   => failed finding instance `%s'\n", find);
                 goto config_entry_error;
             }
             config_channel_t *channel = config_channel_find(instance, channelname);
             if (!channel) {
-                fprintf(stderr, "    config => [%s] failed finding channel `%s'\n", find, channelname);
+                fprintf(stderr, "    config   => [%s] failed finding channel `%s'\n", find, channelname);
                 goto config_entry_error;
             }
             if (!strcmp(name, "modules")) {
@@ -139,7 +139,7 @@ static bool config_entry_handler(void *user, const char *section, const char *na
                         }
                         closedir(dir);
                     } else {
-                        fprintf(stderr, "   config => [%s] failed to open `modules' directory\n", find);
+                        fprintf(stderr, "   config   => [%s] failed to open `modules' directory\n", find);
                         goto config_entry_error;
                     }
                 } else {
@@ -155,7 +155,7 @@ static bool config_entry_handler(void *user, const char *section, const char *na
                     }
                 }
             } else {
-                fprintf(stderr, "    config => [%s] unexpected key `%s' for channel `%s' options\n", find, name, channelname);
+                fprintf(stderr, "    config   => [%s] unexpected key `%s' for channel `%s' options\n", find, name, channelname);
                 goto config_entry_error;
             }
         }
