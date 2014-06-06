@@ -91,4 +91,20 @@ void *hashtable_find(hashtable_t *hashtable, const char *key);
 
 void hashtable_foreach_impl(hashtable_t *hashtable, void *pass, void (*callback)(void *, void *));
 
+/*
+ * Function: hashtable_copy
+ *  Copy the hashtable, using a callback to copy internal values.
+ *
+ * Paramaters
+ *  hashtable   - The hashtable to copy.
+ *  callback    - the value copy function.
+ *
+ * Returns:
+ *  A copy of the hashtable and it's values'.
+ */
+#define hashtable_copy(HASHTABLE, COPY) \
+    hashtable_copy_impl((HASHTABLE), ((void *(*)(void *))(COPY)))
+
+hashtable_t *hashtable_copy_impl(hashtable_t *hashtable, void *(*copy)(void *));
+
 #endif /*!REDROID_HASHTABLE_HDR */

@@ -18,6 +18,13 @@
 [name:#help]
     modules  = *
 
+; Per module options take on the form:
+; <instance_name>:<channel_name>:<module_name>
+[name:#help:svn]
+    url   = svn://svn.foo.org
+    depth = 5
+    link  = http://foo.org/svn
+
 ; If no modules are specified for a channel then the channel defaults with
 ; the following three modules:
 ; * system

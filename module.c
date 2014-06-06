@@ -731,3 +731,27 @@ uint32_t module_urand(void) {
 double module_drand(void) {
     return mt_drand((module_singleton_get())->random);
 }
+
+static hashtable_t *module_irc_modules_config_copy(irc_t *irc, const char *mname, const char *cname) {
+    irc_channel_t *channel = hashtable_find(irc->channels, cname);
+    if (!channel)
+        return NULL;
+    irc_module_t *module = hashtable_find(channel->modules, mname);
+    if (!module)
+        return NULL;
+    return hashtable_copy(module->kvs, &strdup);
+}
+
+static void module_irc_modules_config_destroy(hashtable_t *kvs) {
+    hashtable_foreach(kvs, NULL, &free);
+    hashtable_destroy(kvs);
+}
+
+hashtable_t *module_irc_modules_config(irc_t *irc, const char *channel) {
+    module_t *module = module_singleton_get();
+    hashtable_t *kvs = module_irc_modules_config_copy(irc, module->name, channel);
+    if (!kvs)
+        return NULL;
+    module_mem_push(module, kvs, (void(*)(void* ))&module_irc_modules_config_destroy);
+    return kvs;
+}

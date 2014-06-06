@@ -146,6 +146,9 @@ list_length
 list_sort
 list_search
 list_at
+hashtable_find
+hashtable_insert
+hashtable_foreach
 string_contents
 string_length
 string_catf
@@ -155,6 +158,7 @@ irc_modules_reload
 irc_modules_unload
 irc_modules_enable
 irc_modules_disable
+irc_modules_config
 irc_action
 irc_write
 irc_nick

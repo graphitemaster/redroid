@@ -15,6 +15,7 @@ typedef struct irc_s                    irc_t;
 typedef struct list_s                   list_t;
 typedef struct list_iterator_s          list_iterator_t;
 typedef struct string_s                 string_t;
+typedef struct hashtable_s              hashtable_t;
 
 typedef struct {
     int soff;
@@ -51,6 +52,9 @@ static inline list_t *irc_modules_loaded(irc_t *irc) {
 }
 static inline list_t *irc_modules_enabled(irc_t *irc, const char *channel) {
     return MODULE_GC_CALL(irc_modules_enabled)(irc, channel);
+}
+static hashtable_t *irc_modules_config(irc_t *irc, const char *channel) {
+    return MODULE_GC_CALL(irc_modules_config)(irc, channel);
 }
 static inline list_t *irc_users(irc_t *irc, const char *channel) {
     return MODULE_GC_CALL(irc_users)(irc, channel);
@@ -128,6 +132,10 @@ static inline list_iterator_t *list_iterator_create(list_t *list) {
 static inline list_t *list_create(void) {
     return MODULE_GC_CALL(list_create)();
 }
+
+/* Hashtable API */
+void *hashtable_find(hashtable_t *hashtable, const char *key);
+bool hashtable_insert(hashtable_t *hashtable, const char *key, void *value);
 
 /* Database API */
 bool database_statement_complete(database_statement_t *statement);

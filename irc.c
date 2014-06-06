@@ -317,7 +317,7 @@ module_status_t irc_modules_add(irc_t *irc, const char *name) {
 static irc_module_t *irc_module_create(config_module_t *module) {
     irc_module_t *mod = malloc(sizeof(*mod));
     mod->module = strdup(module->name);
-    mod->kvs    = hashtable_create(8);
+    mod->kvs    = hashtable_copy(module->kvs, &strdup);
     return mod;
 }
 

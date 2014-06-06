@@ -166,3 +166,22 @@ void hashtable_foreach_impl(hashtable_t *hashtable, void *pass, void (*callback)
     }
     pthread_mutex_unlock(&hashtable->mutex);
 }
+
+hashtable_t *hashtable_copy_impl(hashtable_t *hashtable, void *(*copy)(void *)) {
+    hashtable_t *copied = hashtable_create(hashtable->size);
+    pthread_mutex_lock(&hashtable->mutex);
+    for (size_t i = 0; i < hashtable->size; i++) {
+        list_t *list = hashtable->table[i];
+        if (!list)
+            break;
+
+        list_iterator_t *it = list_iterator_create(list);
+        while (!list_iterator_end(it)) {
+            hashtable_entry_t *entry = list_iterator_next(it);
+            hashtable_insert(copied, entry->key, copy(entry->value));
+        }
+        list_iterator_destroy(it);
+    }
+    pthread_mutex_unlock(&hashtable->mutex);
+    return copied;
+}

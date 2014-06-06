@@ -1,12 +1,9 @@
 #include <module.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 MODULE_TIMED(svn, 5);
-
-#define SVN_DEPTH 5
-#define SVN_URL   "svn://svn.icculus.org/redeclipse"
-#define SVN_LINK  "http://redeclipse.net/svn/"
 
 static bool svn_find(string_t *revision) {
     database_statement_t *check = database_statement_create("SELECT COUNT(*) FROM SVN WHERE REVISION = ?");
@@ -34,8 +31,13 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     (void)user; /* ignored */
     (void)message; /* ignored */
 
+    hashtable_t *get   = irc_modules_config(irc, channel);
+    const char  *url   = hashtable_find(get, "url");
+    const char  *link  = hashtable_find(get, "link");
+    int          depth = atoi(hashtable_find(get, "depth"));
+
     /* Read SVN entries in and write them out to the channel */
-    list_t *list = svnlog(SVN_URL, SVN_DEPTH);
+    list_t *list = svnlog(url, depth);
     if (!list)
         return;
 
@@ -47,7 +49,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         irc_write(irc, channel, "[B]r%s[/B] by [B]%s[/B] -> %s%s -> %s",
             string_contents(e->revision),
             string_contents(e->author),
-            SVN_LINK,
+            link,
             string_contents(e->revision),
             string_contents(e->message)
         );
