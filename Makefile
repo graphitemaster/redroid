@@ -30,7 +30,7 @@ $(REDROID): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
 
 timestamp.o:
-	$(CC) $(CFLAGS) -c -o timestamp.o timestamp.c
+	$(LAMBDAPP) timestamp.c | $(CC) -xc -c $(CFLAGS) - -o timestamp.o
 
 .c.o:
 	$(LAMBDAPP) $< | $(CC) -xc -c $(CFLAGS) - -o $@
