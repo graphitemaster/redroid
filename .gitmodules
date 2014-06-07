@@ -1,0 +1,3 @@
+[submodule "lambdapp"]
+	path = lambdapp
+	url = git://github.com/graphitemaster/lambdapp.git
