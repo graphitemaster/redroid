@@ -19,8 +19,6 @@ WHITELIST_OBJECTS = $(WHITELIST_SOURCES:.c=.o)
 LAMBDAPP          = lambdapp/lambdapp
 STRIP             = $(shell strip)
 
--include config.mak
-
 all: modules $(REDROID) whitelist
 
 $(LAMBDAPP):
