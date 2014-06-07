@@ -85,7 +85,10 @@ cleanwlgen:
 cleanwhitelist:
 	rm -f whitelist.db
 
-clean: cleanmodules cleanwlgen
+cleanlambdapp:
+	cd lambdapp && $(MAKE) clean
+
+clean: cleanmodules cleanwlgen cleanlambdapp
 	rm -f $(OBJECTS)
 	rm -f $(REDROID)
 
