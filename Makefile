@@ -4,13 +4,13 @@
 CC               ?= clang
 CFLAGS            = -std=c11 -D_XOPEN_SOURCE=700 -Wall -Wextra -ggdb3 -DHAS_SSL
 LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lgnutls -Wl,--export-dynamic
-SOURCES           = $(shell echo *.c)
-HEADERS           = $(shell echo *.h)
+SOURCES           = $(wildcard *.c)
+HEADERS           = $(wildcard *.h)
 OBJECTS           = $(SOURCES:.c=.o)
 REDROID           = redroid
 MODULE_CFLAGS     = -fPIC -fno-asm -fno-builtin -std=c99 -Wall -Wextra -D_POSIX_SOURCE -Imodules/ -ggdb3
 MODULE_LDFLAGS    = -shared -rdynamic -lm
-MODULE_SOURCES    = $(shell echo modules/*.c)
+MODULE_SOURCES    = $(wildcard modules/*.c)
 MODULE_OBJECTS    = $(MODULE_SOURCES:.c=.so)
 WHITELIST_CFLAGS  = -std=gnu99 -ggdb3
 WHITELIST_LDFLAGS = -lsqlite3
@@ -24,7 +24,7 @@ STRIP             = $(shell strip)
 all: modules $(REDROID) whitelist
 
 $(LAMBDAPP):
-	cd lambdapp && make
+	cd lambdapp && $(MAKE)
 
 $(REDROID): $(LAMBDAPP) $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
