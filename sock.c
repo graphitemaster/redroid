@@ -31,7 +31,7 @@ bool sock_nonblock(int fd) {
 
 static int sock_listen(const char *port) {
     int sock;
-    if ((sock = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
         return -1;
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1)

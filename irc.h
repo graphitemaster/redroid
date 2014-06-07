@@ -54,7 +54,7 @@ typedef struct {
     char *content;
 } irc_message_t;
 
-typedef struct irc_s {
+struct irc_s {
     char             *name;
     char             *nick;
     char             *pattern;
@@ -72,7 +72,9 @@ typedef struct irc_s {
     bool              syncronize;
     bool              identified;
     time_t            lastunqueue;
-} irc_t;
+};
+
+typedef struct irc_s irc_t;
 
 irc_t *irc_create(config_instance_t *config);
 void  irc_destroy(irc_t *irc, sock_restart_t *restart, char **name);

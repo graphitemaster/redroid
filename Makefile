@@ -2,13 +2,13 @@
 # Do not make changes here.
 
 CC               ?= clang
-CFLAGS            = -std=c99 -D_XOPEN_SOURCE=700 -Wall -Wextra -g3 -DHAS_SSL
+CFLAGS            = -pipe -std=c11 -D_XOPEN_SOURCE=700 -Wall -Wextra -g3 -DHAS_SSL
 LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lgnutls -Wl,--export-dynamic
 SOURCES           = $(wildcard *.c)
 HEADERS           = $(wildcard *.h)
 OBJECTS           = $(SOURCES:.c=.o)
 REDROID           = redroid
-MODULE_CFLAGS     = -fPIC -fno-asm -fno-builtin -std=c99 -Wall -Wextra -D_POSIX_SOURCE -Imodules/ -g3
+MODULE_CFLAGS     = -fPIC -fno-asm -fno-builtin -std=c99 -Wall -Wextra -D_XOPEN_SOURCE=700 -Imodules/ -g3
 MODULE_LDFLAGS    = -shared -rdynamic -lm
 MODULE_SOURCES    = $(wildcard modules/*.c)
 MODULE_OBJECTS    = $(MODULE_SOURCES:.c=.so)
