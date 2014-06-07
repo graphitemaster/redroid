@@ -19,12 +19,14 @@ WHITELIST_OBJECTS = $(WHITELIST_SOURCES:.c=.o)
 LAMBDAPP          = lambdapp/lambdapp
 STRIP             = $(shell strip)
 
-all: modules $(REDROID) whitelist
+all: modules whitelist $(REDROID)
+
+$(OBJECTS): $(LAMBDAPP)
 
 $(LAMBDAPP):
 	cd lambdapp && $(MAKE)
 
-$(REDROID): $(LAMBDAPP) $(OBJECTS)
+$(REDROID): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
 
 timestamp.o:
