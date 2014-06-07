@@ -319,15 +319,15 @@ static list_node_t *list_sort_merge(list_node_t *a, list_node_t *b, bool (*predi
     return a;
 }
 
-static list_node_t *list_sort_impl(list_node_t *begin, bool (*predicate)(const void *, const void *)) {
+static list_node_t *list_sort_dispatch(list_node_t *begin, bool (*predicate)(const void *, const void *)) {
     if (!begin)       return NULL;
     if (!begin->next) return begin;
 
     list_node_t *split = list_sort_split(begin);
-    return list_sort_merge(list_sort_impl(begin, predicate), list_sort_impl(split, predicate), predicate);
+    return list_sort_merge(list_sort_dispatch(begin, predicate), list_sort_dispatch(split, predicate), predicate);
 }
 
-void list_sort(list_t *list, bool (*predicate)(const void *, const void *)) {
-    list->head = list_sort_impl(list->head, predicate);
+void list_sort_impl(list_t *list, bool (*predicate)(const void *, const void *)) {
+    list->head = list_sort_dispatch(list->head, predicate);
     list_atcache_thrash(list);
 }

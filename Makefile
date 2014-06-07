@@ -16,20 +16,24 @@ WHITELIST_CFLAGS  = -std=gnu99 -ggdb3
 WHITELIST_LDFLAGS = -lsqlite3
 WHITELIST_SOURCES = misc/whitelist.c
 WHITELIST_OBJECTS = $(WHITELIST_SOURCES:.c=.o)
+LAMBDAPP          = lambdapp/lambdapp
 STRIP             = $(shell strip)
 
 -include config.mak
 
 all: modules $(REDROID) whitelist
 
-$(REDROID): $(OBJECTS)
+$(LAMBDAPP):
+	cd lambdapp && make
+
+$(REDROID): $(LAMBDAPP) $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
 
 timestamp.o:
 	$(CC) $(CFLAGS) -c -o timestamp.o timestamp.c
 
 .c.o:
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(LAMBDAPP) $< | $(CC) -xc -c $(CFLAGS) - -o $@
 
 modules/%.so: modules/%.c
 	$(CC) $(MODULE_CFLAGS) $< -o $@ $(MODULE_LDFLAGS)

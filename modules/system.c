@@ -150,6 +150,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!strcmp(method, "-channels"))           return system_channels(irc, channel, user);
     if (!strcmp(method, "-topic"))              return system_topic(irc, channel, user);
     if (!strcmp(method, "-pattern"))            return system_pattern(irc, channel, user, list_shift(list));
+    if (!strcmp(method, "-echo"))               return irc_write(irc, channel, list_shift(list));
 
     return system_help(irc, channel, user);
 }

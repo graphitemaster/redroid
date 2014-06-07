@@ -64,10 +64,6 @@ static void mod_help(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel, "%s: module [<-load|-reload|-reload-all|-unload|-enable|-disable|-unload-all|-list-loaded|-list-enabled> [name]]", user);
 }
 
-static bool mod_list_predicate(const char *a, const char *b) {
-    return !strcmp(a, b);
-}
-
 static void mod_load(irc_t *irc, const char *channel, const char *user, const char *module) {
     switch (irc_modules_add(irc, module)) {
         case MODULE_STATUS_FAILURE:

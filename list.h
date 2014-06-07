@@ -275,6 +275,9 @@ bool list_erase(list_t *list, void *element);
  * Remarks:
  *  This thrashes the atcache of the list.
  */
-void list_sort(list_t *list, bool (*predicate)(const void *, const void *));
+#define list_sort(LIST, PREDICATE) \
+    list_sort_impl((LIST), ((bool (*)(const void *, const void *))(PREDICATE)))
+
+void list_sort_impl(list_t *list, bool (*predicate)(const void *, const void *));
 
 #endif

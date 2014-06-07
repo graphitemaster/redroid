@@ -31,7 +31,10 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     (void)user; /* ignored */
     (void)message; /* ignored */
 
-    hashtable_t *get   = irc_modules_config(irc, channel);
+    hashtable_t *get = irc_modules_config(irc, channel);
+    if (!get)
+        return;
+
     const char  *url   = hashtable_find(get, "url");
     const char  *link  = hashtable_find(get, "link");
     int          depth = atoi(hashtable_find(get, "depth"));

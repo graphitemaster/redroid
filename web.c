@@ -241,6 +241,7 @@ static void web_template_change(web_t *web, const char *file, const char *search
 
 /* administration web template generation */
 static void web_admin_create(web_t *web) {
+    (void)web;
 #if 0 /* TODO */
     string_t        *create = string_construct();
     list_t          *config = config_load("config.ini");

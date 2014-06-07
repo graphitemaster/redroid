@@ -53,7 +53,7 @@ static inline list_t *irc_modules_loaded(irc_t *irc) {
 static inline list_t *irc_modules_enabled(irc_t *irc, const char *channel) {
     return MODULE_GC_CALL(irc_modules_enabled)(irc, channel);
 }
-static hashtable_t *irc_modules_config(irc_t *irc, const char *channel) {
+static inline hashtable_t *irc_modules_config(irc_t *irc, const char *channel) {
     return MODULE_GC_CALL(irc_modules_config)(irc, channel);
 }
 static inline list_t *irc_users(irc_t *irc, const char *channel) {

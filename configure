@@ -137,10 +137,8 @@ trycc gcc
 trycc clang
 trycc cc
 trycc tcc
-trycc lice
 printf "%s\n" "$CC"
 test -n "$CC" || { echo "$0: cannot find a C compiler" ; exit 1 ; }
-
 
 # Need C11 support and _POSIX_SOURCE.
 tryflag CFLAGS -std=c11 || {

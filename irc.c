@@ -12,6 +12,14 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+typedef enum {
+    MODULE_STATUS_REFERENCED,
+    MODULE_STATUS_SUCCESS,
+    MODULE_STATUS_FAILURE,
+    MODULE_STATUS_ALREADY,
+    MODULE_STATUS_NONEXIST
+} module_status_t;
+
 static const char *irc_target_nick(const char *target);
 static const char *irc_target_host(const char *target);
 
@@ -122,8 +130,8 @@ static string_t *irc_color_parse_code(const char *source) {
             string_catf(string, "%.*s%s", (int)(p1 - cur), cur, replaced);
             cur = p2 + 1;
         } else {
-            if (!p2) p2 = cur + strlen(cur);
-            string_catf(string, "%.*s", (int)(p2 - cur + 1), cur);
+            p2 = p2 ? p2 : cur + strlen(cur);
+            string_catf(string, "*.*s", (int)(p2 - cur + 1), cur);
             cur = p2 + 1;
         }
     }
@@ -220,6 +228,12 @@ void irc_unqueue(irc_t *irc) {
     }
 }
 
+static void irc_channel_destroy(irc_channel_t *channel);
+static void irc_user_destroy(irc_user_t *user);
+static void irc_module_destroy(irc_module_t *module);
+static void irc_module_destroy(irc_module_t *module);
+static irc_module_t *irc_module_create(config_module_t *module);
+
 void irc_quit(irc_t *irc, const char *message) {
     irc_enqueue_standard(irc, message, IRC_COMMAND_QUIT);
 }
@@ -229,7 +243,6 @@ void irc_join(irc_t *irc, const char *channel) {
     /* TODO: fix */
 }
 
-static void irc_channel_destroy(irc_channel_t *channel);
 void irc_part(irc_t *irc, const char *channel) {
     irc_channel_t *chan = hashtable_find(irc->channels, channel);
     irc_channel_destroy(chan);
@@ -253,8 +266,6 @@ void irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
 }
 
 /* Channel management */
-static void irc_user_destroy(irc_user_t *user);
-static void irc_module_destroy(irc_module_t *module);
 static void irc_channel_destroy(irc_channel_t *channel) {
     free(channel->channel);
     free(channel->topic);
@@ -265,74 +276,15 @@ static void irc_channel_destroy(irc_channel_t *channel) {
     free(channel);
 }
 
-static void irc_channel_join(irc_channel_t *channel, irc_t *irc) {
-    irc_join_raw(irc, channel->channel);
-}
-
 static void irc_channels_join(irc_t *irc) {
-    hashtable_foreach(irc->channels, irc, &irc_channel_join);
+    hashtable_foreach(irc->channels, irc,
+        lambda void(irc_channel_t *channel, irc_t *irc) {
+            irc_join_raw(irc, channel->channel);
+        }
+    );
 }
 
-/* This should be the same in modules/module.h */
-typedef enum {
-    MODULE_STATUS_REFERENCED,
-    MODULE_STATUS_SUCCESS,
-    MODULE_STATUS_FAILURE,
-    MODULE_STATUS_ALREADY,
-    MODULE_STATUS_NONEXIST
-} module_status_t;
-
-module_status_t irc_modules_add(irc_t *irc, const char *name) {
-    string_t *error  = NULL;
-    module_t *module = NULL;
-
-    if (strstr(name, "//") || strstr(name, "./"))
-        return MODULE_STATUS_FAILURE;
-
-    string_t *file = string_format("modules/%s.so", name);
-    if ((module = module_manager_module_search(irc->moduleman, string_contents(file), MMSEARCH_FILE))) {
-        printf("    module   => %s [%s] already loaded\n", module->name, name);
-        string_destroy(file);
-        return MODULE_STATUS_ALREADY;
-    }
-
-    if ((module = module_open(string_contents(file), irc->moduleman, &error))) {
-        printf("    module   => %s [%s] loaded\n", module->name, module->file);
-        string_destroy(file);
-        return MODULE_STATUS_SUCCESS;
-    }
-
-    if (error) {
-        printf("    module   => %s loading failed (%s)\n", name, string_contents(error));
-        string_destroy(error);
-    } else {
-        printf("    module   => %s loading failed\n", name);
-    }
-
-    string_destroy(file);
-    return MODULE_STATUS_FAILURE;
-}
-
-/* Module config copy */
-static irc_module_t *irc_module_create(config_module_t *module) {
-    irc_module_t *mod = malloc(sizeof(*mod));
-    mod->module = strdup(module->name);
-    mod->kvs    = hashtable_copy(module->kvs, &strdup);
-    return mod;
-}
-
-static void irc_module_destroy(irc_module_t *module) {
-    hashtable_foreach(module->kvs, NULL, &free);
-    hashtable_destroy(module->kvs);
-    free(module->module);
-    free(module);
-}
-
-static void irc_channels_add_module(config_module_t *module, irc_channel_t *channel) {
-    /* Try loading it if it isn't loaded */
-    irc_modules_add(channel->instance, module->name);
-    hashtable_insert(channel->modules, module->name, irc_module_create(module));
-}
+module_status_t irc_modules_add(irc_t *irc, const char *name);
 
 bool irc_channels_add(irc_t *irc, config_channel_t *channel) {
     if (hashtable_find(irc->channels, channel->name)) {
@@ -351,7 +303,12 @@ bool irc_channels_add(irc_t *irc, config_channel_t *channel) {
     /* Deeply copy the config_channel_t modules hashtable and configuration
      * into an irc_channel_t + irc_module_t hashtable.
      */
-    hashtable_foreach(channel->modules, chan, &irc_channels_add_module);
+    hashtable_foreach(channel->modules, chan,
+        lambda void(config_module_t *module, irc_channel_t *c) {
+            irc_modules_add(c->instance, module->name);
+            hashtable_insert(c->modules, module->name, irc_module_create(module));
+        }
+    );
     hashtable_insert(irc->channels, channel->name, chan);
 
     printf("    channel  => %s added\n", channel->name);
@@ -464,6 +421,52 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
 }
 
 /* Module management */
+module_status_t irc_modules_add(irc_t *irc, const char *name) {
+    string_t *error  = NULL;
+    module_t *module = NULL;
+
+    if (strstr(name, "//") || strstr(name, "./"))
+        return MODULE_STATUS_FAILURE;
+
+    string_t *file = string_format("modules/%s.so", name);
+    if ((module = module_manager_module_search(irc->moduleman, string_contents(file), MMSEARCH_FILE))) {
+        printf("    module   => %s [%s] already loaded\n", module->name, name);
+        string_destroy(file);
+        return MODULE_STATUS_ALREADY;
+    }
+
+    if ((module = module_open(string_contents(file), irc->moduleman, &error))) {
+        printf("    module   => %s [%s] loaded\n", module->name, module->file);
+        string_destroy(file);
+        return MODULE_STATUS_SUCCESS;
+    }
+
+    if (error) {
+        printf("    module   => %s loading failed (%s)\n", name, string_contents(error));
+        string_destroy(error);
+    } else {
+        printf("    module   => %s loading failed\n", name);
+    }
+
+    string_destroy(file);
+    return MODULE_STATUS_FAILURE;
+}
+
+/* Module config copy */
+static irc_module_t *irc_module_create(config_module_t *module) {
+    irc_module_t *mod = malloc(sizeof(*mod));
+    mod->module = strdup(module->name);
+    mod->kvs    = hashtable_copy(module->kvs, &strdup);
+    return mod;
+}
+
+static void irc_module_destroy(irc_module_t *module) {
+    hashtable_foreach(module->kvs, NULL, &free);
+    hashtable_destroy(module->kvs);
+    free(module->module);
+    free(module);
+}
+
 static bool irc_modules_exists(irc_t *irc, const char *name) {
     list_iterator_t *it = list_iterator_create(irc->moduleman->modules);
     while (!list_iterator_end(it)) {
@@ -477,32 +480,31 @@ static bool irc_modules_exists(irc_t *irc, const char *name) {
 }
 
 typedef struct {
-    const char *exclude;
-    const char *module;
     size_t      count;
+    const char *exclude;
+    const char *inmodule;
 } irc_module_ref_t;
 
-static void irc_modules_refs_modules(const char *module, irc_module_ref_t *refs) {
-    if (!strcmp(module, refs->module))
-        refs->count++;
-}
-
-static void irc_modules_refs_channels(irc_channel_t *channel, irc_module_ref_t *refs) {
-    /* We exclude the channel we come from as a reference */
-    if (!strcmp(refs->exclude, channel->channel))
-        return;
-    hashtable_foreach(channel->modules, refs, &irc_modules_refs_modules);
-}
-
-static size_t irc_modules_refs(irc_t *irc, const char *module, const char *exclude) {
+static size_t irc_modules_refs(irc_t *irc, const char *inmodule, const char *exclude) {
     /* Will exclude `exclude' from the reference search */
-    irc_module_ref_t refs = {
-        .module  = module,
-        .exclude = exclude,
-        .count   = 0
+    irc_module_ref_t ref = {
+        .count    = 0,
+        .exclude  = exclude,
+        .inmodule = inmodule
     };
-    hashtable_foreach(irc->channels, &refs, &irc_modules_refs_channels);
-    return refs.count;
+    hashtable_foreach(irc->channels, &ref,
+        lambda void(irc_channel_t *channel, irc_module_ref_t *ref) {
+            if (!strcmp(ref->exclude, channel->channel))
+                return;
+            hashtable_foreach(channel->modules, ref,
+                lambda void(const char *module, irc_module_ref_t *ref) {
+                    if (!strcmp(module, ref->inmodule))
+                        ref->count++;
+                }
+            );
+        }
+    );
+    return ref.count;
 }
 module_status_t irc_modules_reload(irc_t *irc, const char *name) {
     /* Reloading a module reloads it everywhere */
@@ -513,7 +515,7 @@ module_status_t irc_modules_reload(irc_t *irc, const char *name) {
 
 module_status_t irc_modules_unload(irc_t *irc, const char *channel, const char *module, bool force) {
     size_t refs = irc_modules_refs(irc, module, channel);
-    if (refs != 0)
+    if (refs != 0 && !force)
         return MODULE_STATUS_REFERENCED;
     if (!module_manager_module_unload(irc->moduleman, module))
         return MODULE_STATUS_FAILURE;
@@ -552,14 +554,6 @@ module_status_t irc_modules_enable(irc_t *irc, const char *chan, const char *nam
     return MODULE_STATUS_SUCCESS;
 }
 
-static bool irc_lexicographical_sort(const void *a, const void *b) {
-    return strcmp(a, b) >= 0;
-}
-
-static void irc_modules_channel_create(irc_module_t *module, list_t *list) {
-    list_push(list, module->module);
-}
-
 /* The one function gets all loaded modules, while the other shows all the
  * modules on the given channel.
  */
@@ -571,7 +565,11 @@ list_t *irc_modules_loaded(irc_t *irc) {
         list_push(list, (void *)entry->name);
     }
     list_iterator_destroy(it);
-    list_sort(list, &irc_lexicographical_sort);
+    list_sort(list,
+        lambda bool(const char *a, const char *b) {
+            return strcmp(a, b) >= 0;
+        }
+    );
     return list;
 }
 
@@ -580,8 +578,16 @@ list_t *irc_modules_enabled(irc_t *irc, const char *chan) {
     if (!channel)
         return NULL;
     list_t *list = list_create();
-    hashtable_foreach(channel->modules, list, &irc_modules_channel_create);
-    list_sort(list, &irc_lexicographical_sort);
+    hashtable_foreach(channel->modules, list,
+        lambda void(irc_module_t *module, list_t *list) {
+            list_push(list, module->module);
+        }
+    );
+    list_sort(list,
+        lambda bool(const char *a, const char *b) {
+            return strcmp(a, b) >= 0;
+        }
+    );
     return list;
 }
 
@@ -913,27 +919,35 @@ const char *irc_topic(irc_t *irc, const char *channel) {
     return (chan) ? chan->topic : "(No topic)";
 }
 
-static void irc_users_callback(irc_user_t *user, list_t *list) {
-    list_push(list, user->nick);
-}
-
 list_t *irc_users(irc_t *irc, const char *channel) {
     irc_channel_t *chan = hashtable_find(irc->channels, channel);
     if (!chan) return NULL;
 
     list_t *list = list_create();
-    hashtable_foreach(chan->users, list, &irc_users_callback);
-    list_sort(list, &irc_lexicographical_sort);
+    hashtable_foreach(chan->users, list,
+        lambda void(irc_user_t *user, list_t *list) {
+            list_push(list, user->nick);
+        }
+    );
+    list_sort(list,
+        lambda bool(const char *a, const char *b) {
+            return strcmp(a, b) >= 0;
+        }
+    );
     return list;
-}
-
-static void irc_channels_callback(irc_channel_t *channel, list_t *list) {
-    list_push(list, channel->channel);
 }
 
 list_t *irc_channels(irc_t *irc) {
     list_t *list = list_create();
-    hashtable_foreach(irc->channels, list, &irc_channels_callback);
-    list_sort(list, &irc_lexicographical_sort);
+    hashtable_foreach(irc->channels, list,
+        lambda void(irc_channel_t *channel, list_t *list) {
+            list_push(list, channel->channel);
+        }
+    );
+    list_sort(list,
+        lambda bool(const char *a, const char *b) {
+            return strcmp(a, b) >= 0;
+        }
+    );
     return list;
 }
