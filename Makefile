@@ -3,21 +3,14 @@
 
 CC               ?= clang
 CFLAGS            = -pipe -std=c11 -D_XOPEN_SOURCE=700 -Wall -Wextra -g3 -DHAS_SSL
-LDFLAGS           = -ldl -lrt -lpthread -lsqlite3 -lgnutls -Wl,--export-dynamic
-SOURCES           = $(wildcard *.c)
-HEADERS           = $(wildcard *.h)
-OBJECTS           = $(SOURCES:.c=.o)
+LDFLAGS           = $(OS_LIBS) -lrt -lpthread -lsqlite3 -lgnutls -Wl,--export-dynamic
 REDROID           = redroid
 MODULE_CFLAGS     = -fPIC -fno-asm -fno-builtin -std=c99 -Wall -Wextra -D_XOPEN_SOURCE=700 -Imodules/ -g3
 MODULE_LDFLAGS    = -shared -rdynamic -lm
-MODULE_SOURCES    = $(wildcard modules/*.c)
-MODULE_OBJECTS    = $(MODULE_SOURCES:.c=.so)
 WHITELIST_CFLAGS  = -std=gnu99 -g3
 WHITELIST_LDFLAGS = -lsqlite3
-WHITELIST_SOURCES = misc/whitelist.c
-WHITELIST_OBJECTS = $(WHITELIST_SOURCES:.c=.o)
 LAMBDAPP          = lambdapp/lambdapp
-STRIP             = $(shell strip)
+STRIP            ?= strip
 
 all: modules whitelist $(REDROID)
 
@@ -35,7 +28,8 @@ timestamp.o:
 .c.o:
 	$(LAMBDAPP) $< | $(CC) -xc -c $(CFLAGS) - -o $@
 
-modules/%.so: modules/%.c
+.SUFFIXES: .so
+.c.so:
 	$(CC) $(MODULE_CFLAGS) $< -o $@ $(MODULE_LDFLAGS)
 
 wlgen: $(WHITELIST_OBJECTS)
