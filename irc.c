@@ -130,8 +130,8 @@ static string_t *irc_color_parse_code(const char *source) {
             string_catf(string, "%.*s%s", (int)(p1 - cur), cur, replaced);
             cur = p2 + 1;
         } else {
-            p2 = p2 ? p2 : cur + strlen(cur);
-            string_catf(string, "*.*s", (int)(p2 - cur + 1), cur);
+            if (!p2) p2 = cur + strlen(cur);
+            string_catf(string, "%.*s", (int)(p2 - cur + 1), cur);
             cur = p2 + 1;
         }
     }
@@ -558,13 +558,13 @@ module_status_t irc_modules_enable(irc_t *irc, const char *chan, const char *nam
  * modules on the given channel.
  */
 list_t *irc_modules_loaded(irc_t *irc) {
-    list_t          *list = list_create();
-    list_iterator_t *it   = list_iterator_create(irc->moduleman->modules);
-    while (!list_iterator_end(it)) {
-        module_t *entry = list_iterator_next(it);
-        list_push(list, (void *)entry->name);
-    }
-    list_iterator_destroy(it);
+    list_t *list = list_create();
+
+    list_foreach(irc->moduleman->modules, list,
+        lambda void(module_t *entry, list_t *list) {
+            list_push(list, (char *)entry->name);
+        }
+    );
     list_sort(list,
         lambda bool(const char *a, const char *b) {
             return strcmp(a, b) >= 0;

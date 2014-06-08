@@ -331,10 +331,6 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
     return true;
 }
 
-static void redroid_channel_add(config_channel_t *channel, irc_t *instance) {
-    irc_channels_add(instance, channel);
-}
-
 int main(int argc, char **argv) {
     /*
      * Okay a little explination what we're doing here.
@@ -469,7 +465,11 @@ int main(int argc, char **argv) {
              * where we originally left off.
              */
             irc_t *irc = irc_create(instance);
-            hashtable_foreach(instance->channels, irc, &redroid_channel_add);
+            hashtable_foreach(instance->channels, irc,
+                lambda void(config_channel_t *channel, irc_t *instance) {
+                    irc_channels_add(instance, channel);
+                }
+            );
 
             /* Prepare the restart data */
             sock_restart_t restdata = {
@@ -555,23 +555,22 @@ int main(int argc, char **argv) {
         }
 
         /* Create all IRC instances */
-        list_iterator_t *it = list_iterator_create(list);
-        while (!list_iterator_end(it)) {
-            config_instance_t *instance = list_iterator_next(it);
-            irc_t             *irc      = irc_create(instance);
-
-            /* Add all the channels for this instance */
-            hashtable_foreach(instance->channels, irc, &redroid_channel_add);
-
-            if (!irc_connect(irc, instance->host, instance->port, instance->ssl)) {
-                irc_destroy(irc, NULL, NULL);
-                fprintf(stderr, "    irc      => cannot connect (ignoring instance)\n");
-                continue;
+        list_foreach(list, manager,
+            lambda void(config_instance_t *instance, irc_manager_t *manager) {
+                irc_t *irc = irc_create(instance);
+                hashtable_foreach(instance->channels, irc,
+                    lambda void(config_channel_t *channel, irc_t *instance) {
+                        irc_channels_add(instance, channel);
+                    }
+                );
+                if (irc_connect(irc, instance->host, instance->port, instance->ssl)) {
+                    irc_manager_add(manager, irc);
+                } else {
+                    irc_destroy(irc, NULL, NULL);
+                    fprintf(stderr, "    irc      => cannot connect (ignoring instance)\n");
+                }
             }
-            irc_manager_add(manager, irc);
-        }
-
-        list_iterator_destroy(it);
+        );
         config_unload(list);
     }
 
