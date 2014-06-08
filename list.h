@@ -204,7 +204,10 @@ bool list_find(list_t *list, const void *element);
  *  This function has the same other uses as list_find. Mainly it thrashes
  *  the atcache and syncronizes it with the list.
  */
-void *list_search(list_t *list, bool (*predicate)(const void *, const void *), const void *pass);
+#define list_search(LIST, PASS, PREDICATE) \
+    list_search_impl((LIST), (PASS), ((bool (*)(const void *, const void *))(PREDICATE)))
+
+void *list_search_impl(list_t *list, const void *pass, bool (*predicate)(const void *, const void *));
 
 /*
  * Function: list_copy

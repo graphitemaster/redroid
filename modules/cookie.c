@@ -15,7 +15,7 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     }
 
     list_t *users = irc_users(irc, channel);
-    target = (list_search(users, &cookie_user, message))
+    target = (list_search(users, message, &cookie_user))
                              ? message
                              : user;
 

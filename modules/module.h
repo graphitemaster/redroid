@@ -122,7 +122,7 @@ void *list_pop(list_t *list);
 void *list_shift(list_t *list);
 size_t list_length(list_t *list);
 void list_sort(list_t *list, bool (*predicate)(const void *, const void *));
-void *list_search(list_t *list, bool (*predicate)(const void *, const void *), const void *pass);
+void *list_search(list_t *list, const void *pass, bool (*predicate)(const void *, const void *));
 void *list_at(list_t *list, size_t index);
 void list_push(list_t *list, void *element);
 static inline list_iterator_t *list_iterator_create(list_t *list) {

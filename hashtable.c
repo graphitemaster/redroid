@@ -33,13 +33,6 @@ static inline void hashtable_entry_destroy(hashtable_entry_t *entry) {
     free(entry);
 }
 
-static inline bool hashtable_entry_compare(const void *a, const void *b) {
-    const hashtable_entry_t *const entry = a;
-    const hashtable_entry_t *const other = b;
-
-    return other->hashtable->compare(entry->key, other->key);
-}
-
 static inline void *hashtable_entry_find(hashtable_t *hashtable, const char *key, size_t *index) {
     *index = hashtable->hash(key) & (hashtable->size - 1);
 
@@ -48,7 +41,11 @@ static inline void *hashtable_entry_find(hashtable_t *hashtable, const char *key
         .hashtable = hashtable
     };
 
-    return list_search(hashtable->table[*index], &hashtable_entry_compare, &pass);
+    return list_search(hashtable->table[*index], &pass,
+        lambda bool(const hashtable_entry_t *entrya, const hashtable_entry_t *entryb) {
+            return entryb->hashtable->compare(entrya->key, entryb->key);
+        }
+    );
 }
 
 static inline size_t hashtable_pot(size_t size) {

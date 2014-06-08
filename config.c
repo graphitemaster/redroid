@@ -72,13 +72,6 @@ static void config_instance_destroy(config_instance_t *instance) {
     free(instance);
 }
 
-static bool config_instance_check(const void *a, const void *b) {
-    const char *ca = ((const config_instance_t *)a)->name;
-    const char *cb = (const char *)b;
-
-    return !strcmp(ca, cb);
-}
-
 /* INI Callback */
 static bool config_entry_handler(void *user, const char *section, const char *name, const char *value) {
     list_t *config = (list_t*)user;
@@ -207,7 +200,11 @@ config_module_t *config_module_find(config_channel_t *channel, const char *modul
 }
 
 config_instance_t *config_instance_find(list_t *list, const char *name) {
-    return list_search(list, &config_instance_check, name);
+    return list_search(list, name,
+        lambda bool(const config_instance_t *instance, const char *name) {
+            return !strcmp(instance->name, name);
+        }
+    );
 }
 
 list_t *config_load(const char *file) {

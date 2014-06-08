@@ -101,11 +101,6 @@ static void http_post_kv_destroy(http_post_kv_t *value) {
     free(value);
 }
 
-static bool http_post_kv_search(const void *a, const void *b) {
-    const http_post_kv_t *const ka = a;
-    return !strcmp(ka->key, (const char *)b);
-}
-
 static list_t *http_post_extract(char *content) {
     list_t *list = list_create();
 
@@ -130,7 +125,11 @@ static void http_post_cleanup(list_t *values) {
 }
 
 const char *http_post_find(list_t *values, const char *key) {
-    http_post_kv_t *kv = list_search(values, &http_post_kv_search, key);
+    http_post_kv_t *kv = list_search(values, key,
+        lambda bool(const http_post_kv_t *a, const char *b) {
+            return !strcmp(a->key, b);
+        }
+    );
     return kv ? kv->value : NULL;
 }
 
@@ -216,11 +215,6 @@ void http_intercept_get(
     list_push(http->intercepts, intercept);
 }
 
-static bool http_intercept_search(const void *a, const void *b) {
-    const http_intercept_t *const ha = a;
-    return !strcmp(ha->match, (const char *)b);
-}
-
 static void http_intercepts_destroy(http_t *http) {
     http_intercept_t *handle;
     while ((handle = list_pop(http->intercepts))) {
@@ -287,15 +281,12 @@ void http_send_file(sock_t *client, const char *file) {
 }
 
 /* HTTP client management */
-static bool http_client_search(const void *a, const void *b) {
-    const http_client_t *ca = a;
-    const sock_t        *cb = b;
-
-    return sock_getfd(ca->sock) == sock_getfd(cb);
-}
-
 static http_client_t *http_client_create(http_t *http, sock_t *client) {
-    http_client_t *find = list_search(http->clients, &http_client_search, client);
+    http_client_t *find = list_search(http->clients, client,
+        lambda bool(const http_client_t *client, const sock_t *sock) {
+            return sock_getfd(client->sock) == sock_getfd(sock);
+        }
+    );
     if (find) {
         sock_destroy(client, NULL);
         find->refs++;
@@ -338,6 +329,11 @@ static void http_client_process(http_t *http, sock_t *client) {
 
     buffer[count] = '\0';
 
+    bool(*search)(const http_intercept_t *const intercept, const char *match) =
+        lambda bool(const http_intercept_t *const intercept, const char *match) {
+            return !strcmp(intercept->match, match);
+        };
+
     if (!strncmp(buffer, "GET /", 5)) {
         char *file_beg = &buffer[5];
         char *file_end = strchr(file_beg, ' ');
@@ -346,7 +342,7 @@ static void http_client_process(http_t *http, sock_t *client) {
             return;
 
         *file_end = '\0';
-        http_intercept_t *predicate = list_search(http->intercepts, &http_intercept_search, file_beg);
+        http_intercept_t *predicate = list_search(http->intercepts, file_beg, search);
         if (!predicate || predicate->post)
             return http_send_file(client, file_beg);
 
@@ -366,7 +362,7 @@ static void http_client_process(http_t *http, sock_t *client) {
         if (post_data)
             post_data += 4;
 
-        http_intercept_t *intercept = list_search(http->intercepts, &http_intercept_search, post_beg);
+        http_intercept_t *intercept = list_search(http->intercepts, post_beg, search);
         if (!intercept || !intercept->post)
             return http_send_plain(client, post_beg);
 

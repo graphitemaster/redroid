@@ -279,7 +279,7 @@ bool list_find(list_t *list, const void *element) {
     return !!node;
 }
 
-void *list_search(list_t *list, bool (*predicate)(const void *, const void *), const void *pass) {
+void *list_search_impl(list_t *list, const void *pass, bool (*predicate)(const void *, const void *)) {
     list_node_t *node = list->head;
 
     list_atcache_thrash(list);

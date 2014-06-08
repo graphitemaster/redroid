@@ -47,16 +47,13 @@ static void web_session_destroy(web_session_t *session) {
     free(session);
 }
 
-static bool web_session_search(const void *a, const void *b) {
-    const web_session_t *const sa = a;
-    const sock_t        *const sb = b;
-
-    return !strcmp(sa->host, sb->host);
-}
-
 static void web_session_control(web_t *web, sock_t *client, bool add) {
     /* Check if there isn't already a session for the client first */
-    web_session_t *session = list_search(web->sessions, &web_session_search, client);
+    web_session_t *session = list_search(web->sessions, client,
+        lambda bool(const web_session_t *const session, const sock_t *const sock) {
+            return !strcmp(session->host, sock->host);
+        }
+    );
     if (add && session) {
         /* Revalidate session */
         session->valid = true;
@@ -183,16 +180,12 @@ static void web_template_update(web_template_t *template) {
     hashtable_foreach(template->replaces, NULL, &web_template_entries_update);
 }
 
-static bool web_template_search(const void *a, const void *b) {
-    const web_template_t *const wa = a;
-    const char           *const aa = wa->file;
-    const char           *const bb = (const char *const)b;
-
-    return !strcmp(aa, bb);
-}
-
 static web_template_t *web_template_find(web_t *web, const char *name) {
-    return list_search(web->templates, &web_template_search, name);
+    return list_search(web->templates, name,
+        lambda bool(const web_template_t *const template, const char *file) {
+            return !strcmp(template->file, file);
+        }
+    );
 }
 
 static void web_template_send(web_t *web, sock_t *client, const char *tmpl) {
@@ -334,7 +327,11 @@ static void web_admin_create(web_t *web) {
 /* web hooks */
 static void web_hook_redirect(sock_t *client, void *data) {
     web_t         *web     = data;
-    web_session_t *session = list_search(web->sessions, &web_session_search, client);
+    web_session_t *session = list_search(web->sessions, client,
+        lambda bool(const web_session_t *const session, const sock_t *const sock) {
+            return !strcmp(session->host, sock->host);
+        }
+    );
 
     if (session && session->valid) {
         web_admin_create(web);
