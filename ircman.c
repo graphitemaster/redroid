@@ -171,10 +171,6 @@ typedef struct {
     string_t *message;
 } irc_manager_broadcast_t;
 
-static void irc_manager_broadcast_single(irc_channel_t *channel, irc_manager_broadcast_t *caster) {
-    irc_write(caster->instance, channel->channel, string_contents(caster->message));
-}
-
 void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
     string_t *string = string_construct();
     va_list   va;
@@ -186,11 +182,13 @@ void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
         irc_t  *irc = manager->instances->data[i];
         hashtable_foreach(
             irc->channels,
-            (&(irc_manager_broadcast_t) {
+            &((irc_manager_broadcast_t) {
                 .instance = irc,
                 .message  = string
             }),
-            &irc_manager_broadcast_single
+            lambda void(irc_channel_t *channel, irc_manager_broadcast_t *caster) {
+                irc_write(caster->instance, channel->channel, string_contents(caster->message));
+            }
         );
     }
 
