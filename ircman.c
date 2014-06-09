@@ -220,6 +220,11 @@ list_t *irc_manager_restart(irc_manager_t *manager) {
     return list;
 }
 
+typedef struct {
+    irc_manager_t *manager;
+    irc_t         *instance;
+} irc_manager_foreach_t;
+
 void irc_manager_process(irc_manager_t *manager) {
     if (!cmd_channel_ready(manager->commander)) {
         if (!irc_manager_stage(manager))
@@ -252,43 +257,31 @@ void irc_manager_process(irc_manager_t *manager) {
         if (!instance->ready || !instance->message.channel)
             continue;
 
-        /*
-         * Process all the 'always' and 'interval' modules. This could be done
-         * better presumably?. We need to consider a wake event to ensure these
-         * run always though.
-         */
-        list_iterator_t *it = list_iterator_create(instance->moduleman->modules);
-        while (!list_iterator_end(it)) {
-            module_t *module = list_iterator_next(it);
-            if (*module->match != '\0')
-                continue;
+        irc_manager_foreach_t foreach = {
+            .manager  = manager,
+            .instance = instance
+        };
 
-            if (access_ignore(instance, instance->message.nick))
-                continue;
-
-            if (module->interval == 0) {
-                cmd_entry_t *entry = cmd_entry_create(
-                    manager->commander,
-                    module,
-                    instance->message.channel,
-                    instance->message.nick,
-                    instance->message.content
-                );
-                cmd_channel_push(manager->commander, entry);
-            } else if (difftime(time(0), module->lastinterval) >= module->interval) {
-                fprintf(stderr, "    module   => %s interval met\n", module->name);
-                module->lastinterval = time(0);
-                cmd_entry_t *entry = cmd_entry_create(
-                    manager->commander,
-                    module,
-                    instance->message.channel,
-                    instance->message.nick,
-                    instance->message.content
-                );
-                cmd_channel_push(manager->commander, entry);
+        list_foreach(instance->moduleman->modules, &foreach,
+            lambda void(module_t *module, irc_manager_foreach_t *foreach) {
+                if (*module->match != '\0')
+                    return;
+                if (access_ignore(foreach->instance, foreach->instance->message.nick))
+                    return;
+                cmd_entry_t *(*make)(cmd_channel_t *, module_t *, irc_message_t *) =
+                    lambda cmd_entry_t *(cmd_channel_t *channel, module_t *module, irc_message_t *message) {
+                        return cmd_entry_create(channel, module, message->channel, message->nick, message->content);
+                    };
+                if (module->interval == 0)
+                    cmd_channel_push(foreach->manager->commander,
+                        make(foreach->manager->commander, module, &foreach->instance->message));
+                else if (difftime(time(0), module->lastinterval) >= module->interval) {
+                    module->lastinterval = time(0);
+                    cmd_channel_push(foreach->manager->commander,
+                        make(foreach->manager->commander, module, &foreach->instance->message));
+                }
             }
-        }
-        list_iterator_destroy(it);
+        );
     }
 }
 
