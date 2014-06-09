@@ -468,15 +468,11 @@ static void irc_module_destroy(irc_module_t *module) {
 }
 
 static bool irc_modules_exists(irc_t *irc, const char *name) {
-    list_iterator_t *it = list_iterator_create(irc->moduleman->modules);
-    while (!list_iterator_end(it)) {
-        if (!strcmp(((module_t*)list_iterator_next(it))->name, name)) {
-            list_iterator_destroy(it);
-            return true;
+    return list_search(irc->moduleman->modules, name,
+        lambda bool(module_t *module, const char *name) {
+            return !strcmp(module->name, name);
         }
-    }
-    list_iterator_destroy(it);
-    return false;
+    );
 }
 
 typedef struct {
