@@ -313,46 +313,33 @@ bool module_manager_module_reload(module_manager_t *manager, const char *name) {
 }
 
 bool module_manager_module_unloaded(module_manager_t *manager, module_t *module) {
-    list_iterator_t *it = list_iterator_create(manager->unloaded);
-    while (!list_iterator_end(it)) {
-        module_t *instance = list_iterator_next(it);
-        if (instance == module) {
-            list_iterator_destroy(it);
-            return true;
+    return list_search(manager->unloaded, module,
+        lambda bool(module_t *instance, module_t *module) {
+            return instance == module;
         }
-    }
-    list_iterator_destroy(it);
-    return false;
+    );
 }
 
 module_t *module_manager_module_command(module_manager_t *manager, const char *command) {
     return module_manager_module_search(manager, command, MMSEARCH_MATCH);
 }
 
+typedef struct {
+    int         method;
+    const char *name;
+} module_search_t;
+
 module_t *module_manager_module_search(module_manager_t *manager, const char *name, int method) {
-    list_iterator_t *it;
-
-    for (it = list_iterator_create(manager->modules); !list_iterator_end(it); ) {
-        module_t   *module = list_iterator_next(it);
-        const char *compare;
-
-        switch (method) {
-            case MMSEARCH_FILE:  compare = module->file;  break;
-            case MMSEARCH_NAME:  compare = module->name;  break;
-            case MMSEARCH_MATCH: compare = module->match; break;
-
-            default:
-                list_iterator_destroy(it);
-                return NULL;
+    return list_search(manager->modules, &((module_search_t){ .method = method, .name = name }),
+        lambda bool(module_t *module, module_search_t *search) {
+            switch (search->method) {
+                case MMSEARCH_FILE:  return !strcmp(search->name, module->file);
+                case MMSEARCH_NAME:  return !strcmp(search->name, module->name);
+                case MMSEARCH_MATCH: return !strcmp(search->name, module->match);
+            }
+            return false;
         }
-
-        if (!strcmp(compare, name)) {
-            list_iterator_destroy(it);
-            return module;
-        }
-    }
-    list_iterator_destroy(it);
-    return NULL;
+    );
 }
 
 /* Memory pinners for module API */
@@ -382,13 +369,6 @@ string_t *module_string_vformat(const char *fmt, va_list va) {
     string_t *string = string_vformat(fmt, va);
     module_mem_push(module, string, (void (*)(void*))&string_destroy);
     return string;
-}
-
-list_iterator_t *module_list_iterator_create(list_t *list) {
-    module_t *module = module_singleton_get();
-    list_iterator_t *it = list_iterator_create(list);
-    module_mem_push(module, it, (void (*)(void*))&list_iterator_destroy);
-    return it;
 }
 
 list_t *module_list_create(void) {
@@ -667,16 +647,14 @@ static svn_entry_t *module_svnlog_read_entry(FILE *handle) {
 }
 
 static void module_svnlog_destroy(list_t *list) {
-    list_iterator_t *it;
-    for (it = list_iterator_create(list); !list_iterator_end(it);) {
-        svn_entry_t *e = list_iterator_next(it);
-        string_destroy(e->revision);
-        string_destroy(e->author);
-        string_destroy(e->message);
-        free(e);
-    }
-    list_iterator_destroy(it);
-    list_destroy(list);
+    list_foreach(list, NULL,
+        lambda void(svn_entry_t *entry) {
+            string_destroy(entry->revision);
+            string_destroy(entry->author);
+            string_destroy(entry->message);
+            free(entry);
+        }
+    );
 }
 
 static list_t *module_svnlog_read(const char *url, size_t depth) {

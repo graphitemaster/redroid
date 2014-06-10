@@ -91,21 +91,35 @@ static void mod_reload(irc_t *irc, const char *channel, const char *user, const 
     }
 }
 
+typedef struct {
+    irc_t      *irc;
+    const char *channel;
+    const char *user;
+    const char *message;
+    list_t     *fail;
+} mod_data_t;
+
 static void mod_reload_all(irc_t *irc, const char *channel, const char *user) {
-    list_t *fail = list_create();
-    list_t *list = irc_modules_loaded(irc);
-    for (list_iterator_t *it = list_iterator_create(list); !list_iterator_end(it); ) {
-        char *name = list_iterator_next(it);
-        if (!mod_check(irc, channel, user, name, NULL))
-            continue;
-        if (irc_modules_reload(irc, name) != MODULE_STATUS_SUCCESS)
-            list_push(fail, name);
-    }
+    mod_data_t data = {
+        .fail    = list_create(),
+        .irc     = irc,
+        .channel = channel,
+        .user    = user
+    };
+    list_foreach(irc_modules_loaded(irc), &data,
+        lambda void(const char *name, mod_data_t *data) {
+            if (mod_check(data->irc, data->channel, data->user, name, NULL))
+                if (irc_modules_reload(data->irc, name) != MODULE_STATUS_SUCCESS)
+                    list_push(data->fail, (char *)name);
+        }
+    );
     irc_write(irc, channel, "%s: Ok, reloaded all modules", user);
-    for (list_iterator_t *it = list_iterator_create(fail); !list_iterator_end(it); ) {
-        const char *name = list_iterator_next(it);
-        irc_write(irc, channel, "%s: module %s couldn't be reloaded", user, name);
-    }
+    list_foreach(data.fail, &data,
+        lambda void(const char *name, mod_data_t *data) {
+            irc_write(data->irc, data->channel, "%s: module %s couldn't be reloaded",
+                data->user, name);
+        }
+    );
 }
 
 static void mod_unload(irc_t *irc, const char *channel, const char *user, const char *module, bool force) {
@@ -125,36 +139,36 @@ static void mod_unload(irc_t *irc, const char *channel, const char *user, const 
 }
 
 static void mod_unload_all(irc_t *irc, const char *channel, const char *user) {
-    list_t *fail = list_create();
-    list_t *list = irc_modules_loaded(irc);
-    for (list_iterator_t *it = list_iterator_create(list); !list_iterator_end(it); ) {
-        char *name = list_iterator_next(it);
-        if (!mod_check(irc, channel, user, name, NULL))
-            continue;
+    mod_data_t data = {
+        .irc     = irc,
+        .channel = channel,
+        .user    = user,
+        .fail    = irc_modules_loaded(irc)
+    };
 
-        if (irc_modules_unload(irc, channel, name, false) != MODULE_STATUS_SUCCESS)
-            list_push(fail, name);
-    }
+    list_foreach(irc_modules_loaded(irc), &data,
+        lambda void(const char *name, mod_data_t *data) {
+            if (mod_check(data->irc, data->channel, data->user, name, NULL))
+                if (irc_modules_unload(data->irc, data->channel, name, false) != MODULE_STATUS_SUCCESS)
+                    list_push(data->fail, (char *)name);
+        }
+    );
     irc_write(irc, channel, "%s: Ok, unloaded all modules", user);
-    for (list_iterator_t *it = list_iterator_create(fail); !list_iterator_end(it); ) {
-        const char *name = list_iterator_next(it);
-        irc_write(irc, channel, "%s: module %s couldn't be unloaded", user, name);
-    }
+    list_foreach(data.fail, &data,
+        lambda void(const char *name, mod_data_t *data) {
+            irc_write(data->irc, data->channel, "%s: module %s couldn't be unloaded", data->user, name);
+        }
+    );
 }
 
 static void mod_list(irc_t *irc, const char *channel, const char *user, bool loaded) {
-    list_t          *list   = (loaded) ? irc_modules_loaded(irc) : irc_modules_enabled(irc, channel);
-    string_t        *string = string_construct();
-    list_iterator_t *it     = list_iterator_create(list);
-
-    while (!list_iterator_end(it)) {
-        const char *next = list_iterator_next(it);
-        if (!list_iterator_end(it))
-            string_catf(string, "%s, ", next);
-        else
-            string_catf(string, "%s", next);
-    }
-
+    string_t *string = string_construct();
+    list_foreach((loaded ? irc_modules_loaded(irc) : irc_modules_enabled(irc, channel)), string,
+        lambda void(const char *name, string_t *string) {
+            string_catf(string, "%s, ", name);
+        }
+    );
+    string_shrink(string, 2);
     irc_write(irc, channel, "%s: modules %s: %s", user, (loaded) ? "loaded" : "enabled", string_contents(string));
 }
 

@@ -63,15 +63,20 @@ static void system_part(irc_t *irc, const char *channel, const char *user, const
     }
 }
 
+typedef struct {
+    const char *channel;
+    irc_t      *irc;
+} irc_part_data_t;
+
 static void system_part_all(irc_t *irc, const char *channel, const char *user) {
     irc_write(irc, channel, "%s: parting all but this channel", user);
-    list_t *channels = irc_channels(irc);
-    for (list_iterator_t *it = list_iterator_create(channels); !list_iterator_end(it); ) {
-        const char *name = list_iterator_next(it);
-        if (!strcmp(name, channel))
-            continue;
-        irc_part(irc, name);
-    }
+    list_foreach(irc_channels(irc),
+        &((irc_part_data_t){ .channel = channel, .irc = irc }),
+        lambda void(const char *name, irc_part_data_t *data) {
+            if (strcmp(name, data->channel))
+                irc_part(data->irc, name);
+        }
+    );
     irc_write(irc, channel, "%s: Ok, parted all but this channel", user);
 }
 
@@ -81,33 +86,27 @@ static void system_version(irc_t *irc, const char *channel, const char *user) {
 
 static void system_users(irc_t *irc, const char *channel, const char *user) {
     string_t *string = string_construct();
-    list_t   *users  = irc_users(irc, channel);
-
-    for (list_iterator_t *it = list_iterator_create(users); !list_iterator_end(it); ) {
-        char *copy = strdup(list_iterator_next(it));
-        copy[urand() % strlen(copy)] = '*';
-        if (!list_iterator_end(it))
-            string_catf(string, "%s, ", copy);
-        else
-            string_catf(string, "%s", copy);
-    }
+    list_foreach(irc_users(irc, channel), string,
+        lambda void(const char *user, string_t *string) {
+            char *duplicate = strdup(user);
+            duplicate[urand() % strlen(duplicate)] = '*';
+            string_catf(string, "%s, ", duplicate);
+        }
+    );
+    string_shrink(string, 2);
 
     irc_write(irc, channel, "%s: to preventing highlighting the nicks will contain '*'", user);
     irc_write(irc, channel, "%s: %s", user, string_contents(string));
 }
 
 static void system_channels(irc_t *irc, const char *channel, const char *user) {
-    string_t *string   = string_construct();
-    list_t   *channels = irc_channels(irc);
-
-    for (list_iterator_t *it = list_iterator_create(channels); !list_iterator_end(it); ) {
-        const char *channel = list_iterator_next(it);
-        if (!list_iterator_end(it))
+    string_t *string = string_construct();
+    list_foreach(irc_channels(irc), string,
+        lambda void(const char *channel, string_t *string) {
             string_catf(string, "%s, ", channel);
-        else
-            string_catf(string, "%s", channel);
-    }
-
+        }
+    );
+    string_shrink(string, 2);
     irc_write(irc, channel, "%s: %s", user, string_contents(string));
 }
 

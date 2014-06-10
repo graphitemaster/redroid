@@ -25,49 +25,6 @@ struct list_s {
     list_atcache_t atcache;
 };
 
-struct list_iterator_s {
-    list_t      *list;
-    list_node_t *pointer;
-};
-
-/* List iterator */
-list_iterator_t *list_iterator_create(list_t *list) {
-    if (!list) return NULL;
-
-    list_iterator_t *it = malloc(sizeof(*it));
-
-    it->pointer = list->head;
-    it->list    = list;
-
-    return it;
-}
-
-void list_iterator_destroy(list_iterator_t *it) {
-    free(it);
-}
-
-void *list_iterator_next(list_iterator_t *it) {
-    if (!it->pointer) return NULL;
-    void *ptr = it->pointer->element;
-    it->pointer = it->pointer->next;
-    return ptr;
-}
-
-void *list_iterator_prev(list_iterator_t *it) {
-    if (!it->pointer) return NULL;
-    void *ptr = it->pointer->element;
-    it->pointer = it->pointer->prev;
-    return ptr;
-}
-
-void list_iterator_reset(list_iterator_t *it) {
-    it->pointer = it->list->head;
-}
-
-bool list_iterator_end(list_iterator_t *it) {
-    return !it->pointer;
-}
-
 /* List node */
 static list_node_t *list_node_create(void *element) {
     list_node_t *node = malloc(sizeof(*node));

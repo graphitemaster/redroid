@@ -132,6 +132,8 @@ static web_template_t *web_template_create(const char *infile) {
 }
 
 static void web_template_update(web_template_t *template) {
+    (void)template;
+#if 0
     string_destroy(template->formatted);
     template->formatted = string_construct();
 
@@ -178,6 +180,7 @@ static void web_template_update(web_template_t *template) {
     }
     list_iterator_destroy(it);
     hashtable_foreach(template->replaces, NULL, &web_template_entries_update);
+#endif
 }
 
 static web_template_t *web_template_find(web_t *web, const char *name) {

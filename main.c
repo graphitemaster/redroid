@@ -331,6 +331,11 @@ static bool signal_restarted(int *argc, char ***argv, int *tmpfd) {
     return true;
 }
 
+typedef struct {
+    string_t *stringtable;
+    int       fd;
+} restart_data_t;
+
 int main(int argc, char **argv) {
     /*
      * Okay a little explination what we're doing here.
@@ -641,21 +646,26 @@ int main(int argc, char **argv) {
         printf("Restart state with %zu network(s):\n", count);
 
         /* Now deal with the file descriptors */
-        list_iterator_t *it = list_iterator_create(fds);
-        while (!list_iterator_end(it)) {
-            irc_manager_restart_t *e = list_iterator_next(it);
-            printf("    Network %s on socket %d stored (%s socket)\n",
-                e->name, e->fd, e->ssl ? "secure" : "normal");
+        restart_data_t data = {
+            .stringtable = stringtable,
+            .fd          = fd
+        };
 
-            write(fd, &e->fd, sizeof(int));
+        list_foreach(fds, &data,
+            lambda void(irc_manager_restart_t *e, restart_data_t *data) {
+                printf("    Network %s on socket %d stored (%s socket)\n",
+                    e->name, e->fd, e->ssl ? "secure" : "normal");
 
-            /* Apeend to string table seperated by newlines */
-            string_catf(stringtable, "%s\n", e->name);
+                write(data->fd, &e->fd, sizeof(int));
 
-            free(e->data);
-            free(e->name);
-            free(e);
-        }
+                /* Append to string table seperated by newlines */
+                string_catf(data->stringtable, "%s\n", e->name);
+
+                free(e->data);
+                free(e->name);
+                free(e);
+            }
+        );
 
         /* Write string table */
         write(fd, string_contents(stringtable), string_length(stringtable));

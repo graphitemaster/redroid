@@ -3,74 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-typedef struct list_iterator_s list_iterator_t;
-typedef struct list_s          list_t;
-
-/*
- * Function: list_iterator_create
- *  Create an iterator for a list.
- *
- * Parameters:
- *  list    - The list to create an iterator of.
- *
- * Returns:
- *  An iterator for the list.
- */
-list_iterator_t *list_iterator_create(list_t *list);
-
-/*
- * Function: list_iterator_destroy
- *  Destroy an iterator
- *
- * Parameters:
- *  iterator    - The iterator to destroy.
- */
-void list_iterator_destroy(list_iterator_t *iterator);
-
-/*
- * Function: list_iterator_reset
- *  Reset the iterator to the head of the list.
- *
- * Parameters:
- *  iterator    - The iterator to reset.
- */
-void list_iterator_reset(list_iterator_t *iterator);
-
-/*
- * Function: list_iterator_end
- *  Check if iterator is at end of list.
- *
- * Parameters:
- *  iterator    - The iterator to check.
- *
- * Returns:
- *  True if iterator is at the end of the list, false otherwise.
- */
-bool list_iterator_end(list_iterator_t *iterator);
-
-/*
- * Function: list_iterator_next
- *  Advance the iterator in a forward direction.
- *
- * Parameters:
- *  The iterator to advance.
- *
- * Returns:
- *  The element at the iterators position on advance.
- */
-void *list_iterator_next(list_iterator_t *iterator);
-
-/*
- * Function: list_iterator_prev
- *  Advance the iterator in a reverse direction.
- *
- * Parameters:
- *  The iterator to advance.
- *
- * Returns:
- *  The element at the iterators position on advance.
- */
-void *list_iterator_prev(list_iterator_t *iterator);
+typedef struct list_s list_t;
 
 /*
  * Function: list_create

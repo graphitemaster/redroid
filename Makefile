@@ -35,8 +35,8 @@ timestamp.o:
 .c.o:
 	$(LAMBDAPP) $< | $(CC) -xc -c $(CFLAGS) - -o $@
 
-modules/%.so: modules/%.c
-	$(CC) $(MODULE_CFLAGS) $< -o $@ $(MODULE_LDFLAGS)
+modules/%.so: modules/%.c $(LAMBDAPP)
+	$(LAMBDAPP) $< | $(CC) -xc $(MODULE_CFLAGS) - -o $@ $(MODULE_LDFLAGS)
 
 wlgen: $(WHITELIST_OBJECTS)
 	$(CC) $(WHITELIST_OBJECTS) -o $@ $(WHITELIST_LDFLAGS)

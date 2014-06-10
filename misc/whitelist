@@ -136,23 +136,22 @@ raise
 strncasecmp
 strcasecmp
 
-list_iterator_next
-list_iterator_prev
-list_iterator_end
+list_foreach_impl
 list_pop
 list_push
 list_shift
 list_length
 list_sort
-list_search
+list_search_impl
 list_at
 hashtable_find
 hashtable_insert
-hashtable_foreach
+hashtable_foreach_impl
 string_contents
 string_length
 string_catf
 string_vcatf
+string_shrink
 irc_modules_add
 irc_modules_reload
 irc_modules_unload

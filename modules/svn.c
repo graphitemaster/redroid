@@ -31,16 +31,21 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     (void)user; /* ignored */
     (void)message; /* ignored */
 
-    hashtable_t *get = irc_modules_config(irc, channel);
-    if (!get)
+
+    hashtable_t *get;
+    if (!(get = irc_modules_config(irc, channel)))
         return;
 
-    const char  *url   = hashtable_find(get, "url");
-    const char  *link  = hashtable_find(get, "link");
-    int          depth = atoi(hashtable_find(get, "depth"));
+    const char *url;
+    const char *link;
+    const char *depth;
+
+    if (!(url   = hashtable_find(get, "url")))   return;
+    if (!(link  = hashtable_find(get, "link")))  return;
+    if (!(depth = hashtable_find(get, "depth"))) return;
 
     /* Read SVN entries in and write them out to the channel */
-    list_t *list = svnlog(url, depth);
+    list_t *list = svnlog(url, atoi(depth));
     if (!list)
         return;
 

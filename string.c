@@ -161,3 +161,14 @@ void string_replace(string_t *string, const char *search, const char *replace) {
 
     string_reassociate(string, modified);
 }
+
+void string_shrink(string_t *string, size_t by) {
+    if (string_empty(string))
+        return;
+    if (string_length(string) < by)
+        return;
+    if (string_length(string) == by)
+        return string_clear(string);
+    string->length -= by;
+    string->buffer[string->length] = '\0';
+}

@@ -13,7 +13,6 @@ typedef struct database_statement_s     database_statement_t;
 typedef struct database_row_s           database_row_t;
 typedef struct irc_s                    irc_t;
 typedef struct list_s                   list_t;
-typedef struct list_iterator_s          list_iterator_t;
 typedef struct string_s                 string_t;
 typedef struct hashtable_s              hashtable_t;
 
@@ -96,6 +95,7 @@ static inline string_t *string_construct(void) {
     return MODULE_GC_CALL(string_construct)();
 }
 void string_catf(string_t *string, const char *fmt, ...);
+void string_shrink(string_t *string, size_t by);
 size_t string_length(string_t *string);
 bool string_empty(string_t *string);
 char *string_contents(string_t *string);
@@ -114,20 +114,19 @@ static inline char *strdur(unsigned long long dur) {
 }
 
 /* List API */
-void list_iterator_reset(list_iterator_t *iterator);
-bool list_iterator_end(list_iterator_t *iterator);
-void *list_iterator_next(list_iterator_t *iterator);
-void *list_iterator_prev(list_iterator_t *iterator);
 void *list_pop(list_t *list);
 void *list_shift(list_t *list);
 size_t list_length(list_t *list);
 void list_sort(list_t *list, bool (*predicate)(const void *, const void *));
-void *list_search(list_t *list, const void *pass, bool (*predicate)(const void *, const void *));
+#define list_search(LIST, PASS, PREDICATE) \
+    list_search_impl((LIST), (PASS), ((bool (*)(const void *, const void *))(PREDICATE)))
+
+void *list_search_impl(list_t *list, const void *pass, bool (*predicate)(const void *, const void *));
 void *list_at(list_t *list, size_t index);
 void list_push(list_t *list, void *element);
-static inline list_iterator_t *list_iterator_create(list_t *list) {
-    return MODULE_GC_CALL(list_iterator_create)(list);
-}
+#define list_foreach(LIST, PASS, CALLBACK) \
+    list_foreach_impl((LIST), (PASS), ((void (*)(void *, void *))(CALLBACK)))
+void list_foreach_impl(list_t *list, void *pass, void (*callback)(void *, void *));
 
 static inline list_t *list_create(void) {
     return MODULE_GC_CALL(list_create)();
