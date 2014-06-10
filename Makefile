@@ -23,6 +23,8 @@ all: modules whitelist $(REDROID)
 
 $(OBJECTS): $(LAMBDAPP)
 
+$(MODULE_OBJECTS): $(LAMBDAPP)
+
 $(LAMBDAPP):
 	cd lambdapp && $(MAKE)
 
@@ -35,7 +37,7 @@ timestamp.o:
 .c.o:
 	$(LAMBDAPP) $< | $(CC) -xc -c $(CFLAGS) - -o $@
 
-modules/%.so: modules/%.c $(LAMBDAPP)
+modules/%.so: modules/%.c
 	$(LAMBDAPP) $< | $(CC) -xc $(MODULE_CFLAGS) - -o $@ $(MODULE_LDFLAGS)
 
 wlgen: $(WHITELIST_OBJECTS)

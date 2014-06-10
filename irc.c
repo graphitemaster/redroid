@@ -240,14 +240,44 @@ void irc_quit(irc_t *irc, const char *message) {
 
 void irc_join(irc_t *irc, const char *channel) {
     irc_enqueue_standard(irc, channel, IRC_COMMAND_JOIN);
-    /* TODO: fix */
+    /*
+     * Note: casting away const is fine in this context, these objects
+     * are copied from with irc_channels_add.
+     */
+    config_channel_t chan = {
+        .name    = (char *)channel,
+        .modules = hashtable_create(8)
+    };
+    /* Channels joined from IRC will only have the following three modules enabled
+     * by default.
+     *
+     * The hashtable is required for configuration options on the module. It's
+     * deeply copied in irc_module_create. We delete them later. This is a hack.
+     */
+    config_module_t modules[3] = {
+        { .name = (char *)"system", .kvs = hashtable_create(1) },
+        { .name = (char *)"access", .kvs = hashtable_create(1) },
+        { .name = (char *)"module", .kvs = hashtable_create(1) }
+    };
+
+    for (size_t i = 0; i < sizeof(modules)/sizeof(*modules); i++)
+        hashtable_insert(chan.modules, modules[i].name, &modules[i]);
+
+    irc_channels_add(irc, &chan);
+
+    for (size_t i = 0; i < sizeof(modules)/sizeof(*modules); i++)
+        hashtable_destroy(modules[i].kvs);
+
+    hashtable_destroy(chan.modules);
 }
 
 void irc_part(irc_t *irc, const char *channel) {
     irc_channel_t *chan = hashtable_find(irc->channels, channel);
+    if (!chan)
+        return;
+
     irc_channel_destroy(chan);
     hashtable_remove(irc->channels, channel);
-
     irc_enqueue_standard(irc, channel, IRC_COMMAND_PART);
 }
 
@@ -493,8 +523,8 @@ static size_t irc_modules_refs(irc_t *irc, const char *inmodule, const char *exc
             if (!strcmp(ref->exclude, channel->channel))
                 return;
             hashtable_foreach(channel->modules, ref,
-                lambda void(const char *module, irc_module_ref_t *ref) {
-                    if (!strcmp(module, ref->inmodule))
+                lambda void(irc_module_t *module, irc_module_ref_t *ref) {
+                    if (!strcmp(module->module, ref->inmodule))
                         ref->count++;
                 }
             );
@@ -538,13 +568,25 @@ module_status_t irc_modules_enable(irc_t *irc, const char *chan, const char *nam
         return MODULE_STATUS_NONEXIST;
 
     /* Everytime a module is enabled we have to load the configuration file and
-     * find the appropriate information for it.s
+     * find the appropriate information for it. It's possible that the channel
+     * has no module configuration at all.
      */
     list_t            *config   = config_load("config.ini");
     config_instance_t *instance = config_instance_find(config, irc->name);
     config_channel_t  *channel  = config_channel_find(instance, chan);
-    config_module_t   *module   = config_module_find(channel, name);
-    hashtable_insert(ch->modules, name, irc_module_create(module));
+    if (channel) {
+        /* Channel has module configuration */
+        config_module_t *module = config_module_find(channel, name);
+        hashtable_insert(ch->modules, name, irc_module_create(module));
+    } else {
+        /* Otherwise there is no configuration for the module */
+        config_module_t module = {
+            .name = (char *)name,
+            .kvs  = hashtable_create(1) /* This is a hack */
+        };
+        hashtable_insert(ch->modules, name, irc_module_create(&module));
+        hashtable_destroy(module.kvs);
+    }
 
     config_unload(config);
     return MODULE_STATUS_SUCCESS;
