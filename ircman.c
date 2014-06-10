@@ -179,13 +179,12 @@ void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
     string_vcatf(string, message, va);
 
     for (size_t i = 0; i < manager->instances->size; i++) {
-        irc_t  *irc = manager->instances->data[i];
-        hashtable_foreach(
-            irc->channels,
-            &((irc_manager_broadcast_t) {
-                .instance = irc,
-                .message  = string
-            }),
+        irc_t *irc = manager->instances->data[i];
+        irc_manager_broadcast_t broadcast = {
+            .instance = irc,
+            .message = string
+        };
+        hashtable_foreach(irc->channels, &broadcast,
             lambda void(irc_channel_t *channel, irc_manager_broadcast_t *caster) {
                 irc_write(caster->instance, channel->channel, string_contents(caster->message));
             }
