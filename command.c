@@ -126,8 +126,11 @@ bool cmd_channel_pop(cmd_channel_t *channel, cmd_entry_t **output) {
             return false;
         }
 
-        while (channel->head == channel->tail)
+        while (channel->head == channel->tail) {
             pthread_cond_wait(&channel->waiter, &channel->mutex);
+            if (channel->wrend && channel->head == channel->tail)
+                return false;
+        }
 
         channel->rdintent = NULL;
         pthread_mutex_unlock(&channel->mutex);
