@@ -11,6 +11,7 @@ typedef struct {
 typedef struct {
     hashtable_t *modules;    /* map<config_module_t>           */
     char        *name;       /* channel name                   */
+    bool         modulesall; /* module line is wildcard `*'    */
 } config_channel_t;
 
 typedef struct {
@@ -31,4 +32,5 @@ config_instance_t *config_instance_find(list_t *list, const char *name);
 
 list_t *config_load(const char *file);
 void config_unload(list_t *list);
+void config_save(list_t *config, const char *file);
 #endif

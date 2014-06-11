@@ -1,6 +1,9 @@
 #include "config.h"
+#include "string.h"
+#include "list.h"
 #include "ini.h"
 
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -37,8 +40,9 @@ static void config_module_destroy(config_module_t *module) {
 /* Channels: (name + module(s)) */
 static config_channel_t *config_channel_create(const char *name) {
     config_channel_t *channel = malloc(sizeof(*channel));
-    channel->name    = strdup(name);
-    channel->modules = hashtable_create(32);
+    channel->name       = strdup(name);
+    channel->modules    = hashtable_create(32);
+    channel->modulesall = false;
     return channel;
 }
 
@@ -107,17 +111,13 @@ static bool config_entry_handler(void *user, const char *section, const char *na
             hashtable_insert(module->kvs, name, strdup(value));
         } else {
             config_instance_t *instance = config_instance_find(config, find);
-            if (!instance) {
-                fprintf(stderr, "    config   => failed finding instance `%s'\n", find);
-                goto config_entry_error;
-            }
-            config_channel_t *channel = config_channel_find(instance, channelname);
-            if (!channel) {
-                fprintf(stderr, "    config   => [%s] failed finding channel `%s'\n", find, channelname);
-                goto config_entry_error;
-            }
+            config_channel_t  *channel  = config_channel_create(channelname);
+
+            hashtable_insert(instance->channels, channelname, channel);
+
             if (!strcmp(name, "modules")) {
                 /* Parse modules for this channel */
+                channel->modulesall = true;
                 if (*value == '*') {
                     DIR           *dir;
                     struct dirent *ent;
@@ -174,13 +174,6 @@ static bool config_entry_handler(void *user, const char *section, const char *na
             else if (!strcmp(name, "auth"))      instance->auth     = strdup(value);
             else if (!strcmp(name, "database"))  instance->database = strdup(value);
             else if (!strcmp(name, "ssl"))       instance->ssl      = ini_boolean(value);
-            else if (!strcmp(name, "channels")) {
-                char *tok = strtok((char*)value, ", ");
-                while (tok) {
-                    hashtable_insert(instance->channels, tok, config_channel_create(tok));
-                    tok = strtok(NULL, ", ");
-                }
-            }
         }
     }
     free(find);
@@ -217,4 +210,88 @@ list_t *config_load(const char *file) {
 void config_unload(list_t *list) {
     list_foreach(list, NULL, &config_instance_destroy);
     list_destroy(list);
+}
+
+typedef struct {
+    FILE              *fp;
+    config_instance_t *instance;
+    config_channel_t  *channel;
+    string_t          *modsline;
+} config_save_t;
+
+void config_save(list_t *config, const char *file) {
+    FILE *fp;
+    if (!(fp = fopen(file, "w")))
+        return;
+
+    char timestamp[256];
+    strftime(timestamp, sizeof(timestamp) - 1,
+        "%B %d, %Y %I:%M %p", localtime(&(time_t){time(0)}));
+    fprintf(fp, "# Redroid configuration last modified %s\n", timestamp);
+
+    /* For all instances */
+    list_foreach(config, fp,
+        lambda void(config_instance_t *instance, FILE *fp) {
+            config_save_t save = {
+                .fp       = fp,
+                .instance = instance
+            };
+
+            /*
+             * Note: There is 8 spaces to `=' if this changes, please change the
+             * right justification `%-8s' for the module configuration alignment
+             * below.
+             */
+            fprintf(fp, "[%s]\n",              instance->name);
+            fprintf(fp, "    nick     = %s\n", instance->nick);
+            fprintf(fp, "    pattern  = %s\n", instance->pattern);
+            fprintf(fp, "    host     = %s\n", instance->host);
+            fprintf(fp, "    port     = %s\n", instance->port);
+            fprintf(fp, "    auth     = %s\n", instance->auth);
+            fprintf(fp, "    database = %s\n", instance->database);
+            fprintf(fp, "    ssl      = %s\n\n", instance->ssl ? "True" : "False");
+
+            fprintf(fp, "# Channels for `%s'\n", instance->name);
+            hashtable_foreach(instance->channels, &save,
+                lambda void(config_channel_t *channel, config_save_t *save) {
+                    save->channel = channel;
+                    fprintf(save->fp, "[%s:%s]\n", save->instance->name, save->channel->name);
+                    fprintf(save->fp, "    modules  = ");
+                    if (save->channel->modulesall)
+                        fprintf(save->fp, "*\n\n");
+                    else {
+                        save->modsline = string_construct();
+                        hashtable_foreach(save->channel->modules, save,
+                            lambda void(config_module_t *module, config_save_t *save) {
+                                string_catf(save->modsline, "%s, ", module->name);
+                            }
+                        );
+                        string_shrink(save->modsline, 2);
+                        fprintf(save->fp, "%s\n\n", string_contents(save->modsline));
+                        string_destroy(save->modsline);
+                    }
+
+                    fprintf(save->fp, "# Module configuration for `%s'\n\n",
+                        save->channel->name);
+
+                    hashtable_foreach(save->channel->modules, save,
+                        lambda void(config_module_t *module, config_save_t *save) {
+                            /* Don't bother writing module config unless we need to */
+                            if (hashtable_elements(module->kvs) == 0)
+                                return;
+                            fprintf(save->fp, "# Module configuration for `%s'\n", module->name);
+                            fprintf(save->fp, "[%s:%s:%s]\n",
+                                save->instance->name, save->channel->name, module->name);
+                            hashtable_foreachkv(module->kvs, save->fp,
+                                lambda void(const char *key, const char *value, FILE *fp) {
+                                    fprintf(fp, "    %-8s = %s\n", key, value);
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        }
+    );
+    fclose(fp);
 }

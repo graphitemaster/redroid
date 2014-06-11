@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 struct hashtable_s {
+    size_t          elements;
     size_t          size;
     pthread_mutex_t mutex;
     list_t        **table;
@@ -78,9 +79,10 @@ hashtable_t *hashtable_create(size_t size) {
 
     hashtable_t *hashtable = malloc(sizeof(*hashtable));
 
-    hashtable->size  = hashtable_pot(size);
-    hashtable->mutex = mutex;
-    hashtable->table = malloc(sizeof(list_t*) * size);
+    hashtable->size     = hashtable_pot(size);
+    hashtable->mutex    = mutex;
+    hashtable->table    = malloc(sizeof(list_t*) * size);
+    hashtable->elements = 0;
 
     for (size_t i = 0; i < hashtable->size; i++)
         hashtable->table[i] = list_create();
@@ -107,6 +109,7 @@ void hashtable_insert(hashtable_t *hashtable, const char *key, void *value) {
     size_t hash = hashtable_hash(key) & (hashtable->size - 1);
     pthread_mutex_lock(&hashtable->mutex);
     list_push(hashtable->table[hash], hashtable_entry_create(key, value));
+    hashtable->elements++;
     pthread_mutex_unlock(&hashtable->mutex);
 }
 
@@ -126,6 +129,8 @@ bool hashtable_remove(hashtable_t *hashtable, const char *key) {
         goto hashtable_remove_finish;
     }
 
+    hashtable->elements--;
+
 hashtable_remove_finish:
     pthread_mutex_unlock(&hashtable->mutex);
     return value;
@@ -139,15 +144,33 @@ void *hashtable_find(hashtable_t *hashtable, const char *key) {
     return find ? find->value : NULL;
 }
 
+size_t hashtable_elements(hashtable_t *hashtable) {
+    return hashtable ? hashtable->elements : 0;
+}
+
+/*
+ * This structure when used in the context of foreach takes on two meanings.
+ *  If `keys' is true then `keyfunc' callback is used, otherwise `valuefunc'
+ *  is. The latter is called with the value of the current iteration and
+ *  `pass' as the second argument, while the former is called with the same
+ *  arguments except shifted forward with the `const char *' being passed the
+ *  key of the current iteration.
+ *
+ * This structure when used in the context of a copy only has one meaning.
+ *  The copyfunc callback is to be called passing in the value of the current
+ *  iteration, `pass' and `keys' are ignored.
+ */
 typedef struct {
     union {
-        void  (*func)(void *, void *);
-        void *(*copy)(void *);
+        void *callback;
+        void (*valuefunc)(void *, void *);
+        void (*keyfunc)(const char *, void *, void *);
+        void *(*copyfunc)(void *);
     };
     void *pass;
 } hashtable_pass_t;
 
-void hashtable_foreach_impl(hashtable_t *hashtable, void *pass, void (*func)(void *, void *)) {
+void hashtable_foreach_impl(hashtable_t *hashtable, void *pass, void *callback, bool keys) {
     pthread_mutex_lock(&hashtable->mutex);
     for (size_t i = 0; i < hashtable->size; i++) {
         list_t *list = hashtable->table[i];
@@ -155,14 +178,18 @@ void hashtable_foreach_impl(hashtable_t *hashtable, void *pass, void (*func)(voi
             break;
 
         hashtable_pass_t data = {
-            .func = func,
-            .pass = pass
+            .callback = callback,
+            .pass = pass,
         };
-        list_foreach(list, &data,
-            lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass) {
-                pass->func(entry->value, pass->pass);
-            }
-        );
+
+        if (keys)
+            list_foreach(list, &data,
+                lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass) {
+                    pass->keyfunc(entry->key, entry->value, pass->pass);});
+        else
+            list_foreach(list, &data,
+                lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass) {
+                    pass->valuefunc(entry->value, pass->pass);});
     }
     pthread_mutex_unlock(&hashtable->mutex);
 }
@@ -175,13 +202,13 @@ hashtable_t *hashtable_copy_impl(hashtable_t *hashtable, void *(*copy)(void *)) 
         if (!list)
             break;
 
-        hashtable_pass_t data = {
-            .copy = copy,
-            .pass = copied
-        };
-        list_foreach(list, &data,
+        list_foreach(list,
+            &((hashtable_pass_t) {
+                .copyfunc = copy,
+                .pass     = copied
+            }),
             lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass) {
-                hashtable_insert(pass->pass, entry->key, pass->copy(entry->value));
+                hashtable_insert(pass->pass, entry->key, pass->copyfunc(entry->value));
             }
         );
     }
