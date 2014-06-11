@@ -31,7 +31,6 @@ struct web_s {
     pthread_t       thread;
     pthread_mutex_t mutex;
     list_t         *sessions;
-    list_t         *templates;
     irc_manager_t  *ircmanager;
 };
 
@@ -66,265 +65,10 @@ static void web_session_control(web_t *web, sock_t *client, bool add) {
         session->valid = false;
 }
 
-/* web string template engine */
-typedef struct {
-    hashtable_t *replaces;
-    const char  *file;
-    list_t      *lines;
-    string_t    *formatted;
-} web_template_t;
-
-typedef struct {
-    web_template_t *associated;
-    char           *search;
-    char           *replace;
-} web_template_entry_t;
-
-static void web_template_entries_destroy(web_template_entry_t *entry) {
-    free(entry->search);
-    free(entry->replace);
-    free(entry);
-}
-
-static void web_template_entries_update(web_template_entry_t *entry) {
-    string_t *find = string_format("<!--$[[%s]]-->", entry->search);
-    string_replace(entry->associated->formatted, string_contents(find), entry->replace);
-    string_destroy(find);
-}
-
-static void web_template_destroy(web_template_t *template) {
-    string_destroy(template->formatted);
-    hashtable_foreach(template->replaces, NULL, &web_template_entries_destroy);
-    hashtable_destroy(template->replaces);
-
-    char *line;
-    while ((line = list_pop(template->lines)))
-        free(line);
-    list_destroy(template->lines);
-
-    free(template);
-}
-
-static web_template_t *web_template_create(const char *infile) {
-    size_t    size = 0;
-    char     *line = NULL;
-    string_t *file = string_format("site/%s", infile);
-    FILE     *fp;
-
-    if (!(fp = fopen(string_contents(file), "r")))
-        return NULL;
-    string_destroy(file);
-
-    /* create new template and read in the file as individual lines */
-    web_template_t tmpl = {
-        .file      = infile,
-        .replaces  = hashtable_create(256),
-        .lines     = list_create(),
-        .formatted = string_construct()
-    };
-
-    while (getline(&line, &size, fp) != EOF)
-        list_push(tmpl.lines, strdup(line));
-
-    free(line);
-    fclose(fp);
-    return memcpy(malloc(sizeof(tmpl)), &tmpl, sizeof(tmpl));
-}
-
-static void web_template_update(web_template_t *template) {
-    (void)template;
-#if 0
-    string_destroy(template->formatted);
-    template->formatted = string_construct();
-
-    list_iterator_t *it = list_iterator_create(template->lines);
-    while (!list_iterator_end(it)) {
-        char *beg = list_iterator_next(it);
-        char *end = beg;
-        bool  def = false;
-
-        /* deal with normal stuff */
-        if (!(end = strstr(beg, "<!--$[[IF"))) {
-            while (isspace(*beg)) beg++;
-            string_catf(template->formatted, beg);
-            continue;
-        }
-
-        beg = &end[strlen("<!--$[[IF")];
-        if (!strncmp(beg, "DEF ", 4))
-            def = true;
-        else if (!strncmp(beg, "NDEF ", 5))
-            def = false;
-        else
-            continue;
-
-        if (!(end = strstr(beg, "]]-->")))
-            continue;
-
-        end[0] = '\0';
-        web_template_entry_t *entry = hashtable_find(template->replaces, beg);
-        char *ending = list_iterator_next(it);
-        while (!list_iterator_end(it) && !strstr(ending, "<!--$[[ENDIF]]-->")) {
-            if (def) {
-                if (entry && entry->replace) {
-                    while (isspace(*ending)) ending++;
-                    string_catf(template->formatted, "%s", ending);
-                }
-            } else if (!entry || !entry->replace) {
-                while (isspace(*ending)) ending++;
-                string_catf(template->formatted, "%s", ending);
-            }
-            ending = list_iterator_next(it);
-        }
-        continue;
-    }
-    list_iterator_destroy(it);
-    hashtable_foreach(template->replaces, NULL, &web_template_entries_update);
-#endif
-}
-
-static web_template_t *web_template_find(web_t *web, const char *name) {
-    return list_search(web->templates, name,
-        lambda bool(const web_template_t *const template, const char *file) {
-            return !strcmp(template->file, file);
-        }
-    );
-}
-
-static void web_template_send(web_t *web, sock_t *client, const char *tmpl) {
-    web_template_t *find = web_template_find(web, tmpl);
-    if (!find)
-        return http_send_plain(client, "404 File not found");
-
-    web_template_update(find);
-    http_send_html(client, string_contents(find->formatted));
-}
-
-static void web_template_register(web_t *web, const char *file, size_t count, ...) {
-    web_template_t *find = web_template_find(web, file);
-    if (!find) {
-        find = web_template_create(file);
-        list_push(web->templates, find);
-    }
-
-    va_list  va;
-    va_start(va, count);
-
-    for (size_t i = 0; i < count; i++) {
-        web_template_entry_t *entry = malloc(sizeof(*entry));
-        entry->search     = strdup(va_arg(va, char *));
-        entry->replace    = NULL;
-        entry->associated = find;
-
-        hashtable_insert(find->replaces, entry->search, entry);
-    }
-
-    va_end(va);
-}
-
-static void web_template_change(web_t *web, const char *file, const char *search, const char *replace) {
-    web_template_t *find = web_template_find(web, file);
-    if (!find)
-        return;
-
-    web_template_entry_t *entry = hashtable_find(find->replaces, search);
-    if (!entry)
-        return;
-
-    free(entry->replace);
-    entry->replace = strdup(replace);
-}
-
 /* administration web template generation */
 static void web_admin_create(web_t *web) {
     (void)web;
-#if 0 /* TODO */
-    string_t        *create = string_construct();
-    list_t          *config = config_load("config.ini");
-    list_iterator_t *it     = list_iterator_create(config);
-
-    while (!list_iterator_end(it)) {
-        config_t *entry = list_iterator_next(it);
-
-        string_catf(create,
-                "<h4>Instance: <span>%s</span> <i class='fa fa-arrow-circle-o-down pull-right'></i></h4>"
-                "<div>"
-                "<form method='post' action='/::update'>"
-                "<div class='row'>"
-                "<div class='col-xs-6'>"
-                "<div class='instanceListHeader'>Bot data</div>"
-                "<div class='form-group'>"
-                "<input value='%s' type='hidden' name='instance'>"
-                "<label for='nick'>Nickname</label>"
-                "<input value='%s' type='text' class='form-control' name='nick' placeholder='Bot\'s nickname.'>"
-                "</div>"
-                "<div class='form-group'>"
-                "<label for='pattern'>Bot pattern</label>"
-                "<input value='%s' type='text' class='form-control' name='pattern' placeholder='The pattern you\'ll command the bot with.'>"
-                "</div>"
-                "<div class='form-group'>"
-                "<label for='modules'>Modules (newline separated)</label>"
-                "<textarea class='form-control' name='modules' placeholder='List of modules you want the bot to load upon start.' rows='4'>",
-                entry->name,
-                entry->name,
-                entry->nick,
-                entry->pattern);
-
-        list_iterator_t *mo = list_iterator_create(entry->modules);
-        while (!list_iterator_end(mo))
-            string_catf(create, "%s\n", list_iterator_next(mo));
-        list_iterator_destroy(mo);
-
-        string_catf(create,
-                "</textarea>"
-                "</div>"
-                "</div>"
-                "<div class='col-xs-6'>"
-                "<div class='instanceListHeader'>Server data</div>"
-                "<div class='form-group'>"
-                "<label for='host'>Server host</label>"
-                "<input value='%s' type='text' class='form-control' name='host' placeholder='The server the bot will connect to.'>"
-                "</div>"
-                "<div class='form-group'>"
-                "<label for='port'>Server port</label>"
-                "<input value='%s' type='text' class='form-control' name='port' placeholder='The server\'s port.'>"
-                "</div>"
-                "<div class='form-group'>"
-                "<label for='auth'>Authentication (NickServ)</label>"
-                "<input value='%s' type='password' class='form-control' name='auth' placeholder='The bot\'s NickServ password (optional).'>"
-                "</div>"
-                "<div class='form-group'>"
-                "<label for='channels'>Channels (newline separated)</label>"
-                "<textarea class='form-control' name='channels' placeholder='List of channels you want the bot to join upon connect.' rows='4'>",
-                entry->host,
-                entry->port,
-                (entry->auth) ? entry->auth : "");
-
-        list_iterator_t *ct = list_iterator_create(entry->channels);
-        while (!list_iterator_end(ct))
-            string_catf(create, "%s\n", list_iterator_next(ct));
-        list_iterator_destroy(ct);
-
-        string_catf(create,
-                "</textarea>"
-                "</div>"
-                "</div>"
-                "<div class='col-xs-offset-10 col-xs-2'>"
-                "<button type='submit' class='btn btn-block btn-danger'>Save <i class='fa fa-floppy-o'></i></button>"
-                "</div>"
-                "</div>"
-                "</form>"
-                "</div>"
-                );
-
-    }
-
-    web_template_change(web, "admin.html", "INSTANCES", string_contents(create));
-
-    list_iterator_destroy(it);
-    config_unload(config);
-    string_destroy(create);
-#endif
+    /* TODO: Build admin page */
 }
 
 /* web hooks */
@@ -338,9 +82,9 @@ static void web_hook_redirect(sock_t *client, void *data) {
 
     if (session && session->valid) {
         web_admin_create(web);
-        return web_template_send(web, client, "admin.html");
+        /* TODO: Send template "admin.html" */
     }
-    return web_template_send(web, client, "index.html");
+    /* TODO: Send template "index.html" */
 }
 
 static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
@@ -391,10 +135,10 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
         if (remember)
             web_session_control(web, client, true);
         web_admin_create(web);
-        web_template_send(web, client, "admin.html");
+        /* TODO: Send template "admin.html" */
     } else {
-        web_template_change(web, "index.html", "ERROR", "Invalid username or password");
-        web_template_send(web, client, "index.html");
+        /* TODO: Update "ERROR" "Invalid username or password" */
+        /* TODO: Send template "index.html" */
     }
 
     database_statement_complete(statement);
@@ -408,9 +152,9 @@ static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
 
     if (!strcmp(control, "Logout")) {
         web_session_control(data, client, false);
-        web_template_send(data, client, "index.html");
+        /* TODO: Send template "index.html" */
     } else if (!strcmp(control, "Settings")) {
-        web_template_send(data, client, "system.html");
+        /* TODO: Send template "system.html" */
     } else {
         http_send_plain(client, "500 Internal Server Error");
     }
@@ -421,19 +165,11 @@ static void web_hook_postupdate(sock_t *client, list_t *post, void *data) {
     if (!name)
         http_send_plain(client, "500 Internal Server Error");
 
-#if 0
-    /* TODO change config */
-    const char *nick     = http_post_find(post, "nick");
-    const char *pattern  = http_post_find(post, "pattern");
-    const char *modules  = http_post_find(post, "modules");
-    const char *host     = http_post_find(post, "host");
-    const char *port     = http_post_find(post, "port");
-    const char *auth     = http_post_find(post, "auth");
-    const char *channels = http_post_find(post, "channels");
-#endif
+    (void)data;
 
-    web_template_change(data, "update.html", "INSTANCE", name);
-    web_template_send(data, client, "update.html");
+    /* TODO: Change configuration */
+
+    /* TODO: Rebuild page */
 }
 
 static void web_hook_postsystem(sock_t *client, list_t *post, void *data) {
@@ -443,13 +179,13 @@ static void web_hook_postsystem(sock_t *client, list_t *post, void *data) {
     if (!control)
         return http_send_plain(client, "500 Internal Server Error");
 
+    (void)data;
+
     if (!strcmp(control, "Shutdown")) {
-        web_template_change(data, "system.html", "ACTION", "Shutting down");
-        web_template_send(data, client, "system.html");
+        /* TODO: build page ACTION "Shutdown" */
         redroid_shutdown_global(web->ircmanager);
     } else if (!strcmp(control, "Restart")) {
-        web_template_change(data, "system.html", "ACTION", "Restarting");
-        web_template_send(data, client, "system.html");
+        /* TODO: build page ACTION "Restart" */
         redroid_restart_global(web->ircmanager);
     }
 }
@@ -489,32 +225,14 @@ web_t *web_create(void) {
     web->database  = database_create("web.db");
     web->server    = server;
     web->sessions  = list_create();
-    web->templates = list_create();
 
     http_intercept_post(server, "::login",  &web_hook_postlogin,  web);
     http_intercept_post(server, "::admin",  &web_hook_postadmin,  web);
     http_intercept_post(server, "::system", &web_hook_postsystem, web);
     http_intercept_post(server, "::update", &web_hook_postupdate, web);
 
-    /* Register common landing page redirects */
-    static const char *common_lands[] = { "admin", "index", "login", "home", "system", "update", "" };
-    static const char *common_exts[]  = { "htm",   "html",  "HTM",   "HTML", "" };
-    for (size_t i = 0; i < sizeof(common_lands)/sizeof(*common_lands); i++) {
-        for (size_t j = 0; j < sizeof(common_exts)/sizeof(*common_exts); j++) {
-            string_t *string = string_format("%s%s", common_lands[i], common_exts[j]);
-            http_intercept_get(server, string_contents(string), &web_hook_redirect, web);
-            string_destroy(string);
-        }
-    }
-
-    web_template_register(web, "admin.html",  2, "INSTANCES", "VERSION");
-    web_template_register(web, "index.html",  2, "ERROR",     "VERSION");
-    web_template_register(web, "system.html", 2, "ACTION",    "VERSION");
-
-    const char *build_info();
-    web_template_change(web, "admin.html",  "VERSION", build_info());
-    web_template_change(web, "index.html",  "VERSION", build_info());
-    web_template_change(web, "system.html", "VERSION", build_info());
+    http_intercept_get(server, "index.html", &web_hook_redirect, web);
+    http_intercept_get(server, "admin.html", &web_hook_redirect, web);
 
     /*
      * The thread will keep running for as long as the mutex is locked.
@@ -549,8 +267,6 @@ void web_destroy(web_t *web) {
     database_destroy(web->database);
     list_foreach(web->sessions, NULL, &web_session_destroy);
     list_destroy(web->sessions);
-    list_foreach(web->templates, NULL, &web_template_destroy);
-    list_destroy(web->templates);
 
     free(web);
 }
