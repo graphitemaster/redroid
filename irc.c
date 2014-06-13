@@ -419,6 +419,29 @@ irc_t *irc_create(config_instance_t *instance) {
     return irc;
 }
 
+static void irc_message_destroy(irc_t *irc) {
+    free(irc->message.nick);
+    free(irc->message.host);
+    free(irc->message.channel);
+    free(irc->message.content);
+}
+
+static void irc_message_update(irc_t *irc, const char *prefix, char *params[static 2]) {
+    irc_message_destroy(irc);
+    irc->message.nick    = strdup(irc_target_nick(prefix));
+    irc->message.host    = strdup(irc_target_host(prefix));
+    irc->message.channel = strdup(params[0]);
+    irc->message.content = strdup(params[1]);
+}
+
+void irc_message_clear(irc_t *irc) {
+    irc_message_destroy(irc);
+    irc->message.nick = NULL;
+    irc->message.host = NULL;
+    irc->message.channel = NULL;
+    irc->message.content = NULL;
+}
+
 void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     irc_unqueue(irc);
 
@@ -431,22 +454,15 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     database_destroy(irc->database);
     regexpr_cache_destroy(irc->regexprcache);
     module_manager_destroy(irc->moduleman);
-
     hashtable_foreach(irc->channels, NULL, &irc_channel_destroy);
     hashtable_destroy(irc->channels);
     list_destroy(irc->queue);
-
     free(irc->auth);
     free(irc->nick);
     free(irc->name);
     free(irc->pattern);
-    free(irc->message.nick);
-    free(irc->message.host);
-    free(irc->message.channel);
-    free(irc->message.content);
-
+    irc_message_destroy(irc);
     sock_destroy(irc->sock, restart);
-
     free(irc);
 }
 
@@ -787,14 +803,7 @@ static void irc_parse(irc_t *irc, void *data) {
     }
 
     if (!strncmp(command, "PRIVMSG", end - command) && params[1]) {
-        free(irc->message.nick);
-        free(irc->message.host);
-        free(irc->message.channel);
-        free(irc->message.content);
-        irc->message.nick    = strdup(irc_target_nick(prefix));
-        irc->message.host    = strdup(irc_target_host(prefix));
-        irc->message.channel = strdup(params[0]);
-        irc->message.content = strdup(params[1]);
+        irc_message_update(irc, prefix, params);
 
         /* The bot ignores anyone who is -1 */
         if (access_ignore(irc, irc->message.nick))

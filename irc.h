@@ -92,6 +92,8 @@ list_t *irc_modules_enabled(irc_t *irc, const char *channel);
 
 bool irc_channels_add(irc_t *irc, config_channel_t *channel);
 
+void irc_message_clear(irc_t *irc);
+
 void irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_unqueue(irc_t *irc);

@@ -281,6 +281,12 @@ void irc_manager_process(irc_manager_t *manager) {
                 }
             }
         );
+
+        /*
+         * We need to clear the IRC message such that we do not process it again
+         * for always / interval modules.
+         */
+        irc_message_clear(instance);
     }
 }
 
