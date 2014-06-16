@@ -49,9 +49,8 @@ static void web_session_destroy(web_session_t *session) {
 static void web_session_control(web_t *web, sock_t *client, bool add) {
     /* Check if there isn't already a session for the client first */
     web_session_t *session = list_search(web->sessions, client,
-        lambda bool(const web_session_t *const session, const sock_t *const sock) {
-            return !strcmp(session->host, sock->host);
-        }
+        lambda bool(const web_session_t *const session, const sock_t *const sock)
+            => return !strcmp(session->host, sock->host);
     );
     if (add && session) {
         /* Revalidate session */
@@ -75,15 +74,15 @@ static void web_admin_create(web_t *web) {
 static void web_hook_redirect(sock_t *client, void *data) {
     web_t         *web     = data;
     web_session_t *session = list_search(web->sessions, client,
-        lambda bool(const web_session_t *const session, const sock_t *const sock) {
-            return !strcmp(session->host, sock->host);
-        }
+        lambda bool(const web_session_t *const session, const sock_t *const sock)
+            => return !strcmp(session->host, sock->host);
     );
 
     if (session && session->valid) {
         web_admin_create(web);
         /* TODO: Send template "admin.html" */
     }
+    http_send_unimplemented(client);
     /* TODO: Send template "index.html" */
 }
 
@@ -115,7 +114,7 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
     free((void *)getsalt);
 
     if (!database_statement_complete(statement))
-        return http_send_plain(client, "500 Internal Server Error");
+        return http_send_error(client);
 
     for (size_t i = 0; i < 160 / 8; i++)
         string_catf(hashpassword, "%02x", ripemdpass[i]);
@@ -148,22 +147,21 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
 static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
     const char *control = http_post_find(post, "control");
     if (!control)
-        return http_send_plain(client, "500 Internal Server Error");
+        return http_send_error(client);
 
     if (!strcmp(control, "Logout")) {
         web_session_control(data, client, false);
         /* TODO: Send template "index.html" */
     } else if (!strcmp(control, "Settings")) {
         /* TODO: Send template "system.html" */
-    } else {
-        http_send_plain(client, "500 Internal Server Error");
     }
+    http_send_error(client);
 }
 
 static void web_hook_postupdate(sock_t *client, list_t *post, void *data) {
     const char *name = http_post_find(post, "instance");
     if (!name)
-        http_send_plain(client, "500 Internal Server Error");
+        http_send_error(client);
 
     (void)data;
 
@@ -177,7 +175,7 @@ static void web_hook_postsystem(sock_t *client, list_t *post, void *data) {
     const char *control = http_post_find(post, "control");
 
     if (!control)
-        return http_send_plain(client, "500 Internal Server Error");
+        return http_send_error(client);
 
     (void)data;
 

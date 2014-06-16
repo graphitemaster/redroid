@@ -194,9 +194,8 @@ config_module_t *config_module_find(config_channel_t *channel, const char *modul
 
 config_instance_t *config_instance_find(list_t *list, const char *name) {
     return list_search(list, name,
-        lambda bool(const config_instance_t *instance, const char *name) {
-            return !strcmp(instance->name, name);
-        }
+        lambda bool(const config_instance_t *instance, const char *name)
+            => return !strcmp(instance->name, name);
     );
 }
 
@@ -262,9 +261,8 @@ void config_save(list_t *config, const char *file) {
                     else {
                         save->modsline = string_construct();
                         hashtable_foreach(save->channel->modules, save,
-                            lambda void(config_module_t *module, config_save_t *save) {
-                                string_catf(save->modsline, "%s, ", module->name);
-                            }
+                            lambda void(config_module_t *module, config_save_t *save)
+                                => string_catf(save->modsline, "%s, ", module->name);
                         );
                         string_shrink(save->modsline, 2);
                         fprintf(save->fp, "%s\n\n", string_contents(save->modsline));
@@ -283,9 +281,8 @@ void config_save(list_t *config, const char *file) {
                             fprintf(save->fp, "[%s:%s:%s]\n",
                                 save->instance->name, save->channel->name, module->name);
                             hashtable_foreachkv(module->kvs, save->fp,
-                                lambda void(const char *key, const char *value, FILE *fp) {
-                                    fprintf(fp, "    %-8s = %s\n", key, value);
-                                }
+                                lambda void(const char *key, const char *value, FILE *fp)
+                                    => fprintf(fp, "    %-8s = %s\n", key, value);
                             );
                         }
                     );

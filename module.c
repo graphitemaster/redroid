@@ -54,7 +54,7 @@ static bool module_load(module_t *module) {
     *(void **)(&module->close) = dlsym(module->handle, "module_close");
 
     if (!(module->name = (const char *)dlsym(module->handle, "module_name"))) {
-        fprintf(stderr, "    module   => missing module name in `%s`\n", module->file);
+        fprintf(stderr, "    module   => missing module name in `%s'\n", module->file);
         return false;
     }
 
@@ -314,9 +314,8 @@ bool module_manager_module_reload(module_manager_t *manager, const char *name) {
 
 bool module_manager_module_unloaded(module_manager_t *manager, module_t *module) {
     return list_search(manager->unloaded, module,
-        lambda bool(module_t *instance, module_t *module) {
-            return instance == module;
-        }
+        lambda bool(module_t *instance, module_t *module)
+            => return instance == module;
     );
 }
 

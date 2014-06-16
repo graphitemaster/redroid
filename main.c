@@ -471,9 +471,8 @@ int main(int argc, char **argv) {
              */
             irc_t *irc = irc_create(instance);
             hashtable_foreach(instance->channels, irc,
-                lambda void(config_channel_t *channel, irc_t *instance) {
-                    irc_channels_add(instance, channel);
-                }
+                lambda void(config_channel_t *channel, irc_t *instance)
+                    => irc_channels_add(instance, channel);
             );
 
             /* Prepare the restart data */
@@ -564,9 +563,8 @@ int main(int argc, char **argv) {
             lambda void(config_instance_t *instance, irc_manager_t *manager) {
                 irc_t *irc = irc_create(instance);
                 hashtable_foreach(instance->channels, irc,
-                    lambda void(config_channel_t *channel, irc_t *instance) {
-                        irc_channels_add(instance, channel);
-                    }
+                    lambda void(config_channel_t *channel, irc_t *instance)
+                        => irc_channels_add(instance, channel);
                 );
                 if (irc_connect(irc, instance->host, instance->port, instance->ssl)) {
                     irc_manager_add(manager, irc);
@@ -680,7 +678,7 @@ int main(int argc, char **argv) {
          * bot is killed. We can do this by forcing daemonization; which per its'
          * semantics will kill the parent process.
          */
-        redroid_daemon(true);
+        redroid_daemon(false);
         return execv(*argv, (char *[]){ *argv, buffer, (char *)NULL });
     }
 

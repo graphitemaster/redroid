@@ -185,9 +185,8 @@ void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
             .message = string
         };
         hashtable_foreach(irc->channels, &broadcast,
-            lambda void(irc_channel_t *channel, irc_manager_broadcast_t *caster) {
-                irc_write(caster->instance, channel->channel, string_contents(caster->message));
-            }
+            lambda void(irc_channel_t *channel, irc_manager_broadcast_t *caster)
+                => irc_write(caster->instance, channel->channel, string_contents(caster->message));
         );
     }
 
@@ -268,9 +267,9 @@ void irc_manager_process(irc_manager_t *manager) {
                 if (access_ignore(foreach->instance, foreach->instance->message.nick))
                     return;
                 cmd_entry_t *(*make)(cmd_channel_t *, module_t *, irc_message_t *) =
-                    lambda cmd_entry_t *(cmd_channel_t *channel, module_t *module, irc_message_t *message) {
-                        return cmd_entry_create(channel, module, message->channel, message->nick, message->content);
-                    };
+                    lambda cmd_entry_t *(cmd_channel_t *channel, module_t *module, irc_message_t *message)
+                        => return cmd_entry_create(channel, module, message->channel, message->nick, message->content);;
+
                 if (module->interval == 0)
                     cmd_channel_push(foreach->manager->commander,
                         make(foreach->manager->commander, module, &foreach->instance->message));

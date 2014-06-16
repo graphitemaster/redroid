@@ -36,16 +36,20 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
     if (!(get = irc_modules_config(irc, channel)))
         return;
 
+    const char *host;
     const char *url;
-    const char *link;
     const char *depth;
+    const char *template;
 
-    if (!(url   = hashtable_find(get, "url")))   return;
-    if (!(link  = hashtable_find(get, "link")))  return;
-    if (!(depth = hashtable_find(get, "depth"))) return;
+    if (!(host     = hashtable_find(get, "host")))     return;
+    if (!(depth    = hashtable_find(get, "depth")))    return;
+    if (!(template = hashtable_find(get, "template"))) return;
+    if (!(url      = hashtable_find(get, "url")))      return;
+
+    //irc_write(irc, channel, "[[RAW:TIME(svn.so)]] @ dispatch [#%s:%s:%s:%s]", url, depth, template, url);
 
     /* Read SVN entries in and write them out to the channel */
-    list_t *list = svnlog(url, atoi(depth));
+    list_t *list = svnlog(host, atoi(depth));
     if (!list)
         return;
 
@@ -54,14 +58,15 @@ void module_enter(irc_t *irc, const char *channel, const char *user, const char 
         if (svn_find(e->revision))
             continue;
 
-        irc_write(irc, channel, "[B]r%s[/B] by [B]%s[/B] -> %s%s -> %s",
-            string_contents(e->revision),
-            string_contents(e->author),
-            link,
-            string_contents(e->revision),
-            string_contents(e->message)
-        );
+        /* Populate the template */
+        string_t *message = string_create(template);
+        string_replace(message, "{{revision}}", string_contents(e->revision));
+        string_replace(message, "{{author}}", string_contents(e->author));
+        string_replace(message, "{{message}}", string_contents(e->message));
+        string_t *format = string_format("%s/%s", url, string_contents(e->revision));
+        string_replace(message, "{{url}}", string_contents(format));
 
+        irc_write(irc, channel, "%s", string_contents(message));
         svn_add(e);
     }
 }

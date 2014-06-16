@@ -66,9 +66,8 @@ static inline void *hashtable_entry_find(hashtable_t *hashtable, const char *key
     };
 
     return list_search(hashtable->table[*index], &pass,
-        lambda bool(const hashtable_entry_t *entrya, const hashtable_entry_t *entryb) {
-            return !strcmp(entrya->key, entryb->key);
-        }
+        lambda bool(const hashtable_entry_t *entrya, const hashtable_entry_t *entryb)
+            => return !strcmp(entrya->key, entryb->key);
     );
 }
 
@@ -184,12 +183,14 @@ void hashtable_foreach_impl(hashtable_t *hashtable, void *pass, void *callback, 
 
         if (keys)
             list_foreach(list, &data,
-                lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass) {
-                    pass->keyfunc(entry->key, entry->value, pass->pass);});
+                lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass)
+                    => pass->keyfunc(entry->key, entry->value, pass->pass);
+            );
         else
             list_foreach(list, &data,
-                lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass) {
-                    pass->valuefunc(entry->value, pass->pass);});
+                lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass)
+                    => pass->valuefunc(entry->value, pass->pass);
+            );
     }
     pthread_mutex_unlock(&hashtable->mutex);
 }
@@ -207,9 +208,8 @@ hashtable_t *hashtable_copy_impl(hashtable_t *hashtable, void *(*copy)(void *)) 
                 .copyfunc = copy,
                 .pass     = copied
             }),
-            lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass) {
-                hashtable_insert(pass->pass, entry->key, pass->copyfunc(entry->value));
-            }
+            lambda void(hashtable_entry_t *entry, hashtable_pass_t *pass)
+                => hashtable_insert(pass->pass, entry->key, pass->copyfunc(entry->value));
         );
     }
     pthread_mutex_unlock(&hashtable->mutex);

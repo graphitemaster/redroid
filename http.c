@@ -126,9 +126,8 @@ static void http_post_cleanup(list_t *values) {
 
 const char *http_post_find(list_t *values, const char *key) {
     http_post_kv_t *kv = list_search(values, key,
-        lambda bool(const http_post_kv_t *a, const char *b) {
-            return !strcmp(a->key, b);
-        }
+        lambda bool(const http_post_kv_t *a, const char *b)
+            => return !strcmp(a->key, b);
     );
     return kv ? kv->value : NULL;
 }
@@ -233,7 +232,12 @@ static void http_send_header(sock_t *client, size_t length, const char *type) {
 }
 
 void http_send_unimplemented(sock_t *client) {
-    sock_sendf(client, "HTTP/1.1 501 Internal Server Error\n");
+    sock_sendf(client, "HTTP/1.1 501 Not Implemented\n");
+    sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
+}
+
+void http_send_error(sock_t *client) {
+    sock_sendf(client, "HTTP/1.1 500 Interanl Server Error\n");
     sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
 }
 
@@ -253,10 +257,14 @@ void http_send_redirect(sock_t *client, const char *where) {
     sock_sendf(client, "HTTP/1.1 301 Moved Permanently\n");
     sock_sendf(client, "Server: Redroid HTTP\n");
     sock_sendf(client, "Connection: close\n");
-    sock_sendf(client, "Location: %s", where);
+    sock_sendf(client, "Location: %s\r\n\r\n", where);
 }
 
 void http_send_file(sock_t *client, const char *file) {
+    /* Default to index.html for empty file */
+    if (!*file)
+        file = "index.html";
+
     string_t *mount = string_format("site/%s", file);
     FILE     *fp    = fopen(string_contents(mount), "r");
     char     *data  = NULL;
@@ -270,7 +278,12 @@ void http_send_file(sock_t *client, const char *file) {
     size_t length = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
-    const char *mimetype = http_mime(strrchr(file, '.') + 1);
+    const char *extension = strrchr(file, '.');
+    if (!extension) {
+        fclose(fp);
+        return http_send_plain(client, "500 Internal server error");
+    }
+    const char *mimetype = http_mime(extension + 1);
     http_send_header(client, length, mimetype);
 
     while (getline(&data, &size, fp) != EOF)
@@ -283,9 +296,8 @@ void http_send_file(sock_t *client, const char *file) {
 /* HTTP client management */
 static http_client_t *http_client_create(http_t *http, sock_t *client) {
     http_client_t *find = list_search(http->clients, client,
-        lambda bool(const http_client_t *client, const sock_t *sock) {
-            return sock_getfd(client->sock) == sock_getfd(sock);
-        }
+        lambda bool(const http_client_t *client, const sock_t *sock)
+            => return sock_getfd(client->sock) == sock_getfd(sock);
     );
     if (find) {
         sock_destroy(client, NULL);
@@ -330,9 +342,8 @@ static void http_client_process(http_t *http, sock_t *client) {
     buffer[count] = '\0';
 
     bool(*search)(const http_intercept_t *const intercept, const char *match) =
-        lambda bool(const http_intercept_t *const intercept, const char *match) {
-            return !strcmp(intercept->match, match);
-        };
+        lambda bool(const http_intercept_t *const intercept, const char *match)
+            => return !strcmp(intercept->match, match);;
 
     if (!strncmp(buffer, "GET /", 5)) {
         char *file_beg = &buffer[5];
@@ -387,9 +398,8 @@ void http_process(http_t *http) {
     http_client_accept(http);
 
     list_foreach(http->clients, http,
-        lambda void(http_client_t *client, http_t *http) {
-            http_client_process(http, client->sock);
-        }
+        lambda void(http_client_t *client, http_t *http)
+            => http_client_process(http, client->sock);
     );
 
     list_foreach(http->clients, http,

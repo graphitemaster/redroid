@@ -115,10 +115,9 @@ static void mod_reload_all(irc_t *irc, const char *channel, const char *user) {
     );
     irc_write(irc, channel, "%s: Ok, reloaded all modules", user);
     list_foreach(data.fail, &data,
-        lambda void(const char *name, mod_data_t *data) {
-            irc_write(data->irc, data->channel, "%s: module %s couldn't be reloaded",
+        lambda void(const char *name, mod_data_t *data)
+            => irc_write(data->irc, data->channel, "%s: module %s couldn't be reloaded",
                 data->user, name);
-        }
     );
 }
 
@@ -155,18 +154,16 @@ static void mod_unload_all(irc_t *irc, const char *channel, const char *user) {
     );
     irc_write(irc, channel, "%s: Ok, unloaded all modules", user);
     list_foreach(data.fail, &data,
-        lambda void(const char *name, mod_data_t *data) {
-            irc_write(data->irc, data->channel, "%s: module %s couldn't be unloaded", data->user, name);
-        }
+        lambda void(const char *name, mod_data_t *data)
+            => irc_write(data->irc, data->channel, "%s: module %s couldn't be unloaded", data->user, name);
     );
 }
 
 static void mod_list(irc_t *irc, const char *channel, const char *user, bool loaded) {
     string_t *string = string_construct();
     list_foreach((loaded ? irc_modules_loaded(irc) : irc_modules_enabled(irc, channel)), string,
-        lambda void(const char *name, string_t *string) {
-            string_catf(string, "%s, ", name);
-        }
+        lambda void(const char *name, string_t *string)
+            => string_catf(string, "%s, ", name);
     );
     string_shrink(string, 2);
     irc_write(irc, channel, "%s: modules %s: %s", user, (loaded) ? "loaded" : "enabled", string_contents(string));

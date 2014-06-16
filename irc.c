@@ -308,9 +308,8 @@ static void irc_channel_destroy(irc_channel_t *channel) {
 
 static void irc_channels_join(irc_t *irc) {
     hashtable_foreach(irc->channels, irc,
-        lambda void(irc_channel_t *channel, irc_t *irc) {
-            irc_join_raw(irc, channel->channel);
-        }
+        lambda void(irc_channel_t *channel, irc_t *irc)
+            => irc_join_raw(irc, channel->channel);
     );
 }
 
@@ -515,9 +514,8 @@ static void irc_module_destroy(irc_module_t *module) {
 
 static bool irc_modules_exists(irc_t *irc, const char *name) {
     return list_search(irc->moduleman->modules, name,
-        lambda bool(module_t *module, const char *name) {
-            return !strcmp(module->name, name);
-        }
+        lambda bool(module_t *module, const char *name)
+            => return !strcmp(module->name, name);
     );
 }
 
@@ -615,14 +613,12 @@ list_t *irc_modules_loaded(irc_t *irc) {
     list_t *list = list_create();
 
     list_foreach(irc->moduleman->modules, list,
-        lambda void(module_t *entry, list_t *list) {
-            list_push(list, (char *)entry->name);
-        }
+        lambda void(module_t *entry, list_t *list)
+            => list_push(list, (char *)entry->name);
     );
     list_sort(list,
-        lambda bool(const char *a, const char *b) {
-            return strcmp(a, b) >= 0;
-        }
+        lambda bool(const char *a, const char *b)
+            => return strcmp(a, b) >= 0;
     );
     return list;
 }
@@ -633,14 +629,12 @@ list_t *irc_modules_enabled(irc_t *irc, const char *chan) {
         return NULL;
     list_t *list = list_create();
     hashtable_foreach(channel->modules, list,
-        lambda void(irc_module_t *module, list_t *list) {
-            list_push(list, module->module);
-        }
+        lambda void(irc_module_t *module, list_t *list)
+            => list_push(list, module->module);
     );
     list_sort(list,
-        lambda bool(const char *a, const char *b) {
-            return strcmp(a, b) >= 0;
-        }
+        lambda bool(const char *a, const char *b)
+            => return strcmp(a, b) >= 0;
     );
     return list;
 }
@@ -972,14 +966,12 @@ list_t *irc_users(irc_t *irc, const char *channel) {
 
     list_t *list = list_create();
     hashtable_foreach(chan->users, list,
-        lambda void(irc_user_t *user, list_t *list) {
-            list_push(list, user->nick);
-        }
+        lambda void(irc_user_t *user, list_t *list)
+            => list_push(list, user->nick);
     );
     list_sort(list,
-        lambda bool(const char *a, const char *b) {
-            return strcmp(a, b) >= 0;
-        }
+        lambda bool(const char *a, const char *b)
+            => return strcmp(a, b) >= 0;
     );
     return list;
 }
@@ -987,14 +979,12 @@ list_t *irc_users(irc_t *irc, const char *channel) {
 list_t *irc_channels(irc_t *irc) {
     list_t *list = list_create();
     hashtable_foreach(irc->channels, list,
-        lambda void(irc_channel_t *channel, list_t *list) {
-            list_push(list, channel->channel);
-        }
+        lambda void(irc_channel_t *channel, list_t *list)
+            => list_push(list, channel->channel);
     );
     list_sort(list,
-        lambda bool(const char *a, const char *b) {
-            return strcmp(a, b) >= 0;
-        }
+        lambda bool(const char *a, const char *b)
+            => return strcmp(a, b) >= 0;
     );
     return list;
 }

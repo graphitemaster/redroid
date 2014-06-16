@@ -102,9 +102,8 @@ static void system_users(irc_t *irc, const char *channel, const char *user) {
 static void system_channels(irc_t *irc, const char *channel, const char *user) {
     string_t *string = string_construct();
     list_foreach(irc_channels(irc), string,
-        lambda void(const char *channel, string_t *string) {
-            string_catf(string, "%s, ", channel);
-        }
+        lambda void(const char *channel, string_t *string)
+            => string_catf(string, "%s, ", channel);
     );
     string_shrink(string, 2);
     irc_write(irc, channel, "%s: %s", user, string_contents(string));

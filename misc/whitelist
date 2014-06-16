@@ -152,6 +152,9 @@ string_length
 string_catf
 string_vcatf
 string_shrink
+string_clear
+string_empty
+string_replace
 irc_modules_add
 irc_modules_reload
 irc_modules_unload

@@ -99,6 +99,8 @@ void string_shrink(string_t *string, size_t by);
 size_t string_length(string_t *string);
 bool string_empty(string_t *string);
 char *string_contents(string_t *string);
+void string_clear(string_t *string);
+void string_replace(string_t *string, const char *substr, const char *replace);
 
 static inline char *strdup(const char *string) {
     return MODULE_GC_CALL(strdup)(string);
