@@ -241,6 +241,11 @@ void http_send_error(sock_t *client) {
     sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
 }
 
+void http_send_404(sock_t *client) {
+    sock_sendf(client, "HTTP/1.1 404 File Not Found\n");
+    sock_sendf(client, "Server: Redroid HTTP\r\n\r\n");
+}
+
 void http_send_html(sock_t *client, const char *html) {
     size_t length = strlen(html);
     http_send_header(client, length, "text/html");
@@ -272,7 +277,7 @@ void http_send_file(sock_t *client, const char *file) {
 
     string_destroy(mount);
     if (!fp)
-        return http_send_plain(client, "404 File not found");
+        return http_send_404(client);
 
     fseek(fp, 0, SEEK_END);
     size_t length = ftell(fp);
@@ -281,7 +286,7 @@ void http_send_file(sock_t *client, const char *file) {
     const char *extension = strrchr(file, '.');
     if (!extension) {
         fclose(fp);
-        return http_send_plain(client, "500 Internal server error");
+        return http_send_error(client);
     }
     const char *mimetype = http_mime(extension + 1);
     http_send_header(client, length, mimetype);

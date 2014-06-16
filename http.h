@@ -23,6 +23,7 @@ void http_send_redirect(sock_t *client, const char *where);
 void http_send_html(sock_t *client, const char *html);
 void http_send_unimplemented(sock_t *client);
 void http_send_error(sock_t *client);
+void http_send_404(sock_t *client);
 
 const char *http_post_find(list_t *values, const char *key);
 
