@@ -80,6 +80,7 @@ static void web_hook_redirect(sock_t *client, void *data) {
 
     if (session && session->valid) {
         web_admin_create(web);
+        http_send_unimplemented(client);
         /* TODO: Send template "admin.html" */
     }
     http_send_unimplemented(client);
@@ -134,8 +135,10 @@ static void web_hook_postlogin(sock_t *client, list_t *post, void *data) {
         if (remember)
             web_session_control(web, client, true);
         web_admin_create(web);
+        http_send_unimplemented(client);
         /* TODO: Send template "admin.html" */
     } else {
+        http_send_unimplemented(client);
         /* TODO: Update "ERROR" "Invalid username or password" */
         /* TODO: Send template "index.html" */
     }
@@ -151,8 +154,10 @@ static void web_hook_postadmin(sock_t *client, list_t *post, void *data) {
 
     if (!strcmp(control, "Logout")) {
         web_session_control(data, client, false);
+        http_send_unimplemented(client);
         /* TODO: Send template "index.html" */
     } else if (!strcmp(control, "Settings")) {
+        http_send_unimplemented(client);
         /* TODO: Send template "system.html" */
     }
     http_send_error(client);
