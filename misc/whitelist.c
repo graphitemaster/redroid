@@ -24,10 +24,10 @@ int main(int argc, char **argv) {
     }
 
     sqlite3_stmt *insert = NULL;
+    sqlite3_stmt *find = NULL;
     if (sqlite3_prepare_v2(database, "INSERT INTO WHITELIST VALUES(?, ?)", -1, &insert, NULL) != SQLITE_OK)
         goto prep_error;
 
-    sqlite3_stmt *find = NULL;
     if (sqlite3_prepare_v2(database, "SELECT LIBC FROM WHITELIST WHERE NAME = ?", -1, &find, NULL) != SQLITE_OK) {
     prep_error:
         fprintf(stderr, "failed to prepare statement\n");

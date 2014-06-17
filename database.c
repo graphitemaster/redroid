@@ -81,7 +81,7 @@ static void database_statement_destroy(database_statement_t *statement) {
 database_statement_t *database_statement_create(database_t *database, const char *string) {
     database_statement_t *find = hashtable_find(database->statements, string);
     if (find) {
-        if (sqlite3_reset(find->statement) != SQLITE_OK) {
+        if (sqlite3_reset(find->statement) != SQLITE_OK || sqlite3_clear_bindings(find->statement) != SQLITE_OK) {
             database_statement_destroy(find);
             hashtable_remove(database->statements, string);
             goto create;
