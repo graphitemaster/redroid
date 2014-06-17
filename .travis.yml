@@ -10,7 +10,7 @@ before_install:
     - sudo apt-get -qq install gcc-4.8
     - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 50
     - sudo apt-get install sqlite3
-    - sudo apt-get install sqlite3-dev
+    - sudo apt-get install libsqlite3-dev
     - sudo apt-get install libgnutls-dev
 
 script: make
