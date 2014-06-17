@@ -1,8 +1,9 @@
 language: c
+
 compiler:
   - gcc
   - clang
-# Change this to your needs
+
 before_install:
     - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
     - sudo apt-get -qq update
@@ -11,7 +12,9 @@ before_install:
     - sudo apt-get install sqlite3
     - sudo apt-get install sqlite3-dev
     - sudo apt-get install libgnutls-dev
+
 script: make
+
 notifications:
     irc:
         channels:
