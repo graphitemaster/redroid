@@ -123,14 +123,14 @@ static bool module_allow_symbol(const char *name, database_t *database, bool *li
 }
 
 static bool module_allow(const char *path, char **function, database_t *database, bool *libc) {
-    void     *base;
-    size_t    size;
-    Elf_Ehdr *ehdr;
-    Elf_Shdr *shdr;
-    Elf_Sym  *dsymtab;
-    Elf_Sym  *dsymtab_end;
-    char     *dstrtab;
-    FILE     *file = fopen(path, "r");
+    void     *base        = NULL;
+    size_t    size        = 0;
+    Elf_Ehdr *ehdr        = NULL;
+    Elf_Shdr *shdr        = NULL;
+    Elf_Sym  *dsymtab     = NULL;
+    Elf_Sym  *dsymtab_end = NULL;
+    char     *dstrtab     = NULL;
+    FILE     *file        = fopen(path, "r");
 
     if (!file)
         return false;
@@ -169,7 +169,7 @@ static bool module_allow(const char *path, char **function, database_t *database
 
 module_t *module_open(const char *file, module_manager_t *manager, string_t **error) {
     char *function = NULL;
-    bool  libc;
+    bool  libc     = false;
 
     if (!module_allow(file, &function, manager->whitelist, &libc)) {
         *error = string_construct();

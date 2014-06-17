@@ -84,8 +84,8 @@ static size_t irc_color_lookup(const char *color) {
 }
 
 static string_t *irc_color_parse_code(const char *source) {
-    const char *p1;
-    const char *p2;
+    const char *p1     = NULL;
+    const char *p2     = NULL;
     const char *cur    = source;
     string_t   *string = string_construct();
 
