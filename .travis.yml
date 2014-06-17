@@ -3,6 +3,10 @@ compiler:
   - gcc
   - clang
 # Change this to your needs
+before_install
+    - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+    - sudo apt-get -qq update
+    - sudo apt-get -qq install gcc-4.8
 script: make
 notifications:
     irc:
