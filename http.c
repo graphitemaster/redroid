@@ -19,8 +19,8 @@ typedef struct {
     void *data;
     char *match;
     union {
-        void  (*post)(sock_t *client, list_t *kvs, void *data);
-        void  (*get)(sock_t *client, void *data);
+        void (*post)(sock_t *client, list_t *kvs, void *data);
+        void (*get)(sock_t *client, void *data);
     } callback;
 } http_intercept_t;
 
@@ -397,8 +397,12 @@ void http_process(http_t *http) {
     if (wait == 0 || wait == -1)
         return;
 
-    if (http->polls[0].revents & POLLIN)
+    if (http->polls[0].revents & POLLIN) {
+        char data[6];
+        if (read(http->wakefds[0], data, sizeof(data)) == -1)
+            redroid_abort();
         return;
+    }
 
     http_client_accept(http);
 
@@ -416,10 +420,6 @@ void http_process(http_t *http) {
 }
 
 static void http_terminate(http_t *http) {
-    /*
-     * write some data to the wakefd pipe so that if there is any block
-     * in poll at the http_process level we'll leave it quickly.
-     */
     if (write(http->wakefds[1], "wakeup", 6) == -1)
         redroid_abort();
 }
@@ -429,10 +429,7 @@ void http_destroy(http_t *http) {
     http_intercepts_destroy(http);
     sock_destroy(http->host, NULL);
 
-    http_client_t *client;
-    while ((client = list_pop(http->clients)))
-        http_client_destroy(http, client);
-
+    list_foreach(http->clients, NULL, &http_client_destroy);
     list_destroy(http->clients);
     list_destroy(http->intercepts);
 
