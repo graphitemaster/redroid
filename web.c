@@ -173,6 +173,7 @@ static void web_hook_postupdate(sock_t *client, list_t *post, void *data) {
     /* TODO: Change configuration */
 
     /* TODO: Rebuild page */
+    http_send_file(client, "admin.html");
 }
 
 static void web_hook_postsystem(sock_t *client, list_t *post, void *data) {

@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <time.h>
@@ -169,6 +170,12 @@ http_t *http_create(const char *port) {
 
     http->clients    = list_create();
     http->intercepts = list_create();
+
+    /*
+     * Ignore SIGPIPE because it's possible to write to a broken socket if the
+     * peer disconnects before everything is sent.
+     */
+    signal(SIGPIPE, SIG_IGN);
 
     return http;
 
