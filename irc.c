@@ -928,8 +928,8 @@ void irc_process(irc_t *irc, void *data) {
 
         if (temp[i] == '\n') {
             irc->buffer.data[irc->buffer.offset] = '\0';
-            irc->buffer.offset                   = 0;
             irc_parse(irc, data);
+            irc->buffer.offset = 0;
         } else {
             irc->buffer.data[irc->buffer.offset++] = temp[i];
             if (irc->buffer.offset > sizeof(irc->buffer.data) - 1)
