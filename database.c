@@ -28,8 +28,8 @@ struct database_row_data_s {
     database_row_data_t *next;
 
     union {
-        void            *data;
-        int              ival;
+        char *data;
+        int   ival;
     };
 };
 
@@ -168,19 +168,25 @@ database_row_t *database_row_extract(database_statement_t *statement, const char
     return row;
 }
 
+static bool database_row_valid(database_row_t *row, bool integer) {
+    return row && row->head && row->head->integer == integer;
+}
+
 const char *database_row_pop_string(database_row_t *row) {
+    if (!database_row_valid(row, false))
+        return NULL;
     if (!row->head->data)
         return NULL;
 
     database_row_data_t *temp = row->head->next;
-    const char *ret = strdup(row->head->data);
+    const char *ret = strdup(row->head->data ? row->head->data : "");
     database_row_data_destroy(row->head);
     row->head = temp;
     return ret;
 }
 
 int database_row_pop_integer(database_row_t *row) {
-    if (!row->head->integer)
+    if (!database_row_valid(row, true))
         return 0;
 
     database_row_data_t *temp = row->head->next;

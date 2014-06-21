@@ -195,10 +195,7 @@ void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
 }
 
 void irc_manager_wake(irc_manager_t *manager) {
-    if (write(manager->wakefds[1], "wakeup", 6) == -1) {
-        irc_manager_cleanup(manager);
-        redroid_abort();
-    }
+    write(manager->wakefds[1], "wakeup", 6);
 }
 
 void irc_manager_destroy(irc_manager_t *manager) {

@@ -399,8 +399,7 @@ void http_process(http_t *http) {
 
     if (http->polls[0].revents & POLLIN) {
         char data[6];
-        if (read(http->wakefds[0], data, sizeof(data)) == -1)
-            redroid_abort();
+        read(http->wakefds[0], data, sizeof(data));
         return;
     }
 
@@ -420,8 +419,7 @@ void http_process(http_t *http) {
 }
 
 static void http_terminate(http_t *http) {
-    if (write(http->wakefds[1], "wakeup", 6) == -1)
-        redroid_abort();
+    write(http->wakefds[1], "wakeup", 6);
 }
 
 void http_destroy(http_t *http) {
