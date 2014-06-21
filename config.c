@@ -111,8 +111,11 @@ static bool config_entry_handler(void *user, const char *section, const char *na
             hashtable_insert(module->kvs, name, strdup(value));
         } else {
             config_instance_t *instance = config_instance_find(config, find);
+            if (!instance) {
+                fprintf(stderr, "    config   => failed finding instance `%s'\n", find);
+                goto config_entry_error;
+            }
             config_channel_t  *channel  = config_channel_create(channelname);
-
             hashtable_insert(instance->channels, channelname, channel);
 
             if (!strcmp(name, "modules")) {
