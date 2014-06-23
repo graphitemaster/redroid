@@ -46,8 +46,7 @@ bool module_manager_unloaded_find(module_manager_t *manager, module_t *module) {
 }
 
 void module_manager_unloaded_clear(module_manager_t *manager) {
-    while (list_length(manager->unloaded))
-        list_pop(manager->unloaded);
+    list_clear(manager->unloaded);
 }
 
 module_t *module_manager_command(module_manager_t *manager, const char *command) {
