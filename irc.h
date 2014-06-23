@@ -41,19 +41,19 @@ typedef struct {
 } irc_module_t;
 
 typedef struct {
-    char        *channel;
-    char        *topic;
-    hashtable_t *users;   /* map<irc_user_t>   */
-    hashtable_t *modules; /* map<irc_module_t> */
-    irc_t       *instance;
-} irc_channel_t;
-
-typedef struct {
     char *nick;
     char *host;
-    char *channel;
     char *content;
 } irc_message_t;
+
+typedef struct {
+    char          *channel;
+    char          *topic;
+    hashtable_t   *users;   /* map<irc_user_t>   */
+    hashtable_t   *modules; /* map<irc_module_t> */
+    irc_t         *instance;
+    irc_message_t  message;
+} irc_channel_t;
 
 struct irc_s {
     char             *name;
@@ -67,10 +67,9 @@ struct irc_s {
     database_t       *database;
     regexpr_cache_t  *regexprcache;
     irc_manager_t    *manager;
-    irc_message_t     message;
     irc_buffer_t      buffer;
     bool              ready;
-    bool              syncronize;
+    bool              syncronized;
     bool              identified;
     time_t            lastunqueue;
 };
@@ -93,7 +92,7 @@ list_t *irc_modules_enabled(irc_t *irc, const char *channel);
 
 bool irc_channels_add(irc_t *irc, config_channel_t *channel);
 
-void irc_message_clear(irc_t *irc);
+void irc_message_clear(irc_message_t *message);
 
 void irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_action(irc_t *irc, const char *channel, const char *fmt, ...);

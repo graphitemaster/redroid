@@ -156,6 +156,8 @@ void cmd_channel_rdclose(cmd_channel_t *channel) {
     channel->rdend = true;
 }
 
+#define strchk(X) ((X) && strlen(X))
+
 cmd_entry_t *cmd_entry_create(
     cmd_channel_t *associated,
     module_t      *module,
@@ -168,13 +170,9 @@ cmd_entry_t *cmd_entry_create(
     entry->associated = associated;
     entry->instance   = module;
     entry->channel    = string_create(channel);
-    entry->user       = string_create(user);
-
-    /* Messages can be empty */
-    if (message && strlen(message))
-        entry->message = string_create(message);
-    else
-        entry->message = NULL;
+    /* Users and messages can be empty */
+    entry->user       = strchk(user) ? string_create(user) : NULL;
+    entry->message    = strchk(message) ? string_create(message) : NULL;;
 
     return entry;
 }

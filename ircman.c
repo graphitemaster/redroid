@@ -170,11 +170,11 @@ void irc_manager_broadcast(irc_manager_t *manager, const char *message, ...) {
 
     for (size_t i = 0; i < manager->instances->size; i++) {
         irc_t *irc = manager->instances->data[i];
-        irc_manager_broadcast_t broadcast = {
-            .instance = irc,
-            .message = string
-        };
-        hashtable_foreach(irc->channels, &broadcast,
+        hashtable_foreach(irc->channels,
+            &((irc_manager_broadcast_t) {
+                .instance = irc,
+                .message  = string
+            }),
             lambda void(irc_channel_t *channel, irc_manager_broadcast_t *caster)
                 => irc_write(caster->instance, channel->channel, string_contents(caster->message));
         );
@@ -207,7 +207,9 @@ list_t *irc_manager_restart(irc_manager_t *manager) {
 
 typedef struct {
     irc_manager_t *manager;
+    module_t      *module;
     irc_t         *instance;
+    cmd_entry_t *(*make)(cmd_channel_t *, const char *, module_t *, irc_message_t *);
 } irc_manager_foreach_t;
 
 void irc_manager_process(irc_manager_t *manager) {
@@ -217,10 +219,20 @@ void irc_manager_process(irc_manager_t *manager) {
         return;
     }
 
-    for (size_t i = 0; i < manager->instances->size; i++)
-        irc_unqueue(manager->instances->data[i]);
+    /*
+     * Unqueue anything left and calculate the shortest poll timeout for interval
+     * modules.
+     */
+    unsigned int ts = ~0u;
+    for (size_t i = 0; i < manager->instances->size; i++) {
+        irc_t *instance = manager->instances->data[i];
+        irc_unqueue(instance);
+        unsigned int timeout = module_manager_timeout(instance->moduleman);
+        if (timeout < ts)
+            ts = timeout;
+    }
 
-    int wait = poll(manager->polls, manager->instances->size + 1, -1);
+    int wait = poll(manager->polls, manager->instances->size + 1, ts != ~0u ? (int)(ts * 1000) : -1);
     if (wait == -1)
         return;
 
@@ -231,7 +243,6 @@ void irc_manager_process(irc_manager_t *manager) {
     if (manager->polls[0].revents & POLLIN) {
         char buffer[6];
         read(manager->wakefds[0], buffer, sizeof(buffer));
-        return;
     }
 
     for (size_t i = 0; i < manager->instances->size; i++) {
@@ -239,40 +250,44 @@ void irc_manager_process(irc_manager_t *manager) {
         if (manager->polls[1+i].revents & (POLLIN | POLLOUT))
             irc_process(instance, manager->commander);
 
-        if (!instance->ready || !instance->message.channel)
+        if (!instance->syncronized)
             continue;
 
-        irc_manager_foreach_t foreach = {
-            .manager  = manager,
-            .instance = instance
-        };
-
-        list_foreach(instance->moduleman->modules, &foreach,
+        list_foreach(instance->moduleman->modules,
+            &((irc_manager_foreach_t) {
+                .manager  = manager,
+                .instance = instance
+            }),
             lambda void(module_t *module, irc_manager_foreach_t *foreach) {
                 if (*module->match != '\0')
                     return;
-                if (access_ignore(foreach->instance, foreach->instance->message.nick))
-                    return;
-                cmd_entry_t *(*make)(cmd_channel_t *, module_t *, irc_message_t *) =
-                    lambda cmd_entry_t *(cmd_channel_t *channel, module_t *module, irc_message_t *message)
-                        => return cmd_entry_create(channel, module, message->channel, message->nick, message->content);;
 
-                if (module->interval == 0)
-                    cmd_channel_push(foreach->manager->commander,
-                        make(foreach->manager->commander, module, &foreach->instance->message));
-                else if (difftime(time(0), module->lastinterval) >= module->interval) {
-                    module->lastinterval = time(0);
-                    cmd_channel_push(foreach->manager->commander,
-                        make(foreach->manager->commander, module, &foreach->instance->message));
-                }
+                cmd_entry_t *(*make)(cmd_channel_t *, const char *, module_t *, irc_message_t *) =
+                    lambda cmd_entry_t *(cmd_channel_t *channel, const char *chan, module_t *module, irc_message_t *message)
+                        => return cmd_entry_create(channel, module, chan, message->nick, message->content);;
+
+                foreach->module = module;
+                foreach->make   = make;
+
+                /* We must broadcast these on all channels */
+                hashtable_foreach(foreach->instance->channels, foreach,
+                    lambda void(irc_channel_t *channel, irc_manager_foreach_t *foreach) {
+                        if (access_ignore(channel->instance, channel->message.nick))
+                            return;
+                        if (foreach->module->interval == 0) {
+                            cmd_channel_push(foreach->manager->commander,
+                                foreach->make(foreach->manager->commander, channel->channel, foreach->module, &channel->message));
+                            /* Always modules need clearing, interval ones don't */
+                            irc_message_clear(&channel->message);
+                        } else if (difftime(time(0), foreach->module->lastinterval) >= foreach->module->interval) {
+                            foreach->module->lastinterval = time(0);
+                            cmd_channel_push(foreach->manager->commander,
+                                foreach->make(foreach->manager->commander, channel->channel, foreach->module, &channel->message));
+                        }
+                    }
+                );
             }
         );
-
-        /*
-         * We need to clear the IRC message such that we do not process it again
-         * for always / interval modules.
-         */
-        irc_message_clear(instance);
     }
 }
 

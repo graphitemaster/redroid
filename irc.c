@@ -294,6 +294,30 @@ void irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
     va_end(va);
 }
 
+/* Message management */
+static void irc_message_destroy(irc_message_t *message) {
+    free(message->nick);
+    free(message->host);
+    free(message->content);
+}
+
+#define irc_message_change(MESSAGE, NICK, HOST, CONTENT) \
+    (((MESSAGE)->nick    = (NICK)),                      \
+     ((MESSAGE)->host    = (HOST)),                      \
+     ((MESSAGE)->content = (CONTENT)))
+
+static void irc_message_update(irc_message_t *message, const char *prefix, const char *content) {
+    irc_message_destroy(message);
+    irc_message_change(message, strdup(irc_target_nick(prefix)),
+                                strdup(irc_target_host(prefix)),
+                                strdup(content));
+}
+
+void irc_message_clear(irc_message_t *message) {
+    irc_message_destroy(message);
+    irc_message_change(message, NULL, NULL, NULL);
+}
+
 /* Channel management */
 static void irc_channel_destroy(irc_channel_t *channel) {
     free(channel->channel);
@@ -302,6 +326,7 @@ static void irc_channel_destroy(irc_channel_t *channel) {
     hashtable_destroy(channel->users);
     hashtable_foreach(channel->modules, NULL, &irc_module_destroy);
     hashtable_destroy(channel->modules);
+    irc_message_destroy(&channel->message);
     free(channel);
 }
 
@@ -310,6 +335,7 @@ static void irc_channels_join(irc_t *irc) {
         lambda void(irc_channel_t *channel, irc_t *irc)
             => irc_join_raw(irc, channel->channel);
     );
+    irc->syncronized = true;
 }
 
 module_status_t irc_modules_add(irc_t *irc, const char *name);
@@ -327,6 +353,8 @@ bool irc_channels_add(irc_t *irc, config_channel_t *channel) {
     chan->topic    = NULL;
     chan->modules  = hashtable_create(32);
     chan->instance = irc;
+
+    memset(&chan->message, 0, sizeof(irc_message_t));
 
     /* Deeply copy the config_channel_t modules hashtable and configuration
      * into an irc_channel_t + irc_module_t hashtable.
@@ -387,20 +415,19 @@ void irc_users_remove(irc_t *irc, const char *channel, const char *prefix) {
 irc_t *irc_create(config_instance_t *instance) {
     irc_t *irc = malloc(sizeof(irc_t));
 
-    irc->name            = strdup(instance->name);
-    irc->nick            = strdup(instance->nick);
-    irc->pattern         = strdup(instance->pattern);
-    irc->auth            = (instance->auth) ? strdup(instance->auth) : NULL;
-    irc->ready           = false;
-    irc->identified      = false;
-    irc->channels        = hashtable_create(64);
-    irc->queue           = list_create();
-    irc->database        = database_create(instance->database);
-    irc->regexprcache    = regexpr_cache_create();
-    irc->moduleman       = module_manager_create(irc);
-    irc->lastunqueue     = 0;
-
-    memset(&irc->message, 0, sizeof(irc_message_t));
+    irc->name         = strdup(instance->name);
+    irc->nick         = strdup(instance->nick);
+    irc->pattern      = strdup(instance->pattern);
+    irc->auth         = (instance->auth) ? strdup(instance->auth) : NULL;
+    irc->ready        = false;
+    irc->syncronized  = false;
+    irc->identified   = false;
+    irc->channels     = hashtable_create(64);
+    irc->queue        = list_create();
+    irc->database     = database_create(instance->database);
+    irc->regexprcache = regexpr_cache_create();
+    irc->moduleman    = module_manager_create(irc);
+    irc->lastunqueue  = 0;
 
     irc->buffer.data[0]  = '\0';
     irc->buffer.offset   = 0;
@@ -415,29 +442,6 @@ irc_t *irc_create(config_instance_t *instance) {
     printf("    ssl      => %s\n", instance->ssl ? "(Yes)" : "(No)");
 
     return irc;
-}
-
-static void irc_message_destroy(irc_t *irc) {
-    free(irc->message.nick);
-    free(irc->message.host);
-    free(irc->message.channel);
-    free(irc->message.content);
-}
-
-static void irc_message_update(irc_t *irc, const char *prefix, char *params[static 2]) {
-    irc_message_destroy(irc);
-    irc->message.nick    = strdup(irc_target_nick(prefix));
-    irc->message.host    = strdup(irc_target_host(prefix));
-    irc->message.channel = strdup(params[0]);
-    irc->message.content = strdup(params[1]);
-}
-
-void irc_message_clear(irc_t *irc) {
-    irc_message_destroy(irc);
-    irc->message.nick = NULL;
-    irc->message.host = NULL;
-    irc->message.channel = NULL;
-    irc->message.content = NULL;
 }
 
 void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
@@ -459,7 +463,6 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     free(irc->nick);
     free(irc->name);
     free(irc->pattern);
-    irc_message_destroy(irc);
     sock_destroy(irc->sock, restart);
     free(irc);
 }
@@ -796,18 +799,22 @@ static void irc_parse(irc_t *irc, void *data) {
     }
 
     if (!strncmp(command, "PRIVMSG", end - command) && params[1]) {
-        irc_message_update(irc, prefix, params);
+        irc_channel_t *find = hashtable_find(irc->channels, params[0]);
+        if (!find)
+            return;
+
+        irc_message_update(&find->message, prefix, params[1]);
 
         /* The bot ignores anyone who is -1 */
-        if (access_ignore(irc, irc->message.nick))
+        if (access_ignore(irc, irc_target_nick(prefix)))
             return;
         /* It also ignores itself */
-        if (!strcmp(irc->message.nick, irc->nick))
+        if (!strcmp(irc_target_nick(prefix), irc->nick))
             return;
 
         /* Trim trailing whitespace */
-        char *trail = irc->message.content + strlen(irc->message.content) - 1;
-        while (trail > irc->message.content && isspace(*trail))
+        char *trail = params[1] + strlen(params[1]) - 1;
+        while (trail > params[1] && isspace(*trail))
             trail--;
         trail[1] = '\0';
 
@@ -828,7 +835,7 @@ static void irc_parse(irc_t *irc, void *data) {
             }
 
             /* If the channel doesn't have this module enabled then don't bother */
-            irc_channel_t *channel = hashtable_find(irc->channels, irc->message.channel);
+            irc_channel_t *channel = hashtable_find(irc->channels, params[0]);
 
             /* We may not be coming from a channel */
             if (channel) {
@@ -838,7 +845,7 @@ static void irc_parse(irc_t *irc, void *data) {
             }
 
             /* Skip the initial part of the module */
-            char *next = irc->message.content + strlen(irc->pattern) + strlen(skip);
+            char *next = params[1] + strlen(irc->pattern) + strlen(skip);
             while (isspace(*next))
                 next++;
 

@@ -53,6 +53,18 @@ module_t *module_manager_command(module_manager_t *manager, const char *command)
     return module_manager_search(manager, command, MMSEARCH_MATCH);
 }
 
+unsigned int module_manager_timeout(module_manager_t *manager) {
+    unsigned int timeout = ~0u;
+    list_foreach(manager->modules, &timeout,
+        lambda void(module_t *module, unsigned int *timeout) {
+            if (*module->match == '\0' && module->interval != 0)
+                if ((unsigned)module->interval < *timeout)
+                    *timeout = module->interval;
+        }
+    );
+    return timeout;
+}
+
 typedef struct {
     int         method;
     const char *name;
