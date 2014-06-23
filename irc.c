@@ -9,7 +9,7 @@
 #include "access.h"
 
 #define isdigit(a) (((unsigned)(a)-'0') < 10)
-#define isspace(a) (((a) >= '\t' && (a) <= '\r') || (a) == ' ')
+#define isspace(a) ({ int c = (a); !!((c >= '\t' && c <= '\r') || c == ' '); })
 
 typedef enum {
     MODULE_STATUS_REFERENCED,
@@ -354,7 +354,7 @@ bool irc_channels_add(irc_t *irc, config_channel_t *channel) {
     chan->modules  = hashtable_create(32);
     chan->instance = irc;
 
-    memset(&chan->message, 0, sizeof(irc_message_t));
+    irc_message_change(&chan->message, NULL, NULL, NULL);
 
     /* Deeply copy the config_channel_t modules hashtable and configuration
      * into an irc_channel_t + irc_module_t hashtable.
