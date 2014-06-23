@@ -880,6 +880,11 @@ static void irc_parse(irc_t *irc, void *data) {
         irc_users_insert(irc, params[0], prefix);
     } else if (!strncmp(command, "PART", end - command)) {
         irc_users_remove(irc, params[0], prefix);
+    } else if (!strncmp(command, "QUIT", end - command)) {
+        hashtable_foreach(irc->channels, prefix,
+            lambda void(irc_channel_t *channel, const char *nick)
+                => irc_users_remove(channel->instance, channel->channel, nick);
+        );
     }
 }
 
