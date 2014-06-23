@@ -1,16 +1,15 @@
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
+
 #include "irc.h"
-#include "sock.h"
-#include "module.h"
 #include "command.h"
 #include "ircman.h"
 #include "access.h"
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <ctype.h>
+#define isdigit(a) (((unsigned)(a)-'0') < 10)
+#define isspace(a) (((a) >= '\t' && (a) <= '\r') || (a) == ' ')
 
 typedef enum {
     MODULE_STATUS_REFERENCED,
@@ -474,7 +473,7 @@ module_status_t irc_modules_add(irc_t *irc, const char *name) {
         return MODULE_STATUS_FAILURE;
 
     string_t *file = string_format("modules/%s.so", name);
-    if ((module = module_manager_module_search(irc->moduleman, string_contents(file), MMSEARCH_FILE))) {
+    if ((module = module_manager_search(irc->moduleman, string_contents(file), MMSEARCH_FILE))) {
         printf("    module   => %s [%s] already loaded\n", module->name, name);
         string_destroy(file);
         return MODULE_STATUS_ALREADY;
@@ -548,7 +547,7 @@ static size_t irc_modules_refs(irc_t *irc, const char *inmodule, const char *exc
 }
 module_status_t irc_modules_reload(irc_t *irc, const char *name) {
     /* Reloading a module reloads it everywhere */
-    if (!module_manager_module_reload(irc->moduleman, name))
+    if (!module_manager_reload(irc->moduleman, name))
         return MODULE_STATUS_FAILURE;
     return MODULE_STATUS_SUCCESS;
 }
@@ -557,7 +556,7 @@ module_status_t irc_modules_unload(irc_t *irc, const char *channel, const char *
     size_t refs = irc_modules_refs(irc, module, channel);
     if (refs != 0 && !force)
         return MODULE_STATUS_REFERENCED;
-    if (!module_manager_module_unload(irc->moduleman, module))
+    if (!module_manager_unload(irc->moduleman, module))
         return MODULE_STATUS_FAILURE;
     return MODULE_STATUS_SUCCESS;
 }
@@ -821,7 +820,7 @@ static void irc_parse(irc_t *irc, void *data) {
                 *strip = '\0';
 
             /* Check for the appropriate module for this command */
-            module_t *find = module_manager_module_command(irc->moduleman, skip);
+            module_t *find = module_manager_command(irc->moduleman, skip);
             if (!find) {
                 irc_write(irc, irc_target_nick(prefix),
                     "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", skip);
@@ -933,7 +932,7 @@ void irc_process(irc_t *irc, void *data) {
         } else {
             irc->buffer.data[irc->buffer.offset++] = temp[i];
             if (irc->buffer.offset > sizeof(irc->buffer.data) - 1)
-                raise(SIGUSR1);
+                abort();
         }
     }
 }

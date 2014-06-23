@@ -1,19 +1,19 @@
-#include "http.h"
-#include "string.h"
-
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
-#include <ctype.h>
+#include <errno.h>
 #include <time.h>
 
-#include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <poll.h>
+#include <unistd.h> /* pipe, close, read, write */
+#include <fcntl.h>  /* fcntl, F_GETFL, F_SETFL */
+#include <poll.h>   /* poll, POLLIN, POLLPRI */
 
-void redroid_abort(void);
+#include "http.h"
+#include "string.h"
+
+#define isdigit(a) (((unsigned)(a)-'0') < 10)
+#define tolower(a) ((a)|0x20)
 
 typedef struct {
     bool  post;

@@ -1,18 +1,14 @@
-#include "irc.h"
-#include "module.h"
-#include "database.h"
-#include "regexpr.h"
-
-#include <dlfcn.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <regex.h>
 #include <limits.h>
+#include <stdio.h>
+
+#include <pthread.h>
+#include <dlfcn.h>  /* dlsym, dlopen, RTLD_LAZY, dlerror, dlclose */
+#include <netdb.h>  /* getaddrinfo */
 #include <elf.h>
+
+#include "module.h"
 
 /* A simplified GC because we only enter this from one thread */
 typedef struct {
@@ -275,70 +271,6 @@ module_t *module_singleton_get(void) {
     mod = get->handle;
     pthread_mutex_unlock(&get->mutex);
     return mod;
-}
-
-module_manager_t *module_manager_create(irc_t *instance) {
-    module_manager_t *manager = malloc(sizeof(*manager));
-    manager->instance  = instance;
-    manager->modules   = list_create();
-    manager->unloaded  = list_create();
-    manager->whitelist = database_create("whitelist.db");
-    return manager;
-}
-
-void module_manager_destroy(module_manager_t *manager) {
-    list_foreach(manager->modules, manager, &module_close);
-    list_destroy(manager->modules);
-    list_destroy(manager->unloaded);
-    database_destroy(manager->whitelist);
-    free(manager);
-}
-
-bool module_manager_module_unload(module_manager_t *manager, const char *name) {
-    module_t *find = module_manager_module_search(manager, name, MMSEARCH_NAME);
-    if (!find)
-        return false;
-    if (!list_erase(manager->modules, find))
-        return false;
-    return true;
-}
-
-bool module_manager_module_reload(module_manager_t *manager, const char *name) {
-    module_t *find = module_manager_module_search(manager, name, MMSEARCH_NAME);
-    if (!find)
-        return false;
-    if (!module_reload(find, manager))
-        return false;
-    return true;
-}
-
-bool module_manager_module_unloaded(module_manager_t *manager, module_t *module) {
-    return list_search(manager->unloaded, module,
-        lambda bool(module_t *instance, module_t *module)
-            => return instance == module;
-    );
-}
-
-module_t *module_manager_module_command(module_manager_t *manager, const char *command) {
-    return module_manager_module_search(manager, command, MMSEARCH_MATCH);
-}
-
-typedef struct {
-    int         method;
-    const char *name;
-} module_search_t;
-
-module_t *module_manager_module_search(module_manager_t *manager, const char *name, int method) {
-    return list_search(manager->modules, &((module_search_t){ .method = method, .name = name }),
-        lambda bool(module_t *module, module_search_t *search) {
-            switch (search->method) {
-                case MMSEARCH_FILE:  return !strcmp(search->name, module->file);
-                case MMSEARCH_NAME:  return !strcmp(search->name, module->name);
-                case MMSEARCH_MATCH: return !strcmp(search->name, module->match);
-            }
-            return false;
-        }
-    );
 }
 
 /* Memory pinners for module API */
@@ -729,6 +661,6 @@ hashtable_t *module_irc_modules_config(irc_t *irc, const char *channel) {
     hashtable_t *kvs = module_irc_modules_config_copy(irc, module->name, channel);
     if (!kvs)
         return NULL;
-    module_mem_push(module, kvs, (void(*)(void* ))&module_irc_modules_config_destroy);
+    module_mem_push(module, kvs, (void(*)(void*))&module_irc_modules_config_destroy);
     return kvs;
 }

@@ -1,21 +1,18 @@
-#include "sock.h"
-#include "ssl.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <signal.h>
 #include <stdlib.h>
 #include <errno.h>
 
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
 #include <netdb.h>
+#include <unistd.h>
 #include <fcntl.h>
+
+#include "sock.h"
+#include "ssl.h"
 
 bool sock_nonblock(int fd) {
     int flags = fcntl(fd, F_GETFL);
@@ -276,7 +273,7 @@ int sock_sendf(sock_t *socket, const char *fmt, ...) {
     va_end(args);
 
     if (length > sizeof(buffer))
-        raise(SIGUSR1);
+        abort();
 
     if (socket->send(socket->data, buffer, length) <= 0)
         return -1;

@@ -1,26 +1,28 @@
-#include "regexpr.h"
-
-#include <regex.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdbool.h>
+
+#include <regex.h>
+
+#include "regexpr.h"
+#include "hashtable.h"
 
 struct regexpr_s {
     regex_t reg;
     char   *match;
 };
 
-void regexpr_cache_destroy(hashtable_t *cache) {
+/* regular expression cache */
+void regexpr_cache_destroy(regexpr_cache_t *cache) {
     hashtable_foreach(cache, NULL, &regexpr_destroy);
     hashtable_destroy(cache);
 }
 
-hashtable_t *regexpr_cache_create(void) {
+regexpr_cache_t *regexpr_cache_create(void) {
     return hashtable_create(256);
 }
 
 /* regular expression management */
-regexpr_t *regexpr_create(hashtable_t *cache, const char *string, bool icase) {
+regexpr_t *regexpr_create(regexpr_cache_t *cache, const char *string, bool icase) {
     /*
      * save on recompiling complex regular expressions if they're in cache.
      * This helps when a regex using module is invoked multiple times in succession,

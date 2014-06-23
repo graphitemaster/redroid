@@ -1,10 +1,12 @@
 #ifdef HAS_SSL
 
-#include "sock.h"
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
+
+#include "sock.h"
 
 #define CAFILE "/etc/ssl/certs/ca-certificates.crt"
 

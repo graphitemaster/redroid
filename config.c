@@ -1,13 +1,13 @@
-#include "config.h"
-#include "string.h"
-#include "list.h"
-#include "ini.h"
-
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <dirent.h>
+
+#include "config.h"
+#include "string.h"
+#include "list.h"
+#include "ini.h"
 
 /*
  * Configuration files take on the format:

@@ -1,21 +1,14 @@
+#include <stdlib.h>
+#include <string.h>
+
+#include <unistd.h> /* pipe, close, write, read */
+#include <fcntl.h>  /* fcntl, F_GETGL, F_SETFL */
+#include <poll.h>   /* poll, POLLIN, POLLOUT */
+
 #include "list.h"
 #include "ircman.h"
 #include "command.h"
 #include "access.h"
-
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <signal.h>
-#include <time.h>
-#include <stdio.h>
-#include <stdarg.h>
-
-#include <unistd.h>
-#include <poll.h>
-#include <fcntl.h>
-
-void redroid_abort(void);
 
 typedef struct {
     irc_t **data;
@@ -147,9 +140,6 @@ static void irc_manager_cleanup(irc_manager_t *manager) {
 
     free(manager->polls);
     free(manager);
-
-    /* Flush any unwritten files to make debugging easier */
-    fflush(NULL);
 }
 
 irc_manager_t *irc_manager_create(void) {
@@ -223,7 +213,7 @@ typedef struct {
 void irc_manager_process(irc_manager_t *manager) {
     if (!cmd_channel_ready(manager->commander)) {
         if (!irc_manager_stage(manager))
-            redroid_abort();
+            abort();
         return;
     }
 

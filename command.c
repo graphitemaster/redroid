@@ -1,14 +1,12 @@
-#include "irc.h"
-#include "command.h"
-#include "string.h"
-
-#include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <signal.h>
 #include <stdio.h>
+
+#include <pthread.h>
+
+#include "moduleman.h"
+#include "command.h"
 
 #define COMMAND_TIMEOUT_SECONDS 5
 
@@ -254,7 +252,7 @@ static void *cmd_channel_threader(void *data) {
          * unloaded module references cannot be accessed. We'll just
          * ignore any commands that still reference old modules.
          */
-        if (module_manager_module_unloaded(module->instance->moduleman, module))
+        if (module_manager_unloaded(module->instance->moduleman, module))
             continue;
 
         if (module->enter) {
@@ -273,7 +271,7 @@ static void *cmd_channel_threader(void *data) {
             };
 
             if (timer_settime(channel->timerid, 0, &its, NULL) == -1)
-                raise(SIGUSR1); /* If the timer couldn't be made then ICE */
+                abort();
 
             module->enter(
                 module->instance,
@@ -322,7 +320,7 @@ static bool cmd_channel_init(cmd_channel_t *channel) {
         .sigev_value.sival_ptr = channel
     };
 
-    if (timer_create(CLOCK_REALTIME, &e, &channel->timerid) == -1)
+    if (timer_create(CLOCK_REALTIME, &e, &channel->timerid) != -1)
         return false;
 
     return true;

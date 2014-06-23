@@ -1,9 +1,10 @@
-#include "hashtable.h"
-#include "list.h"
-
 #include <stdlib.h>
 #include <string.h>
+
 #include <pthread.h>
+
+#include "hashtable.h"
+#include "list.h"
 
 struct hashtable_s {
     size_t          elements;

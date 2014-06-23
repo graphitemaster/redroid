@@ -1,7 +1,5 @@
 #ifndef REDROID_HTTP_HDR
 #define REDROID_HTTP_HDR
-#include <stdbool.h>
-
 #include "sock.h"
 #include "list.h"
 

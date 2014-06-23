@@ -1,24 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
+#include <signal.h>
 #include <errno.h>
-#include <time.h>
-
-#include "ircman.h"
-#include "config.h"
-#include "sock.h"
-#include "list.h"
-#include "web.h"
 
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/file.h>
-#include <sys/mman.h>
-#include <sys/wait.h>
+#include <sys/stat.h>  /* chmod */
+#include <sys/wait.h>  /* waitpid */
+#include <unistd.h>    /* _exit, unlink, execv */
 
-#include <fcntl.h>
-#include <unistd.h>
+#include "ircman.h"
+#include "irc.h"
+#include "config.h"
+#include "list.h"
+#include "web.h"
 
 #define RESTART_FILENAME  "redroid_XXXXXX"
 #define RESTART_FILESIZE  sizeof(RESTART_FILENAME)
@@ -138,11 +133,6 @@ void redroid_daemonize(irc_t *irc, const char *channel, const char *user) {
             break;
     }
     irc_manager_wake(irc->manager);
-}
-
-void redroid_abort(void) {
-    fprintf(stderr, "Aborted\n");
-    exit(EXIT_FAILURE);
 }
 
 void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
@@ -482,7 +472,7 @@ int main(int argc, char **argv) {
             };
 
             if (!irc_reinstate(irc, instance->host, instance->port, &restdata))
-                redroid_abort();
+                abort();
 
             irc_manager_add(manager, irc);
             string_destroy(name);

@@ -1,19 +1,17 @@
-#include "web.h"
-#include "http.h"
-#include "mt.h"
-#include "ripemd.h"
-#include "database.h"
-#include "string.h"
-#include "config.h"
-#include "hashtable.h"
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>
-#include <ctype.h>
 #include <pthread.h>
+
+#include "web.h"
+#include "http.h"
+#include "mt.h"
+#include "ripemd.h"
+#include "database.h"
+#include "config.h"
+#include "string.h"
 
 void redroid_restart_global(irc_manager_t *irc);
 void redroid_shutdown_global(irc_manager_t *irc);

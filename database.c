@@ -1,14 +1,13 @@
-#include "database.h"
-#include "string.h"
-#include "irc.h"
-
-#include <stddef.h>
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include <sqlite3.h>
+
+#include "database.h"
+#include "string.h"
+#include "irc.h"
 
 typedef struct database_row_data_s database_row_data_t;
 typedef struct database_s          database_t;

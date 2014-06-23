@@ -8,6 +8,7 @@
 #include "config.h"
 #include "regexpr.h"
 #include "module.h"
+#include "moduleman.h"
 #include "hashtable.h"
 
 #define RPL_WELCOME        1
@@ -64,7 +65,7 @@ struct irc_s {
     list_t           *queue;
     module_manager_t *moduleman;
     database_t       *database;
-    hashtable_t      *regexprcache;
+    regexpr_cache_t  *regexprcache;
     irc_manager_t    *manager;
     irc_message_t     message;
     irc_buffer_t      buffer;

@@ -1,8 +1,10 @@
 #ifndef REDROID_IRCMAN_HDR
 #define REDROID_IRCMAN_HDR
 #include <stdbool.h>
-#include "irc.h"
+#include <stddef.h>
 
+#include "list.h"
+typedef struct irc_s irc_t;
 /*
  * Type: irc_manager_restart_t
  *  Structure of information to hold restart state for a single IRC
