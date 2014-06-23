@@ -9,7 +9,7 @@
 #define INI_MAX_LINE 4096
 
 #define tolower(a) ((a)|0x20)
-#define isspace(a) ({ int c = (a); (c >= '\t' && c <= 'r') || c == ' '; })
+#define isspace(a) ({ int c = (a); !!((c >= '\t' && c <= '\r') || c == ' '); })
 
 static char *ini_rstrip(char *s) {
     char *p = s + strlen(s);
@@ -19,14 +19,14 @@ static char *ini_rstrip(char *s) {
 }
 
 static char *ini_lskip(char *s) {
-    while (*s && isspace(*s++));
+    while (*s && isspace(*s)) s++;
     return s;
 }
 
 static char *ini_find(char *s, char c) {
     bool w = 0;
     while (*s && *s != c && !(w && *s == ';'))
-        w = isspace(*s++);
+        w = isspace(*s), s++;
     return s;
 }
 
@@ -53,7 +53,7 @@ size_t ini_parse_file(FILE* file, ini_callback_t handler, void *user) {
         start = line;
         start = ini_lskip(ini_rstrip(start));
 
-        if (*start == ';' || *start == '#')
+        if (strchr(";#", *start))
             ;
         else if (*start == '[') {
             if (*(end = ini_find(start + 1, ']')) == ']') {

@@ -320,7 +320,7 @@ static bool cmd_channel_init(cmd_channel_t *channel) {
         .sigev_value.sival_ptr = channel
     };
 
-    if (timer_create(CLOCK_REALTIME, &e, &channel->timerid) != -1)
+    if (timer_create(CLOCK_REALTIME, &e, &channel->timerid) == -1)
         return false;
 
     return true;

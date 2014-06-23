@@ -83,7 +83,8 @@ static irc_t *irc_instances_find(irc_instances_t *instances, const char *name) {
 }
 
 static bool irc_manager_stage(irc_manager_t *manager) {
-    manager->polls = malloc(sizeof(struct pollfd) * (manager->instances->size + 1));
+    if (!(manager->polls = malloc(sizeof(struct pollfd) * (manager->instances->size + 1))))
+        return false;
 
     if (pipe(manager->wakefds) == -1) {
         free(manager->polls);
@@ -125,7 +126,6 @@ static bool irc_manager_stage(irc_manager_t *manager) {
     return true;
 
 self_pipe_error:
-
     free(manager->polls);
     close(manager->wakefds[0]);
     close(manager->wakefds[1]);
