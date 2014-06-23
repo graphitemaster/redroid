@@ -917,17 +917,26 @@ void irc_process(irc_t *irc, void *data) {
         if (temp[i] == '\x16') continue; /* reverse   */
         if (temp[i] == '\x0f') continue; /* reset     */
 
-        /* Dealing with color control */
-        int color = 0;
-        if (temp[i] == '\x03') {
-            color = !(color & 1);
-            continue;
-        }
-        if ((color & 1) && isdigit(temp[i])) { color |= 2; continue; }
-        if ((color & 7) && isdigit(temp[i])) { color |= 8; continue; }
-        if ((color & 3) && temp[i] == ',') {
-            color |= 4;
-            continue;
+        /* Dealing with color control:
+         *
+         *  \x03X
+         *  \x03XY
+         *  \x03XY,X
+         *  \x03XY,XY
+         */
+        if (temp[i] == '\x03' && ++i < read) {
+            /* X or XY skip */
+            if (isdigit(temp[i]) && ++i < read && isdigit(temp[i]))
+                i++;
+            /* ,X or ,XY skip */
+            if (i < read && temp[i] == ',') {
+                if (++i < read) {
+                    if (isdigit(temp[i])) {
+                        if (++i < read && isdigit(temp[i]))
+                            i++;
+                    } else i--; /* Keep comma */
+                } else i--; /* Keep comma */
+            }
         }
 
         if (temp[i] == '\n') {
