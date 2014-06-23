@@ -189,7 +189,7 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
     }
 
     /* Now try the recompile */
-    if (!(fp = popen("make 2>&1", "r"))) {
+    if (!(fp = popen("make -j4 2>&1", "r"))) {
         error = strerror(errno);
         goto redroid_recompile_fail;
     }
