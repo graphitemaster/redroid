@@ -216,4 +216,13 @@ bool list_erase(list_t *list, void *element);
 
 void list_sort_impl(list_t *list, bool (*predicate)(const void *, const void *));
 
+/*
+ * Function: list_clear
+ *  Clear the list of all nodes.
+ *
+ * Parameters:
+ *  list    - The list to clear.
+ */
+void list_clear(list_t *list);
+
 #endif

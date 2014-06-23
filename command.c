@@ -252,7 +252,7 @@ static void *cmd_channel_threader(void *data) {
          * unloaded module references cannot be accessed. We'll just
          * ignore any commands that still reference old modules.
          */
-        if (module_manager_unloaded(module->instance->moduleman, module))
+        if (module_manager_unloaded_find(module->instance->moduleman, module))
             continue;
 
         if (module->enter) {
@@ -294,6 +294,8 @@ static void *cmd_channel_threader(void *data) {
         irc_unqueue(module->instance);
     }
 
+    if (entry)
+        module_manager_unloaded_clear(entry->instance->instance->moduleman);
     cmd_channel_rdclose(channel);
     return NULL;
 }

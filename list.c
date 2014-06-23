@@ -250,6 +250,12 @@ size_t list_length(list_t *list) {
     return (list) ? list->length : 0;
 }
 
+void list_clear(list_t *list) {
+    while (list->length != 0)
+        list_pop(list);
+    list_atcache_thrash(list);
+}
+
 void list_foreach_impl(list_t *list, void *pass, void (*callback)(void *, void *)) {
     for (list_node_t *curr = list->head; curr; curr = curr->next)
         callback(curr->element, pass);
