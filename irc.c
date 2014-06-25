@@ -432,6 +432,8 @@ irc_t *irc_create(config_instance_t *instance) {
     irc->buffer.data[0]  = '\0';
     irc->buffer.offset   = 0;
 
+    irc_message_change(&irc->message, NULL, NULL, NULL);
+
     printf("instance: %s\n", irc->name);
     printf("    nick     => %s\n", irc->nick);
     printf("    pattern  => %s\n", irc->pattern);
@@ -464,6 +466,7 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     free(irc->name);
     free(irc->pattern);
     sock_destroy(irc->sock, restart);
+    irc_message_destroy(&irc->message);
     free(irc);
 }
 
@@ -799,22 +802,18 @@ static void irc_parse(irc_t *irc, void *data) {
     }
 
     if (!strncmp(command, "PRIVMSG", end - command) && params[1]) {
-        irc_channel_t *find = hashtable_find(irc->channels, params[0]);
-        if (!find)
-            return;
+        irc_channel_t *channel = hashtable_find(irc->channels, params[0]);
+        irc_message_t *message = channel ? &channel->message : &irc->message;
 
-        irc_message_update(&find->message, prefix, params[1]);
+        irc_message_update(message, prefix, params[1]);
 
-        /* The bot ignores anyone who is -1 */
-        if (access_ignore(irc, irc_target_nick(prefix)))
-            return;
-        /* It also ignores itself */
-        if (!strcmp(irc_target_nick(prefix), irc->nick))
+        /* The bot ignores anyone who is -1 as well as itself */
+        if (access_ignore(irc, message->nick) || !strcmp(irc->nick, message->nick))
             return;
 
         /* Trim trailing whitespace */
-        char *trail = params[1] + strlen(params[1]) - 1;
-        while (trail > params[1] && isspace(*trail))
+        char *trail = message->content + strlen(message->content) - 1;
+        while (trail > message->content && isspace(*trail))
             trail--;
         trail[1] = '\0';
 
@@ -829,23 +828,17 @@ static void irc_parse(irc_t *irc, void *data) {
             /* Check for the appropriate module for this command */
             module_t *find = module_manager_command(irc->moduleman, skip);
             if (!find) {
-                irc_write(irc, irc_target_nick(prefix),
+                irc_write(irc, message->nick,
                     "Sorry, there is no command named %s available. I do however, take requests if asked nicely.", skip);
                 return;
             }
 
-            /* If the channel doesn't have this module enabled then don't bother */
-            irc_channel_t *channel = hashtable_find(irc->channels, params[0]);
-
-            /* We may not be coming from a channel */
-            if (channel) {
-                /* If the channel doesn't have the module we don't bother */
-                if (!hashtable_find(channel->modules, skip))
-                    return;
-            }
+            /* If the channel doesn't have the module we don't bother */
+            if (channel && !hashtable_find(channel->modules, skip))
+                return;
 
             /* Skip the initial part of the module */
-            char *next = params[1] + strlen(irc->pattern) + strlen(skip);
+            char *next = message->content + strlen(irc->pattern) + strlen(skip);
             while (isspace(*next))
                 next++;
 
@@ -854,8 +847,8 @@ static void irc_parse(irc_t *irc, void *data) {
                 cmd_entry_create (
                     data,
                     find,
-                    params[0],
-                    irc_target_nick(prefix),
+                    channel ? params[0] : message->nick,
+                    message->nick,
                     next
                 )
             );
@@ -915,9 +908,7 @@ void irc_process(irc_t *irc, void *data) {
     if ((read = sock_recv(irc->sock, temp, sizeof(temp) - 1)) <= 0)
         return;
 
-    temp[read] = '\0';
     for (int i = 0; i < read; ++i) {
-        /* Ignore MIRC characters */
         if (temp[i] == '\r')   continue;
         if (temp[i] == '\x02') continue; /* bold      */
         if (temp[i] == '\x1f') continue; /* underline */

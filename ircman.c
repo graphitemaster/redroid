@@ -288,6 +288,8 @@ void irc_manager_process(irc_manager_t *manager) {
                 );
             }
         );
+
+        irc_message_clear(&instance->message);
     }
 }
 

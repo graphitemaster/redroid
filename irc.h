@@ -68,6 +68,7 @@ struct irc_s {
     regexpr_cache_t  *regexprcache;
     irc_manager_t    *manager;
     irc_buffer_t      buffer;
+    irc_message_t     message;
     bool              ready;
     bool              syncronized;
     bool              identified;

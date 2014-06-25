@@ -145,6 +145,7 @@ http_t *http_create(const char *port) {
 
     if (pipe(http->wakefds) == -1) {
         free(http);
+        sock_destroy(http->host, NULL);
         return NULL;
     }
 
@@ -221,12 +222,9 @@ void http_intercept_get(
     list_push(http->intercepts, intercept);
 }
 
-static void http_intercepts_destroy(http_t *http) {
-    http_intercept_t *handle;
-    while ((handle = list_pop(http->intercepts))) {
-        free(handle->match);
-        free(handle);
-    }
+static void http_intercept_destroy(http_intercept_t *intercept) {
+    free(intercept->match);
+    free(intercept);
 }
 
 /* HTTP send */
@@ -431,11 +429,11 @@ static void http_terminate(http_t *http) {
 
 void http_destroy(http_t *http) {
     http_terminate(http);
-    http_intercepts_destroy(http);
     sock_destroy(http->host, NULL);
 
     list_foreach(http->clients, NULL, &http_client_destroy);
     list_destroy(http->clients);
+    list_foreach(http->intercepts, NULL, &http_intercept_destroy);
     list_destroy(http->intercepts);
 
     close(http->wakefds[0]);
