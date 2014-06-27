@@ -20,7 +20,7 @@
 #define RESTART_MAGICDATA "Redroid"
 #define RESTART_MAGICSIZE sizeof(RESTART_MAGICDATA)
 
-extern const char *build_info(void);
+extern const char *redroid_buildinfo(void);
 
 static char *redroid_binary;
 
@@ -493,18 +493,18 @@ int main(int argc, char **argv) {
             irc_t *update = irc_manager_find(manager, instance);
             irc_write(update, channel, "%s: successfully restarted", user);
 
-            if (strcmp(info, build_info())) {
+            if (strcmp(info, redroid_buildinfo())) {
                 irc_write(update, channel, "%s: last instance %s", user, info);
-                irc_write(update, channel, "%s: this instance %s", user, build_info());
+                irc_write(update, channel, "%s: this instance %s", user, redroid_buildinfo());
             } else {
                 irc_write(update, channel, "%s: this instance is the same binary as last instance", user);
             }
         } else {
             /* broadcast to all channels and servers */
             irc_manager_broadcast(manager, "successfully restarted");
-            if (strcmp(info, build_info())) {
+            if (strcmp(info, redroid_buildinfo())) {
                 irc_manager_broadcast(manager, "last instance %s", info);
-                irc_manager_broadcast(manager, "this instance %s", build_info());
+                irc_manager_broadcast(manager, "this instance %s", redroid_buildinfo());
             } else {
                 irc_manager_broadcast(manager, "this instance is the same binary as last instance");
             }
@@ -612,7 +612,7 @@ int main(int argc, char **argv) {
             restinfo->instance,
             restinfo->channel,
             restinfo->user,
-            build_info()
+            redroid_buildinfo()
         );
 
         /*

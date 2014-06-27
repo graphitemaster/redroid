@@ -1,0 +1,21 @@
+# Doxyfile 1.8.7
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = "Redroid Module API"
+PROJECT_BRIEF          = "Public API for Redroid modules"
+OUTPUT_DIRECTORY       = .
+OUTPUT_LANGUAGE        = English
+INPUT                  = ../
+INPUT_ENCODING         = UTF-8
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+FILE_PATTERNS          = *.h
+ENABLE_PREPROCESSING   = YES
+PREDEFINED             = DOXYGEN_SHOULD_SKIP_THIS
+SHOW_INCLUDE_FILES     = NO
+STRIP_CODE_COMMENTS    = NO
+OPTIMIZE_OUTPUT_FOR_C  = YES
+AUTOLINK_SUPPORT       = YES
+MACRO_EXPANSION        = YES
+HTML_EXTRA_STYLESHEET  = DoxygenStyle.css
+GENERATE_LATEX         = NO
+

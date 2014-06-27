@@ -1,4 +1,8 @@
 *.o
 *.so
 *.ini
+*.db
+modules/docs/html/*
+redroid
+wlgen
 config.mak

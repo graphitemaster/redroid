@@ -98,6 +98,12 @@ uninstall-all: uninstall uninstall-systemd-service
 cleanmodules:
 	rm -f $(MODULE_OBJECTS)
 
+moduledocs:
+	cd modules/docs && doxygen
+
+cleanmoduledocs:
+	cd modules/docs && rm -rf html
+
 cleanwlgen:
 	rm -f wlgen
 

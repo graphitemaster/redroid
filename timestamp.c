@@ -52,6 +52,6 @@ static string_t *build_stamp_create(void) {
     return build_string;
 }
 
-const char *build_info() {
+const char *redroid_buildinfo() {
     return string_contents(build_stamp_create());
 }

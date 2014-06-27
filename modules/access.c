@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define ACCESS_CONTROL 4
+
 MODULE_DEFAULT(access);
 
 static void access_help(irc_t *irc, const char *channel, const char *user) {

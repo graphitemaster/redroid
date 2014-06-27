@@ -1,0 +1,25 @@
+body {
+    margin: 0 25%;
+    width: 50%;
+    min-height: 100%;
+}
+
+html {
+    height: 100%;
+}
+
+#titlearea {
+    border-bottom: none;
+    background-color: #FFF;
+    color: #A2A2A2;
+    display: none;
+}
+
+
+div.header {
+    clear: both;
+}
+
+#MSearchBox {
+    margin: 0.5% 25%;
+}
