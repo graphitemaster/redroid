@@ -10,11 +10,12 @@ docs:
 	sed -i 's/group__//g' html/*.html
 	rm -rf /tmp/redroid_docs
 	mkdir -p /tmp/redroid_docs
-	cp -avr html /tmp/redroid_docs
+	cp html/* /tmp/redroid_docs
 	git fetch origin
 	git stash
 	git checkout gh-pages
-	cp -avr /tmp/redroid_docs .
+	git clean -f
+	cp /tmp/redroid_docs/* .
 	git add --all
 	git commit -m "Update module API documentation"
 	git push origin gh-pages
