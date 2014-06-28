@@ -15,6 +15,7 @@ docs:
 	git stash
 	git checkout gh-pages
 	git clean -f
+	git rm -rf *.o
 	cp /tmp/redroid_docs/* .
 	git add --all
 	git commit -m "Update module API documentation"
