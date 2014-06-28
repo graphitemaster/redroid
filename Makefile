@@ -34,7 +34,7 @@ else
 	WHITELIST_CFLAGS += -fomit-frame-pointer -O3
 endif
 
-all: modules whitelist $(REDROID)
+all: modules $(REDROID) whitelist
 
 $(OBJECTS): $(LAMBDAPP)
 
@@ -55,8 +55,11 @@ timestamp.o:
 modules/%.so: modules/%.c
 	$(LAMBDAPP) $< | $(CC) -xc $(MODULE_CFLAGS) - -o $@ $(MODULE_LDFLAGS)
 
+misc/%.o: misc/%.c
+	$(CC) -c -o $@ $< $(WHITELIST_CFLAGS)
+
 wlgen: $(WHITELIST_OBJECTS)
-	$(CC) $(WHITELIST_OBJECTS) -o $@ $(WHITELIST_LDFLAGS)
+	$(CC) -o $@ $^ $(WHITELIST_CFLAGS) $(WHITELIST_LDFLAGS)
 
 whitelist: wlgen
 	@./wlgen
@@ -106,6 +109,7 @@ cleanmoduledocs:
 
 cleanwlgen:
 	rm -f wlgen
+	rm -f $(WHITELIST_OBJECTS)
 
 cleanwhitelist:
 	rm -f whitelist.db
