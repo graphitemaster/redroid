@@ -37,14 +37,13 @@
 #   define MODULE_TIMED(NAME, INTERVAL)
 #else
 #   define MODULE_GENERIC(NAME, MATCH) \
-        char module_name[]  = #NAME;   \
-        char module_match[] = #MATCH
+        char module_name[] = NAME, module_match[] = MATCH
 #   define MODULE_DEFAULT(NAME) \
-        MODULE_GENERIC(NAME, NAME)
+        MODULE_GENERIC(#NAME, #NAME)
 #   define MODULE_ALWAYS(NAME) \
-        MODULE_GENERIC(NAME, "")
+        MODULE_GENERIC(#NAME, "")
 #   define MODULE_TIMED(NAME, IVAL) \
-        MODULE_GENERIC(NAME, ""); \
+        MODULE_GENERIC(#NAME, "");  \
         int module_interval = IVAL
 #endif
 

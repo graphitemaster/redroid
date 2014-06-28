@@ -99,10 +99,10 @@ cleanmodules:
 	rm -f $(MODULE_OBJECTS)
 
 moduledocs:
-	cd modules/docs && doxygen
+	cd modules/docs && $(MAKE)
 
 cleanmoduledocs:
-	cd modules/docs && rm -rf html
+	cd modules/docs && $(MAKE) clean
 
 cleanwlgen:
 	rm -f wlgen

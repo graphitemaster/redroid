@@ -15,9 +15,23 @@ html {
     display: none;
 }
 
-
 div.header {
     clear: both;
+    display: none;
+}
+
+hr.footer {
+    clear: both;
+    display: none;
+}
+
+address.footer {
+    clear: both;
+    display: none;
+}
+
+#navrow1 {
+    display: none;
 }
 
 #MSearchBox {
