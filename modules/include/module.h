@@ -854,7 +854,7 @@ MODULE_API bool database_statement_bindv(database_statement_t *statement, const 
  *
  * @param statement     The statement to bind variables to.
  * @param mapping       The variable mapping specification.
- * @param va            Variable argument list.
+ * @param ..            (vvariable arguments.)
  *
  * @returns
  * If the statement and mapping is valid and the binding was successful true is
