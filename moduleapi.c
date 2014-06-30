@@ -4,6 +4,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
+
 #include "module.h"
 #include "access.h"
 #include "irc.h"
@@ -175,6 +181,11 @@ static void module_api_strdur_step(strdur_context_t *ctx, unsigned long long dur
     ctx->num %= duration; /* compiler should keep the above div's mod part */
     if (divide)
         string_catf(ctx->str, "%llu%c", divide, ch);
+}
+
+static void module_api_dns_destroy(list_t *data) {
+    list_foreach(data, NULL, lambda void(char *data) => free(data););
+    list_destroy(data);
 }
 
 /* api interfaces */
@@ -568,4 +579,45 @@ const char *module_api_strdur(unsigned long long duration) {
     char *move = string_end(ctx.str);
     module_mem_push(module, move, &free);
     return move;
+}
+
+list_t *module_api_dns(const char *url) {
+    module_t *module = module_singleton_get();
+
+    struct addrinfo *result;
+    struct addrinfo hints = {
+        .ai_family   = AF_UNSPEC,
+        .ai_socktype = SOCK_STREAM
+    };
+
+    int status;
+    if ((status = getaddrinfo(url, NULL, &hints, &result)) != 0)
+        return NULL;
+
+    list_t *list = list_create();
+
+    char ipbuffer[INET6_ADDRSTRLEN];
+    for (struct addrinfo *p = result; p; p = p->ai_next) {
+        void *address;
+        if (p->ai_family == AF_INET) {
+            struct sockaddr_in *ipv4 = (struct sockaddr_in*)p->ai_addr;
+            address = &ipv4->sin_addr;
+        } else {
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6*)p->ai_addr;
+            address = &ipv6->sin6_addr;
+        }
+        inet_ntop(p->ai_family, address, ipbuffer, sizeof(ipbuffer));
+        list_push(list, strdup(ipbuffer));
+    }
+    freeaddrinfo(result);
+
+    if (list_length(list)) {
+        list_t *copy = list_copy(list);
+        module_mem_push(module, list, &module_api_dns_destroy);
+        module_mem_push(module, copy, &list_destroy);
+        return copy;
+    }
+
+    list_destroy(list);
+    return NULL;
 }

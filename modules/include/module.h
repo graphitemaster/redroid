@@ -1295,6 +1295,20 @@ MODULE_API const char *strdur(unsigned long long dur) {
     return MODULE_API_CALL(strdur)(dur);
 }
 
+/**
+ * @brief DNS Resolve
+ *
+ * Resolve a domain name.
+ *
+ * @param url               The URL
+ *
+ * @returns
+ * A list of `const char *' strings containing the resolved ip-addresses.
+ */
+MODULE_API list_t *dns(const char *url) {
+    return MODULE_API_CALL(dns)(url);
+}
+
 /** @} */
 
 #endif
