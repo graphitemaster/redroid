@@ -1,6 +1,5 @@
 #include <module.h>
 #include <string.h>
-#include <ctype.h>
 
 MODULE_DEFAULT(system);
 

@@ -1,6 +1,7 @@
 #ifndef REDROID_IRC_HDR
 #define REDROID_IRC_HDR
 #include <time.h>
+#include <stdarg.h>
 
 #include "sock.h"
 #include "list.h"
@@ -75,6 +76,14 @@ struct irc_s {
     time_t            lastunqueue;
 };
 
+typedef enum {
+    MODULE_STATUS_REFERENCED,
+    MODULE_STATUS_SUCCESS,
+    MODULE_STATUS_FAILURE,
+    MODULE_STATUS_ALREADY,
+    MODULE_STATUS_NONEXIST
+} module_status_t;
+
 typedef struct irc_s irc_t;
 
 irc_t *irc_create(config_instance_t *config);
@@ -88,15 +97,27 @@ bool irc_reinstate(irc_t *irc, const char *host, const char *port, sock_restart_
 
 list_t *irc_users(irc_t *irc, const char *chan);
 list_t *irc_channels(irc_t *irc);
+
 list_t *irc_modules_loaded(irc_t *irc);
 list_t *irc_modules_enabled(irc_t *irc, const char *channel);
+module_status_t irc_modules_add(irc_t *irc, const char *name);
+module_status_t irc_modules_reload(irc_t *irc, const char *name);
+module_status_t irc_modules_unload(irc_t *irc, const char *channel, const char *module, bool force);
+module_status_t irc_modules_disable(irc_t *irc, const char *chan, const char *name);
+module_status_t irc_modules_enable(irc_t *irc, const char *chan, const char *name);
 
 bool irc_channels_add(irc_t *irc, config_channel_t *channel);
 
 void irc_message_clear(irc_message_t *message);
 
+void irc_writev(irc_t *irc, const char *channel, const char *fmt, va_list);
+void irc_actionv(irc_t *irc, const char *channel, const char *fmt, va_list);
 void irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
 void irc_unqueue(irc_t *irc);
+void irc_join(irc_t *irc, const char *channel);
+void irc_part(irc_t *irc, const char *channel);
+const char *irc_topic(irc_t *irc, const char *channel);
+const char *irc_pattern(irc_t *irc, const char *newpattern);
 
 #endif

@@ -1,5 +1,4 @@
 #include <module.h>
-#include <string.h>
 
 MODULE_ALWAYS(twss);
 

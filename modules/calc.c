@@ -1,8 +1,6 @@
 #include <module.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <math.h>
 
@@ -63,7 +61,7 @@ typedef struct {
     const char *user;       /* irc user      */
 } calc_parser_t;
 
-static const int8_t calc_sip['z' - 'E' + 1] = {
+static const signed char calc_sip['z' - 'E' + 1] = {
     ['y'-'E']= -24, ['z'-'E']= -21,
     ['a'-'E']= -18, ['f'-'E']= -15,
     ['p'-'E']= -12, ['n'-'E']= - 9,

@@ -111,12 +111,12 @@ bool database_statement_complete(database_statement_t *statement) {
     return !!(trystmt == SQLITE_DONE);
 }
 
-bool database_statement_bind(database_statement_t *statement, const char *mapping, ...) {
+bool database_statement_bindv(database_statement_t *statement, const char *mapping, va_list ap) {
     if (!statement)
         return false;
 
     va_list va;
-    va_start(va, mapping);
+    va_copy(va, ap);
 
     size_t index = 1;
     for (const char *entry = mapping; *entry; entry++, index++) {
@@ -146,6 +146,14 @@ error:
     return false;
 }
 
+bool database_statement_bind(database_statement_t *statement, const char *mapping, ...) {
+    va_list va;
+    va_start(va, mapping);
+    bool result = database_statement_bindv(statement, mapping, va);
+    va_end(va);
+    return result;
+}
+
 database_row_t *database_row_extract(database_statement_t *statement, const char *fields) {
     if (!statement || sqlite3_step(statement->statement) != SQLITE_ROW)
         return NULL;
@@ -171,14 +179,14 @@ static bool database_row_valid(database_row_t *row, bool integer) {
     return row && row->head && row->head->integer == integer;
 }
 
-const char *database_row_pop_string(database_row_t *row) {
+char *database_row_pop_string(database_row_t *row) {
     if (!database_row_valid(row, false))
         return NULL;
     if (!row->head->data)
         return NULL;
 
     database_row_data_t *temp = row->head->next;
-    const char *ret = strdup(row->head->data ? row->head->data : "");
+    char *ret = strdup(row->head->data ? row->head->data : "");
     database_row_data_destroy(row->head);
     row->head = temp;
     return ret;

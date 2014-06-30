@@ -2,10 +2,8 @@
 #define REDROID_MODULE_MODULE_HDR
 
 #include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdarg.h>
-#include <netdb.h>
+#include <stddef.h>
 
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     /**
@@ -48,24 +46,19 @@
 #endif
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-#   define MODULE_GC_CALL(NAME) \
-        ({ extern __typeof__(NAME) module_##NAME; &module_##NAME; })
+#   define MODULE_API_CALL(NAME) \
+        ({ extern __typeof__(NAME) module_api_##NAME; &module_api_##NAME; })
+#   define MODULE_LIBC_CALL(NAME) \
+        ({ extern __typeof__(NAME) module_libc_##NAME; &module_libc_##NAME; })
 #endif
 
-/*
- * To produce accurate documentation we want't to refrain from emitting the `static
- * inline' used for MODULE_GC_CALLs in Doxygen.
- *
- * Since MODULE_GC_CALL functions are wrapped with `static inline' as a
- * consequence of the whitelisting mechanism, MODULE_GC_CALL should be ignored
- * by Doxygen, thus we use MODULE_API on the MODULE_GC_CALL wrapper functions,
- * this macro won't expand to `static inline' when run through Doxygen.
- */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 #   define MODULE_API static inline
 #else
 #   define MODULE_API
 #endif
+
+/** @} */
 
 /** @defgroup List
  *
@@ -90,7 +83,7 @@ typedef struct list_s list_t;
  * A new empty list.
  */
 MODULE_API list_t *list_create(void) {
-    return MODULE_GC_CALL(list_create)();
+    return MODULE_API_CALL(list_create)();
 }
 
 /**
@@ -103,7 +96,9 @@ MODULE_API list_t *list_create(void) {
  * @returns
  * The value at the tail of the list.
  */
-void *list_pop(list_t *list);
+MODULE_API void *list_pop(list_t *list) {
+    return MODULE_API_CALL(list_pop)(list);
+}
 
 /**
  * @brief Shift element off list.
@@ -115,7 +110,9 @@ void *list_pop(list_t *list);
  * @returns
  * The value at the head of the list.
  */
-void *list_shift(list_t *list);
+MODULE_API void *list_shift(list_t *list) {
+    return MODULE_API_CALL(list_shift)(list);
+}
 
 /**
  * @brief Get the length of a list.
@@ -127,7 +124,9 @@ void *list_shift(list_t *list);
  * @returns
  * The amount of elements the list contains.
  */
-size_t list_length(list_t *list);
+MODULE_API size_t list_length(list_t *list) {
+    return MODULE_API_CALL(list_length)(list);
+}
 
 /**
  * @brief Get an element at an index in the list.
@@ -144,7 +143,9 @@ size_t list_length(list_t *list);
  * @returns
  * The element at *index* in the list or NULL otherwise.
  */
-void *list_at(list_t *list, size_t index);
+MODULE_API void *list_at(list_t *list, size_t index) {
+    return MODULE_API_CALL(list_at)(list, index);
+}
 
 /**
  * @brief Push an element on the list.
@@ -154,7 +155,9 @@ void *list_at(list_t *list, size_t index);
  * @param list          The list to append to.
  * @param element       The element to append.
  */
-void list_push(list_t *list, void *element);
+MODULE_API void list_push(list_t *list, void *element) {
+    return MODULE_API_CALL(list_push)(list, element);
+}
 
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
 /**
@@ -203,9 +206,17 @@ void list_foreach(list_t *list, void *pass, T callback);
  */
 void *list_search(list_t *list, const void *pass, T predicate);
 #else
-void list_sort_impl(list_t *list, bool (*predicate)(const void *, const void *));
-void list_foreach_impl(list_t *list, void *pass, void (*callback)(void *, void *));
-void *list_search_impl(list_t *list, const void *pass, bool (*predicate)(const void *, const void *));
+MODULE_API void list_sort_impl(list_t *list, bool (*predicate)(const void *, const void *)) {
+    return MODULE_API_CALL(list_sort_impl)(list, predicate);
+}
+
+MODULE_API void list_foreach_impl(list_t *list, void *pass, void (*callback)(void *, void *)) {
+    return MODULE_API_CALL(list_foreach_impl)(list, pass, callback);
+}
+
+MODULE_API void *list_search_impl(list_t *list, const void *pass, bool (*predicate)(const void *, const void *)) {
+    return MODULE_API_CALL(list_search_impl)(list, pass, predicate);
+}
 
 #define list_sort(LIST, PRDICATE) \
     list_sort_impl((LIST), ((bool (*)(const void *, const void *))(PREDICATE)))
@@ -245,7 +256,7 @@ typedef struct string_s string_t;
  * A managed string object of the same contents of the C-style string.
  */
 MODULE_API string_t *string_create(const char *input) {
-    return MODULE_GC_CALL(string_create)(input);
+    return MODULE_API_CALL(string_create)(input);
 }
 
 /**
@@ -257,7 +268,23 @@ MODULE_API string_t *string_create(const char *input) {
  * A managed string object.
  */
 MODULE_API string_t *string_construct(void) {
-    return MODULE_GC_CALL(string_construct)();
+    return MODULE_API_CALL(string_construct)();
+}
+
+/**
+ * @brief Create a string from format.
+ *
+ * Constructs a managed string object from a C-style format string and variable
+ * arguments.
+ *
+ * @param input         Format string.
+ * @param va            Variable argument list.
+ *
+ * @returns
+ * A managed string object of the formatted string.
+ */
+MODULE_API string_t *string_vformat(const char *input, va_list va) {
+    return MODULE_API_CALL(string_vformat)(input, va);
 }
 
 /**
@@ -273,10 +300,9 @@ MODULE_API string_t *string_construct(void) {
  * A managed string object of the formatted string.
  */
 MODULE_API string_t *string_format(const char *input, ...) {
-    extern string_t *string_vformat(const char *, va_list);
     va_list va;
     va_start(va, input);
-    string_t *string = MODULE_GC_CALL(string_vformat)(input, va);
+    string_t *string = string_vformat(input, va);
     va_end(va);
     return string;
 }
@@ -288,9 +314,27 @@ MODULE_API string_t *string_format(const char *input, ...) {
  *
  * @param string        The destination.
  * @param fmt           Format string.
- * @param ...           (variable arguments.)
+ * @param va            Variable argument list.
  */
-void string_catf(string_t *string, const char *fmt, ...);
+MODULE_API void string_vcatf(string_t *string, const char *fmt, va_list va) {
+    return MODULE_API_CALL(string_vcatf)(string, fmt, va);
+}
+
+/**
+ * @brief Concatenate string.
+ *
+ * Concatenates formatted string to a managed string.
+ *
+ * @param string        The destination.
+ * @param fmt           Format string.
+ * @param ...          (variable arguments.)
+ */
+MODULE_API void string_catf(string_t *string, const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    string_vcatf(string, fmt, va);
+    va_end(va);
+}
 
 /**
  * @brief Shrink string.
@@ -301,7 +345,9 @@ void string_catf(string_t *string, const char *fmt, ...);
  * @param string        The string to shrink.
  * @param by            The amount to shrink the string by.
  */
-void string_shrink(string_t *string, size_t by);
+MODULE_API void string_shrink(string_t *string, size_t by) {
+    return MODULE_API_CALL(string_shrink)(string, by);
+}
 
 /**
  * @brief Query length of string.
@@ -313,7 +359,9 @@ void string_shrink(string_t *string, size_t by);
  * @returns
  * The length of the managed string.
  */
-size_t string_length(string_t *string);
+MODULE_API size_t string_length(string_t *string) {
+    return MODULE_API_CALL(string_length)(string);
+}
 
 /**
  * @brief Check if string is empty.
@@ -325,7 +373,9 @@ size_t string_length(string_t *string);
  * @returns
  * True if the string is empty, false otherwise.
  */
-bool string_empty(string_t *string);
+MODULE_API bool string_empty(string_t *string) {
+    return MODULE_API_CALL(string_empty)(string);
+}
 
 /**
  * @brief Get the raw string contents.
@@ -337,7 +387,9 @@ bool string_empty(string_t *string);
  * @return
  * A pointer to the raw string buffer.
  */
-char *string_contents(string_t *string);
+MODULE_API char *string_contents(string_t *string) {
+    return MODULE_API_CALL(string_contents)(string);
+}
 
 /**
  * @brief Clear the string
@@ -346,7 +398,9 @@ char *string_contents(string_t *string);
  *
  * @param string        The string to clear.
  */
-void string_clear(string_t *string);
+MODULE_API void string_clear(string_t *string) {
+    return MODULE_API_CALL(string_clear)(string);
+}
 
 /**
  * @brief Replace occurance in string.
@@ -359,7 +413,9 @@ void string_clear(string_t *string);
  *
  * This function only replaces the first occurance in *string*.
  */
-void string_replace(string_t *string, const char *substr, const char *replace);
+MODULE_API void string_replace(string_t *string, const char *substr, const char *replace) {
+    return MODULE_API_CALL(string_replace)(string, substr, replace);
+}
 
 /** @} */
 
@@ -386,7 +442,7 @@ typedef struct hashtable_s hashtable_t;
  * A new hashtable.
  */
 MODULE_API hashtable_t *hashtable_create(size_t size) {
-    return MODULE_GC_CALL(hashtable_create)(size);
+    return MODULE_API_CALL(hashtable_create)(size);
 }
 
 /**
@@ -400,7 +456,9 @@ MODULE_API hashtable_t *hashtable_create(size_t size) {
  * @returns
  * The element if found, NULL otherwise.
  */
-void *hashtable_find(hashtable_t *hashtable, const char *key);
+MODULE_API void *hashtable_find(hashtable_t *hashtable, const char *key) {
+    return MODULE_API_CALL(hashtable_find)(hashtable, key);
+}
 
 /**
  * @brief Insert element in hashtable.
@@ -410,12 +468,10 @@ void *hashtable_find(hashtable_t *hashtable, const char *key);
  * @param hashtable     The hashtable to insert into.
  * @param key           The key associated with the value.
  * @param value         The value associated with the key.
- *
- * @returns
- * If the element doesn't already exist and the key-value pair is successfully
- * added to the hashtable true is returned, false otherwise.
  */
-bool hashtable_insert(hashtable_t *hashtable, const char *key, void *value);
+MODULE_API void hashtable_insert(hashtable_t *hashtable, const char *key, void *value) {
+    return MODULE_API_CALL(hashtable_insert)(hashtable, key, value);
+}
 /** @} */
 
 /** @defgroup IRC
@@ -438,9 +494,38 @@ typedef struct irc_s irc_t;
  * @param irc           Instance.
  * @param channel       The channel to write the message on.
  * @param fmt           Format string.
+ * @param va            Variable argument list.
+ */
+MODULE_API void irc_writev(irc_t *irc, const char *channel, const char *fmt, va_list va) {
+    return MODULE_API_CALL(irc_writev)(irc, channel, fmt, va);
+}
+
+/**
+ * @brief Write a message on a channel.
+ *
+ * @param irc           Instance.
+ * @param channel       The channel to write the message on.
+ * @param fmt           Format string.
  * @param ...           (additional arguments.)
  */
-void irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
+MODULE_API void irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    irc_writev(irc, channel, fmt, va);
+    va_end(va);
+}
+
+/**
+ * @brief Perform an action on a channel.
+ *
+ * @param irc           Instance.
+ * @param channel       The channel to perform the action on.
+ * @param fmt           Format string.
+ * @param va            Variable argument list.
+ */
+MODULE_API void irc_actionv(irc_t *irc, const char *channel, const char *fmt, va_list va) {
+    return MODULE_API_CALL(irc_actionv)(irc, channel, fmt, va);
+}
 
 /**
  * @brief Perform an action on a channel.
@@ -450,7 +535,12 @@ void irc_write(irc_t *irc, const char *channel, const char *fmt, ...);
  * @param fmt           Format string.
  * @param ...           (additional arguments.)
  */
-void irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
+MODULE_API void irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    irc_actionv(irc, channel, fmt, va);
+    va_end(va);
+}
 
 /**
  * @brief Join a channel.
@@ -458,7 +548,9 @@ void irc_action(irc_t *irc, const char *channel, const char *fmt, ...);
  * @param irc           Instance to perform the join on.
  * @param channel       The channel to join.
  */
-void irc_join(irc_t *irc, const char *channel);
+MODULE_API void irc_join(irc_t *irc, const char *channel) {
+    return MODULE_API_CALL(irc_join)(irc, channel);
+}
 
 /**
  * @brief Part a channel.
@@ -466,7 +558,9 @@ void irc_join(irc_t *irc, const char *channel);
  * @param irc           Instance to perform the part on.
  * @param channel       The channel to part.
  */
-void irc_part(irc_t *irc, const char *channel);
+MODULE_API void irc_part(irc_t *irc, const char *channel) {
+    return MODULE_API_CALL(irc_part)(irc, channel);
+}
 
 /**
  * @brief Get a list of loaded modules.
@@ -478,7 +572,7 @@ void irc_part(irc_t *irc, const char *channel);
  * loaded for the given instance.
  */
 MODULE_API list_t *irc_modules_loaded(irc_t *irc) {
-    return MODULE_GC_CALL(irc_modules_loaded)(irc);
+    return MODULE_API_CALL(irc_modules_loaded)(irc);
 }
 
 /**
@@ -492,7 +586,7 @@ MODULE_API list_t *irc_modules_loaded(irc_t *irc) {
  * the given channel.
  */
 MODULE_API list_t *irc_modules_enabled(irc_t *irc, const char *channel) {
-    return MODULE_GC_CALL(irc_modules_enabled)(irc, channel);
+    return MODULE_API_CALL(irc_modules_enabled)(irc, channel);
 }
 
 /**
@@ -508,7 +602,7 @@ MODULE_API list_t *irc_modules_enabled(irc_t *irc, const char *channel) {
  * A hashtable containing `const char *' values.
  */
 MODULE_API hashtable_t *irc_modules_config(irc_t *irc, const char *channel) {
-    return MODULE_GC_CALL(irc_modules_config)(irc, channel);
+    return MODULE_API_CALL(irc_modules_config)(irc, channel);
 }
 
 /**
@@ -524,7 +618,7 @@ MODULE_API hashtable_t *irc_modules_config(irc_t *irc, const char *channel) {
  * given channel.
  */
 MODULE_API list_t *irc_users(irc_t *irc, const char *channel) {
-    return MODULE_GC_CALL(irc_users)(irc, channel);
+    return MODULE_API_CALL(irc_users)(irc, channel);
 }
 
 /**
@@ -539,7 +633,7 @@ MODULE_API list_t *irc_users(irc_t *irc, const char *channel) {
  * instance is currently on.
  */
 MODULE_API list_t *irc_channels(irc_t *irc) {
-    return MODULE_GC_CALL(irc_channels)(irc);
+    return MODULE_API_CALL(irc_channels)(irc);
 }
 
 /**
@@ -549,7 +643,9 @@ MODULE_API list_t *irc_channels(irc_t *irc) {
  *
  * @param irc           Instance.
  */
-const char *irc_nick(irc_t *irc);
+MODULE_API const char *irc_nick(irc_t *irc) {
+    return MODULE_API_CALL(irc_nick)(irc);
+}
 
 /**
  * @brief Query the channel topic.
@@ -561,7 +657,9 @@ const char *irc_nick(irc_t *irc);
  * The topic of the current channel if a topic is set, "(No topic)" if there is
  * no topic set for the channel and *NULL* if not on the channel.
  */
-const char *irc_topic(irc_t *irc, const char *channel);
+MODULE_API const char *irc_topic(irc_t *irc, const char *channel) {
+    return MODULE_API_CALL(irc_topic)(irc, channel);
+}
 
 /**
  * @brief Query the pattern.
@@ -576,7 +674,9 @@ const char *irc_topic(irc_t *irc, const char *channel);
  * @returns
  * The currently set pattern.
  */
-const char *irc_pattern(irc_t *irc, const char *newpattern);
+MODULE_API const char *irc_pattern(irc_t *irc, const char *newpattern) {
+    return MODULE_API_CALL(irc_pattern)(irc, newpattern);
+}
 
 /**
  * @brief Module operation status codes.
@@ -602,7 +702,9 @@ typedef enum {
  * @returns
  * One of the status codes of #module_status_t.
  */
-module_status_t irc_modules_add(irc_t *irc, const char *file);
+MODULE_API module_status_t irc_modules_add(irc_t *irc, const char *file) {
+    return MODULE_API_CALL(irc_modules_add)(irc, file);
+}
 
 /** @brief Reload a module.
  *
@@ -614,7 +716,9 @@ module_status_t irc_modules_add(irc_t *irc, const char *file);
  * @returns
  * One of the status codes of #module_status_t.
  */
-module_status_t irc_modules_reload(irc_t *irc, const char *name);
+MODULE_API module_status_t irc_modules_reload(irc_t *irc, const char *name) {
+    return MODULE_API_CALL(irc_modules_reload)(irc, name);
+}
 
 /**
  * @brief Unload a module.
@@ -634,7 +738,9 @@ module_status_t irc_modules_reload(irc_t *irc, const char *name);
  * @returns
  * One of the status codes of #module_status_t.
  */
-module_status_t irc_modules_unload(irc_t *irc, const char *channel, const char *name, bool force);
+MODULE_API module_status_t irc_modules_unload(irc_t *irc, const char *channel, const char *name, bool force) {
+    return MODULE_API_CALL(irc_modules_unload)(irc, channel, name, force);
+}
 
 /**
  * @brief Disable a module.
@@ -648,7 +754,9 @@ module_status_t irc_modules_unload(irc_t *irc, const char *channel, const char *
  * @returns
  * One of the status codes of #module_status_t.
  */
-module_status_t irc_modules_disable(irc_t *irc, const char *channel, const char *name);
+MODULE_API module_status_t irc_modules_disable(irc_t *irc, const char *channel, const char *name) {
+    return MODULE_API_CALL(irc_modules_disable)(irc, channel, name);
+}
 
 /**
  * @brief Enable a module.
@@ -662,7 +770,9 @@ module_status_t irc_modules_disable(irc_t *irc, const char *channel, const char 
  * @returns
  * One of the status codes of #module_status_t.
  */
-module_status_t irc_modules_enable(irc_t *irc, const char *channel, const char *name);
+MODULE_API module_status_t irc_modules_enable(irc_t *irc, const char *channel, const char *name) {
+    return MODULE_API_CALL(irc_modules_enable)(irc, channel, name);
+}
 
 /** @} */
 
@@ -700,7 +810,7 @@ typedef struct database_row_s database_row_t;
  * otherwise.
  */
 MODULE_API database_statement_t *database_statement_create(const char *string) {
-    return MODULE_GC_CALL(database_statement_create)(string);
+    return MODULE_API_CALL(database_statement_create)(string);
 }
 
 /**
@@ -727,13 +837,36 @@ MODULE_API database_statement_t *database_statement_create(const char *string) {
  *
  * @param statement     The statement to bind variables to.
  * @param mapping       The variable mapping specification.
- * @param ...           (variable arguments.)
+ * @param va            Variable argument list.
  *
  * @returns
  * If the statement and mapping is valid and the binding was successful true is
  * returned, otherwise false.
  */
-bool database_statement_bind(database_statement_t *statement, const char *mapping, ...);
+MODULE_API bool database_statement_bindv(database_statement_t *statement, const char *mapping, va_list va) {
+    return MODULE_API_CALL(database_statement_bindv)(statement, mapping, va);
+}
+
+/**
+ * @brief Bind variables to a statement.
+ *
+ * See #database_statement_bindv for information.
+ *
+ * @param statement     The statement to bind variables to.
+ * @param mapping       The variable mapping specification.
+ * @param va            Variable argument list.
+ *
+ * @returns
+ * If the statement and mapping is valid and the binding was successful true is
+ * returned, otherwise false.
+ */
+MODULE_API bool database_statement_bind(database_statement_t *statement, const char *mapping, ...) {
+    va_list va;
+    va_start(va, mapping);
+    bool result = database_statement_bindv(statement, mapping, va);
+    va_end(va);
+    return result;
+}
 
 /**
  * @brief Query if statement is complete
@@ -745,7 +878,9 @@ bool database_statement_bind(database_statement_t *statement, const char *mappin
  * @returns
  * If the statement completed successfully true is returned, otherwise false.
  */
-bool database_statement_complete(database_statement_t *statement);
+MODULE_API bool database_statement_complete(database_statement_t *statement) {
+    return MODULE_API_CALL(database_statement_complete)(statement);
+}
 
 /**
  * @brief Extract a row from the database.
@@ -759,7 +894,7 @@ bool database_statement_complete(database_statement_t *statement);
  * If the statement and mapping specification is valid, a row, otherwise false.
  */
 MODULE_API database_row_t *database_row_extract(database_statement_t *statement, const char *fields) {
-    return MODULE_GC_CALL(database_row_extract)(statement, fields);
+    return MODULE_API_CALL(database_row_extract)(statement, fields);
 }
 
 /**
@@ -771,7 +906,7 @@ MODULE_API database_row_t *database_row_extract(database_statement_t *statement,
  * If the thing to extract is a string, a string is returned, otherwise false.
  */
 MODULE_API const char *database_row_pop_string(database_row_t *row) {
-    return MODULE_GC_CALL(database_row_pop_string)(row);
+    return MODULE_API_CALL(database_row_pop_string)(row);
 }
 
 /**
@@ -783,7 +918,9 @@ MODULE_API const char *database_row_pop_string(database_row_t *row) {
  * If the thing to extract is an integer, an integer is returned, otherwise
  * -1 is returned.
  */
-int database_row_pop_integer(database_row_t *row);
+MODULE_API int database_row_pop_integer(database_row_t *row) {
+    return MODULE_API_CALL(database_row_pop_integer)(row);
+}
 
 /**
  * @brief Increment the request count for a table.
@@ -795,7 +932,9 @@ int database_row_pop_integer(database_row_t *row);
  * If the request count for the table could be incremented, true is returned,
  * otherwise false.
  */
-bool database_request(irc_t *instance, const char *table);
+MODULE_API bool database_request(irc_t *instance, const char *table) {
+    return MODULE_API_CALL(database_request)(instance, table);
+}
 
 /**
  * @brief Get the request count for a table.
@@ -806,7 +945,9 @@ bool database_request(irc_t *instance, const char *table);
  * @returns
  * The amount of time that table was requested.
  */
-int database_request_count(irc_t *instance, const char *table);
+MODULE_API int database_request_count(irc_t *instance, const char *table) {
+    return MODULE_API_CALL(database_request_count)(instance, table);
+}
 
 /** @} */
 
@@ -852,7 +993,7 @@ typedef struct {
  * A regular expression object.
  */
 MODULE_API regexpr_t *regexpr_create(const char *string, bool icase) {
-    return MODULE_GC_CALL(regexpr_create)(string, icase);
+    return MODULE_API_CALL(regexpr_create)(string, icase);
 }
 
 /**
@@ -867,7 +1008,7 @@ MODULE_API regexpr_t *regexpr_create(const char *string, bool icase) {
  * If any match is found true is returned, otherwise false.
  */
 MODULE_API bool regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
-    return MODULE_GC_CALL(regexpr_execute)(expr, string, nmatch, array);
+    return MODULE_API_CALL(regexpr_execute)(expr, string, nmatch, array);
 }
 /** @} */
 
@@ -884,8 +1025,8 @@ MODULE_API bool regexpr_execute(const regexpr_t *expr, const char *string, size_
  * @returns
  * A random unsigned integer.
  */
-MODULE_API uint32_t urand(void) {
-    return MODULE_GC_CALL(urand)();
+MODULE_API unsigned int urand(void) {
+    return MODULE_API_CALL(urand)();
 }
 
 /**
@@ -895,7 +1036,7 @@ MODULE_API uint32_t urand(void) {
  * A random double.
  */
 MODULE_API double drand(void) {
-    return MODULE_GC_CALL(drand)();
+    return MODULE_API_CALL(drand)();
 }
 /** @} */
 
@@ -915,7 +1056,9 @@ MODULE_API double drand(void) {
  * @param channel           The channel the restart originated from.
  * @param user              The user the restarted originated from.
  */
-void redroid_restart(irc_t *irc, const char *channel, const char *user);
+MODULE_API void redroid_restart(irc_t *irc, const char *channel, const char *user) {
+    return MODULE_API_CALL(redroid_restart)(irc, channel, user);
+}
 
 /**
  * @brief Shutdown Redroid.
@@ -926,7 +1069,9 @@ void redroid_restart(irc_t *irc, const char *channel, const char *user);
  * @param channel           The channel the shutdown originated from.
  * @param user              The user the shutdown originated from.
  */
-void redroid_shutdown(irc_t *irc, const char *channel, const char *user);
+MODULE_API void redroid_shutdown(irc_t *irc, const char *channel, const char *user) {
+    return MODULE_API_CALL(redroid_shutdown)(irc, channel, user);
+}
 
 /**
  * @brief Recompile and restart Redroid.
@@ -938,7 +1083,9 @@ void redroid_shutdown(irc_t *irc, const char *channel, const char *user);
  * @param channel           The channel the recompile originated from.
  * @param user              The user the recompile originated from.
  */
-void redroid_recompile(irc_t *irc, const char *channel, const char *user);
+MODULE_API void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
+    return MODULE_API_CALL(redroid_recompile)(irc, channel, user);
+}
 
 /**
  * @brief Daemonize Redroid.
@@ -953,7 +1100,9 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user);
  * @param channel           The channel the daemonization originated from.
  * @param user              The user the daemonization originated from.
  */
-void redroid_daemonize(irc_t *irc, const char *channel, const char *user);
+MODULE_API void redroid_daemonize(irc_t *irc, const char *channel, const char *user) {
+    return MODULE_API_CALL(redroid_daemonize)(irc, channel, user);
+}
 
 /**
  * @brief Get build information of Redroid.
@@ -963,7 +1112,9 @@ void redroid_daemonize(irc_t *irc, const char *channel, const char *user);
  * @returns
  * Build information of Redroid.
  */
-const char *redroid_buildinfo(void);
+MODULE_API const char *redroid_buildinfo(void) {
+    return MODULE_API_CALL(redroid_buildinfo)();
+}
 
 /** @} */
 
@@ -994,7 +1145,9 @@ typedef enum {
  * @returns
  * If the target is in range, returns true, false otherwise.
  */
-bool access_range (irc_t *irc, const char *target, int check);
+MODULE_API bool access_range(irc_t *irc, const char *target, int check) {
+    return MODULE_API_CALL(access_range)(irc, target, check);
+}
 
 
 /**
@@ -1007,7 +1160,9 @@ bool access_range (irc_t *irc, const char *target, int check);
  * @returns
  * If the target is of that access level, returns true, false otherwise.
  */
-bool access_check (irc_t *irc, const char *target, int check);
+MODULE_API bool access_check(irc_t *irc, const char *target, int check) {
+    return MODULE_API_CALL(access_check)(irc, target, check);
+}
 
 /**
  * @brief Get access level of target.
@@ -1019,7 +1174,9 @@ bool access_check (irc_t *irc, const char *target, int check);
  * @returns
  * If the target exists in the access database, returns true, false otherwise.
  */
-bool access_level (irc_t *irc, const char *target, int *level);
+MODULE_API bool access_level(irc_t *irc, const char *target, int *level) {
+    return MODULE_API_CALL(access_level)(irc, target, level);
+}
 
 /**
  * @brief Remove access for target.
@@ -1031,7 +1188,9 @@ bool access_level (irc_t *irc, const char *target, int *level);
  * @returns
  * One of the status codes in #access_t.
  */
-access_t access_remove(irc_t *irc, const char *target, const char *invoke);
+MODULE_API access_t access_remove(irc_t *irc, const char *target, const char *invoke) {
+    return MODULE_API_CALL(access_remove)(irc, target, invoke);
+}
 
 /**
  * @brief Insert access for a new target.
@@ -1044,7 +1203,9 @@ access_t access_remove(irc_t *irc, const char *target, const char *invoke);
  * @returns
  * One of the status codes in #access_t.
  */
-access_t access_insert(irc_t *irc, const char *target, const char *invoke, int level);
+MODULE_API access_t access_insert(irc_t *irc, const char *target, const char *invoke, int level) {
+    return MODULE_API_CALL(access_insert)(irc, target, invoke, level);
+}
 
 /**
  * @brief Change access for a target.
@@ -1057,7 +1218,9 @@ access_t access_insert(irc_t *irc, const char *target, const char *invoke, int l
  * @returns
  * One of the status codes in #access_t.
  */
-access_t access_change(irc_t *irc, const char *target, const char *invoke, int level);
+MODULE_API access_t access_change(irc_t *irc, const char *target, const char *invoke, int level) {
+    return MODULE_API_CALL(access_change)(irc, target, invoke, level);
+}
 
 /** @} */
 
@@ -1086,7 +1249,7 @@ typedef struct {
  * A list of `const char *' strings split by that delimiter.
  */
 MODULE_API list_t *strsplit(const char *string, const char *delimiter) {
-    return MODULE_GC_CALL(strsplit)(string, delimiter);
+    return MODULE_API_CALL(strsplit)(string, delimiter);
 }
 
 /**
@@ -1102,7 +1265,7 @@ MODULE_API list_t *strsplit(const char *string, const char *delimiter) {
  * delimiter.
  */
 MODULE_API list_t *strnsplit(const char *string, const char *delimiter, size_t count) {
-    return MODULE_GC_CALL(strnsplit)(string, delimiter, count);
+    return MODULE_API_CALL(strnsplit)(string, delimiter, count);
 }
 
 /**
@@ -1115,7 +1278,7 @@ MODULE_API list_t *strnsplit(const char *string, const char *delimiter, size_t c
  * A list of #svn_entry_t *s containing SVN commit messages.
  */
 MODULE_API list_t *svnlog(const char *url, size_t depth) {
-    return MODULE_GC_CALL(svnlog)(url, depth);
+    return MODULE_API_CALL(svnlog)(url, depth);
 }
 
 /**
@@ -1129,36 +1292,9 @@ MODULE_API list_t *svnlog(const char *url, size_t depth) {
  * Duration as a string.
  */
 MODULE_API const char *strdur(unsigned long long dur) {
-    return MODULE_GC_CALL(strdur)(dur);
+    return MODULE_API_CALL(strdur)(dur);
 }
 
 /** @} */
 
-/*
- * Other POSIX/C API functions which allocate memory need to be wrapped so they
- * call the module memory pinner. We exclude these from DOXYGEN because they're
- * not part of the module API.
- *
- * To prevent name conflicts we do the rename with macros.
- */
-#ifndef DOXYGEN_SHOULD_SKIP_THIS
-MODULE_API void *capi_malloc(size_t size) {
-    extern void *malloc(size_t);
-    return MODULE_GC_CALL(malloc)(size);
-}
-
-MODULE_API int capi_getaddrinfo(const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
-    return MODULE_GC_CALL(getaddrinfo)(mode, service, hints, result);
-}
-
-MODULE_API char *capi_strdup(const char *string) {
-    extern char *strdup(const char *);
-    return MODULE_GC_CALL(strdup)(string);
-}
-
-#define malloc          capi_malloc
-#define getaddrinfo     capi_getaddrinfo
-#define strdup          capi_strdup
-
-#endif
 #endif

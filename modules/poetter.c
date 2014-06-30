@@ -1,5 +1,4 @@
 #include <module.h>
-#include <stdlib.h>
 
 MODULE_DEFAULT(poetter);
 

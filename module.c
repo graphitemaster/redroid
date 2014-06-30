@@ -4,8 +4,7 @@
 #include <stdio.h>
 
 #include <pthread.h>
-#include <dlfcn.h>  /* dlsym, dlopen, RTLD_LAZY, dlerror, dlclose */
-#include <netdb.h>  /* getaddrinfo */
+#include <dlfcn.h>
 #include <elf.h>
 
 #include "module.h"
@@ -91,34 +90,12 @@ static bool module_load(module_t *module) {
 #   define FUN(X) ELF64_ST_TYPE(X)
 #endif
 
-static bool module_allow_symbol(const char *name, database_t *database, bool *libc) {
-    if (!name || !*name || *name == '_' || !strncmp(name, "module_", 7))
+static bool module_allow_symbol(const char *name) {
+    return (!name || !*name || *name == '_' || !strncmp(name, "module_", 7));
         return true;
-
-    database_statement_t *statement = database_statement_create(database, "SELECT LIBC FROM WHITELIST WHERE NAME=?");
-    if (!statement)
-        return false;
-
-    if (!database_statement_bind(statement, "s", name))
-        return false;
-
-    database_row_t *row = database_row_extract(statement, "i");
-    if (!row)
-        return false;
-
-    *libc = database_row_pop_integer(row);
-
-    if (!database_statement_complete(statement)) {
-        database_row_destroy(row);
-        return false;
-    }
-
-    database_row_destroy(row);
-
-    return true;
 }
 
-static bool module_allow(const char *path, char **function, database_t *database, bool *libc) {
+static bool module_allow(const char *path, char **function) {
     void     *base        = NULL;
     size_t    size        = 0;
     Elf_Ehdr *ehdr        = NULL;
@@ -150,7 +127,7 @@ static bool module_allow(const char *path, char **function, database_t *database
 
     while (dsymtab < dsymtab_end) {
         if (FUN(dsymtab->st_info) == STT_FUNC || FUN(dsymtab->st_info) == STT_NOTYPE) {
-            if (!module_allow_symbol(&dstrtab[dsymtab->st_name], database, libc)) {
+            if (!module_allow_symbol(&dstrtab[dsymtab->st_name])) {
                 *function = strdup(&dstrtab[dsymtab->st_name]);
                 free(base);
                 return false;
@@ -165,14 +142,10 @@ static bool module_allow(const char *path, char **function, database_t *database
 
 module_t *module_open(const char *file, module_manager_t *manager, string_t **error) {
     char *function = NULL;
-    bool  libc     = false;
 
-    if (!module_allow(file, &function, manager->whitelist, &libc)) {
+    if (!module_allow(file, &function)) {
         *error = string_construct();
-        if (libc)
-            string_catf(*error, "%s from libc is blacklisted", function);
-        else
-            string_catf(*error, "%s blacklisted", function);
+        string_catf(*error, "%s blacklisted", function);
         free(function);
         return NULL;
     }
@@ -243,7 +216,6 @@ void module_close(module_t *module, module_manager_t *manager) {
     free(module);
 }
 
-/* thread-safe module singleton */
 typedef struct {
     pthread_mutex_t mutex;
     module_t       *handle;
@@ -271,396 +243,4 @@ module_t *module_singleton_get(void) {
     mod = get->handle;
     pthread_mutex_unlock(&get->mutex);
     return mod;
-}
-
-/* Memory pinners for module API */
-void *module_malloc(size_t bytes) {
-    module_t *module = module_singleton_get();
-    void *p = memset(malloc(bytes), 0, bytes);
-    module_mem_push(module, p, &free);
-    return p;
-}
-
-string_t *module_string_create(const char *input) {
-    module_t *module = module_singleton_get();
-    string_t *string = string_create(input);
-    module_mem_push(module, string, (void (*)(void *))&string_destroy);
-    return string;
-}
-
-string_t *module_string_construct(void) {
-    module_t *module = module_singleton_get();
-    string_t *string = string_construct();
-    module_mem_push(module, string, (void (*)(void *))&string_destroy);
-    return string;
-}
-
-string_t *module_string_vformat(const char *fmt, va_list va) {
-    module_t *module = module_singleton_get();
-    string_t *string = string_vformat(fmt, va);
-    module_mem_push(module, string, (void (*)(void*))&string_destroy);
-    return string;
-}
-
-list_t *module_list_create(void) {
-    module_t *module = module_singleton_get();
-    list_t *list = list_create();
-    module_mem_push(module, list, (void (*)(void*))&list_destroy);
-    return list;
-}
-
-int module_getaddrinfo(const char *mode, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
-    module_t *module = module_singleton_get();
-    int value = getaddrinfo(mode, service, hints, result);
-    if (value == 0)
-        module_mem_push(module, *result, (void (*)(void*))&freeaddrinfo);
-    return value;
-}
-
-database_statement_t *module_database_statement_create(const char *string) {
-    /*
-     * There is no need to gaurd a mutex here since the database statement
-     * cache system also serves as a garbage collector. This will implictly
-     * deal with freeing database statements. Instead we need the GC call
-     * to access the modules instance database
-     */
-    return database_statement_create((module_singleton_get())->instance->database, string);
-}
-
-database_row_t *module_database_row_extract(database_statement_t *statement, const char *fields) {
-    module_t *module = module_singleton_get();
-    database_row_t *row = database_row_extract(statement, fields);
-    if (row)
-        module_mem_push(module, row, (void(*)(void*))&database_row_destroy);
-    return row;
-}
-
-const char *module_database_row_pop_string(database_row_t *row) {
-    module_t *module = module_singleton_get();
-    const char *ret = database_row_pop_string(row);
-    module_mem_push(module, (void *)ret, (void(*)(void*))&free);
-    return ret;
-}
-
-list_t *module_irc_modules_loaded(irc_t *irc) {
-    module_t *module = module_singleton_get();
-    list_t *ret = irc_modules_loaded(irc);
-    if (!ret)
-        return NULL;
-    module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
-    return ret;
-}
-
-list_t *module_irc_modules_enabled(irc_t *irc, const char *channel) {
-    module_t *module = module_singleton_get();
-    list_t *ret = irc_modules_enabled(irc, channel);
-    if (!ret)
-        return NULL;
-    module_mem_push(module, (void *)ret, (void (*)(void*))&list_destroy);
-    return ret;
-}
-
-list_t *module_irc_users(irc_t *irc, const char *channel) {
-    module_t *module = module_singleton_get();
-    list_t *ret = irc_users(irc, channel);
-    if (!ret)
-        return NULL;
-    module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
-    return ret;
-}
-
-list_t *module_irc_channels(irc_t *irc) {
-    module_t *module = module_singleton_get();
-    list_t *ret = irc_channels(irc);
-    if (!ret)
-        return NULL;
-    module_mem_push(module, (void*)ret, (void(*)(void*))&list_destroy);
-    return ret;
-}
-
-char *module_strdup(const char *str) {
-    module_t *module = module_singleton_get();
-    char *dup = strdup(str);
-    module_mem_push(module, dup, &free);
-    return dup;
-}
-
-list_t* module_strsplit(const char *str_, const char *delim) {
-    module_t *module = module_singleton_get();
-    list_t *list = list_create();
-    module_mem_push(module, list, (void (*)(void*))&list_destroy);
-
-    if (str_ && *str_) {
-        char *str = strdup(str_);
-        char *saveptr;
-        char *tok = strtok_r(str, delim, &saveptr);
-        while (tok) {
-            list_push(list, tok);
-            tok = strtok_r(NULL, delim, &saveptr);
-        }
-    }
-    return list;
-}
-
-list_t* module_strnsplit_impl(char *str, const char *delim, size_t count) {
-    list_t *list = list_create();
-    char *saveptr;
-    char *end = str + strlen(str);
-    char *tok = strtok_r(str, delim, &saveptr);
-    while (tok) {
-        list_push(list, tok);
-        if (!--count) {
-            tok += strlen(tok);
-            if (tok == end)
-                return list;
-            for (++tok; *tok && strchr(delim, *tok);)
-                ++tok;
-            if (*tok)
-                list_push(list, tok);
-            return list;
-        }
-        tok = strtok_r(NULL, delim, &saveptr);
-    }
-    return list;
-}
-
-list_t* module_strnsplit(const char *str_, const char *delim, size_t count) {
-    module_t *module = module_singleton_get();
-
-    list_t *list;
-    if (str_ && *str_) {
-        char *str = strdup(str_);
-        module_mem_push(module, str, &free);
-        list = module_strnsplit_impl(str, delim, count);
-    }
-    else
-        list = list_create();
-    module_mem_push(module, list, (void (*)(void*))&list_destroy);
-    return list;
-}
-
-typedef struct {
-    unsigned long long num;
-    string_t          *str;
-} strdur_context_t;
-
-static void strdur_step(strdur_context_t *c, unsigned long long d, const char *suffix) {
-    unsigned long long cnt = c->num / d;
-    c->num %= d; /* compiler should keep the above div's mod part */
-    if (!cnt)
-        return;
-    string_catf(c->str, "%llu%s", cnt, suffix);
-}
-
-static char *strdur(unsigned long long duration) {
-    if (!duration)
-        return strdup("0");
-
-    strdur_context_t ctx = {
-        .num = duration,
-        .str = string_construct()
-    };
-
-                 strdur_step(&ctx, 60*60*24*7, "w");
-    if (ctx.num) strdur_step(&ctx, 60*60*24,   "d");
-    if (ctx.num) strdur_step(&ctx, 60*60,      "h");
-    if (ctx.num) strdur_step(&ctx, 60,         "m");
-    if (ctx.num) strdur_step(&ctx, 1,          "s");
-
-    return string_end(ctx.str);
-}
-
-char *module_strdur(unsigned long long duration) {
-    module_t *module = module_singleton_get();
-    char *data = strdur(duration);
-    module_mem_push(module, data, &free);
-    return data;
-}
-
-regexpr_t *module_regexpr_create(const char *string, bool icase) {
-    /*
-     * There is no need to gaurd a mutex here since the module cache
-     * system also serves as a garbage collector. This will implictly
-     * deal with freeing regexpr_t objects automatically. Instead we
-     * need the GC call to access the modules instances regexpr cache.
-     */
-    module_t *module = module_singleton_get();
-    return regexpr_create(module->instance->regexprcache, string, icase);
-}
-
-bool module_regexpr_execute(const regexpr_t *expr, const char *string, size_t nmatch, regexpr_match_t **array) {
-    module_t        *module     = module_singleton_get();
-    regexpr_match_t *storearray = NULL;
-
-    if (!regexpr_execute(expr, string, nmatch, &storearray))
-        return false;
-
-    if (storearray) {
-        module_mem_push(module, storearray, (void (*)(void *))&regexpr_execute_destroy);
-        *array = storearray;
-    }
-    return true;
-}
-
-typedef struct {
-    string_t *message;
-    string_t *author;
-    string_t *revision;
-} svn_entry_t;
-
-/* a simple way to parse the svn log */
-static svn_entry_t *module_svnlog_read_entry(FILE *handle) {
-    svn_entry_t *entry  = malloc(sizeof(*entry));
-    char        *line   = NULL;
-    size_t       length = 0;
-
-    if (getline(&line, &length, handle) == EOF) {
-        free(entry);
-        free(line);
-        return NULL;
-    }
-
-    /* if we have '-' at start then it's a seperator */
-    if (*line == '-') {
-        if (getline(&line, &length, handle) == EOF) {
-            free(entry);
-            free(line);
-            return NULL;
-        }
-    }
-
-    /* expecting a revision tag */
-    if (*line != 'r') {
-        free(entry);
-        free(line);
-        return NULL;
-    }
-
-    /* split revision marker "rev | author | date | changes" */
-    char   *copy  = strdup(&line[1]);
-    list_t *split = module_strnsplit_impl(copy, " |", 2);
-    list_pop(split); /* drop "date | changes" */
-
-    entry->revision = string_create(list_shift(split));
-    entry->author   = string_create(list_shift(split));
-
-    /* now parse it */
-    string_t *message = string_construct();
-    while (getline(&line, &length, handle) != EOF) {
-        /* ignore empty lines */
-        if (*line == '\n')
-            continue;
-
-        /* seperator marks end of message */
-        if (*line == '-') {
-            entry->message = message;
-            list_destroy(split);
-            free(copy);
-            free(line);
-            return entry;
-        }
-
-        /* strip newlines */
-        char *nl = strchr(line, '\n');
-        if (nl)
-            *nl = '\0';
-
-        string_catf(message, "%s", line);
-    }
-
-    string_destroy(message);
-    list_destroy(split);
-    free(copy);
-    free(entry);
-    free(line);
-
-    return NULL;
-}
-
-static void module_svnlog_destroy(list_t *list) {
-    list_foreach(list, NULL,
-        lambda void(svn_entry_t *entry) {
-            string_destroy(entry->revision);
-            string_destroy(entry->author);
-            string_destroy(entry->message);
-            free(entry);
-        }
-    );
-}
-
-static list_t *module_svnlog_read(const char *url, size_t depth) {
-    string_t *command = string_format("svn log -l%zu %s", depth, url);
-    list_t   *entries = list_create();
-    FILE     *fp      = popen(string_contents(command), "r");
-
-    string_destroy(command);
-    if (!fp) {
-        list_destroy(entries);
-        return NULL;
-    }
-
-    svn_entry_t *e = NULL;
-    for (;;) {
-        if (depth == 0)
-            break;
-
-        if (!(e = module_svnlog_read_entry(fp)))
-            break;
-
-        depth--;
-        list_push(entries, e);
-    }
-    pclose(fp);
-
-    return entries;
-}
-
-list_t *module_svnlog(const char *url, size_t depth) {
-    module_t *module = module_singleton_get();
-    list_t *list = module_svnlog_read(url, depth);
-    if (!list)
-        return NULL;
-
-    /*
-     * A copy of the list needs to be created because a module may pop
-     * or modify the contents of the list which is used in the cleanup
-     * to free resources. This is bad because it means memory leaks are
-     * possible.
-     */
-    list_t *copy = list_copy(list);
-    module_mem_push(module, list, (void(*)(void* ))&module_svnlog_destroy);
-    module_mem_push(module, copy, (void(*)(void* ))&list_destroy);
-    return copy;
-}
-
-uint32_t module_urand(void) {
-    return mt_urand((module_singleton_get())->random);
-}
-
-double module_drand(void) {
-    return mt_drand((module_singleton_get())->random);
-}
-
-static hashtable_t *module_irc_modules_config_copy(irc_t *irc, const char *mname, const char *cname) {
-    irc_channel_t *channel = hashtable_find(irc->channels, cname);
-    if (!channel)
-        return NULL;
-    irc_module_t *module = hashtable_find(channel->modules, mname);
-    if (!module)
-        return NULL;
-    return hashtable_copy(module->kvs, &strdup);
-}
-
-static void module_irc_modules_config_destroy(hashtable_t *kvs) {
-    hashtable_foreach(kvs, NULL, &free);
-    hashtable_destroy(kvs);
-}
-
-hashtable_t *module_irc_modules_config(irc_t *irc, const char *channel) {
-    module_t *module = module_singleton_get();
-    hashtable_t *kvs = module_irc_modules_config_copy(irc, module->name, channel);
-    if (!kvs)
-        return NULL;
-    module_mem_push(module, kvs, (void(*)(void*))&module_irc_modules_config_destroy);
-    return kvs;
 }

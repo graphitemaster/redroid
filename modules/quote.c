@@ -1,7 +1,5 @@
 #include <module.h>
 #include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
 
 #define ACCESS 4
 

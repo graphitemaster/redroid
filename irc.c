@@ -11,14 +11,6 @@
 #define isdigit(a) (((unsigned)(a)-'0') < 10)
 #define isspace(a) ({ int c = (a); !!((c >= '\t' && c <= '\r') || c == ' '); })
 
-typedef enum {
-    MODULE_STATUS_REFERENCED,
-    MODULE_STATUS_SUCCESS,
-    MODULE_STATUS_FAILURE,
-    MODULE_STATUS_ALREADY,
-    MODULE_STATUS_NONEXIST
-} module_status_t;
-
 static const char *irc_target_nick(const char *target);
 static const char *irc_target_host(const char *target);
 
@@ -280,17 +272,31 @@ void irc_part(irc_t *irc, const char *channel) {
     irc_enqueue_standard(irc, channel, IRC_COMMAND_PART);
 }
 
-void irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
-    va_list  va;
-    va_start(va, fmt);
+void irc_actionv(irc_t *irc, const char *channel, const char *fmt, va_list ap) {
+    va_list va;
+    va_copy(va, ap);
     irc_enqueue_extended(irc, channel, string_vformat(fmt, va), IRC_COMMAND_ACTION);
     va_end(va);
 }
 
-void irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
-    va_list  va;
-    va_start(va, fmt);
+void irc_writev(irc_t *irc, const char *channel, const char *fmt, va_list ap) {
+    va_list va;
+    va_copy(va, ap);
     irc_enqueue_extended(irc, channel, string_vformat(fmt, va), IRC_COMMAND_WRITE);
+    va_end(va);
+}
+
+void irc_action(irc_t *irc, const char *channel, const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    irc_actionv(irc, channel, fmt, va);
+    va_end(va);
+}
+
+void irc_write(irc_t *irc, const char *channel, const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    irc_writev(irc, channel, fmt, va);
     va_end(va);
 }
 
