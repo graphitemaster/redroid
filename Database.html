@@ -59,6 +59,9 @@ Functions</h2></td></tr>
 <tr class="memitem:gaf895a9ea974c10180cb732f47a5b2a16"><td class="memItemLeft" align="right" valign="top"><a class="el" href="Database.html#gae9b07ccd99ad7c893ed0badc1b1a9274">database_statement_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Database.html#gaf895a9ea974c10180cb732f47a5b2a16">database_statement_create</a> (const char *string)</td></tr>
 <tr class="memdesc:gaf895a9ea974c10180cb732f47a5b2a16"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a database statement.  <a href="#gaf895a9ea974c10180cb732f47a5b2a16">More...</a><br /></td></tr>
 <tr class="separator:gaf895a9ea974c10180cb732f47a5b2a16"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gafd5f0e205a63182c94e5a57c958aa5bd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Database.html#gafd5f0e205a63182c94e5a57c958aa5bd">database_statement_bindv</a> (<a class="el" href="Database.html#gae9b07ccd99ad7c893ed0badc1b1a9274">database_statement_t</a> *statement, const char *mapping, va_list va)</td></tr>
+<tr class="memdesc:gafd5f0e205a63182c94e5a57c958aa5bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bind variables to a statement.  <a href="#gafd5f0e205a63182c94e5a57c958aa5bd">More...</a><br /></td></tr>
+<tr class="separator:gafd5f0e205a63182c94e5a57c958aa5bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga3c2484dd2b08dc2b6ff5896801aed8a7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Database.html#ga3c2484dd2b08dc2b6ff5896801aed8a7">database_statement_bind</a> (<a class="el" href="Database.html#gae9b07ccd99ad7c893ed0badc1b1a9274">database_statement_t</a> *statement, const char *mapping,...)</td></tr>
 <tr class="memdesc:ga3c2484dd2b08dc2b6ff5896801aed8a7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bind variables to a statement.  <a href="#ga3c2484dd2b08dc2b6ff5896801aed8a7">More...</a><br /></td></tr>
 <tr class="separator:ga3c2484dd2b08dc2b6ff5896801aed8a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -305,6 +308,50 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Bind variables to a statement. </p>
+<p>See <a class="el" href="Database.html#gafd5f0e205a63182c94e5a57c958aa5bd" title="Bind variables to a statement. ">database_statement_bindv</a> for information.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">statement</td><td>The statement to bind variables to. </td></tr>
+    <tr><td class="paramname">mapping</td><td>The variable mapping specification. </td></tr>
+    <tr><td class="paramname">..</td><td>(vvariable arguments.)</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>If the statement and mapping is valid and the binding was successful true is returned, otherwise false. </dd></dl>
+
+</div>
+</div>
+<a class="anchor" id="gafd5f0e205a63182c94e5a57c958aa5bd"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool database_statement_bindv </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="Database.html#gae9b07ccd99ad7c893ed0badc1b1a9274">database_statement_t</a> *&#160;</td>
+          <td class="paramname"><em>statement</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>mapping</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">va_list&#160;</td>
+          <td class="paramname"><em>va</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Bind variables to a statement. </p>
 <p>Binds variables to a statement by using a mapping string which specifies the variable types as well as additional variable arguments of the variables to bind to the statement following that mapping.</p>
 <p>Variable mapping specification allows for specifying the types of the variable arguments in much the same way printf format specifiers work. The mapping must be in the same order as the statement bind points. The mapping string can be composed of any of the following characters</p><ul>
 <li>'i' <em>int</em></li>
@@ -318,7 +365,7 @@ Functions</h2></td></tr>
   <table class="params">
     <tr><td class="paramname">statement</td><td>The statement to bind variables to. </td></tr>
     <tr><td class="paramname">mapping</td><td>The variable mapping specification. </td></tr>
-    <tr><td class="paramname">...</td><td>(variable arguments.)</td></tr>
+    <tr><td class="paramname">va</td><td>Variable argument list.</td></tr>
   </table>
   </dd>
 </dl>
@@ -381,7 +428,7 @@ Functions</h2></td></tr>
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Fri Jun 27 2014 23:25:39 for Redroid Module API by &#160;<a href="http://www.doxygen.org/index.html">
+Generated on Mon Jun 30 2014 09:02:44 for Redroid Module API by &#160;<a href="http://www.doxygen.org/index.html">
 <img class="footer" src="doxygen.png" alt="doxygen"/>
 </a> 1.8.7
 </small></address>
