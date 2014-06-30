@@ -8,8 +8,6 @@
 #include "ircman.h"
 #include "access.h"
 
-extern void explicit_bzero(void *const, size_t);
-
 #define isdigit(a) (((unsigned)(a)-'0') < 10)
 #define isspace(a) ({ int c = (a); !!((c >= '\t' && c <= '\r') || c == ' '); })
 
