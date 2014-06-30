@@ -342,6 +342,7 @@ static void irc_channels_join(irc_t *irc) {
             => irc_join_raw(irc, channel->channel);
     );
     irc->syncronized = true;
+    printf("    irc      => syncronized\n");
 }
 
 module_status_t irc_modules_add(irc_t *irc, const char *name);

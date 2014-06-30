@@ -28,7 +28,7 @@ struct web_s {
     http_t         *server;
     pthread_t       thread;
     pthread_mutex_t mutex;
-    list_t         *sessions;
+    list_t         *sessions; /* list<web_session_t*> */
     irc_manager_t  *ircmanager;
 };
 

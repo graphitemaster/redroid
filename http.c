@@ -33,8 +33,8 @@ typedef struct {
 
 struct http_s {
     sock_t       *host;
-    list_t       *clients;
-    list_t       *intercepts;
+    list_t       *clients; /* list<http_client_t*> */
+    list_t       *intercepts; /* list<http_intercept_t*> */
     struct pollfd polls[2];
     int           wakefds[2];
 };

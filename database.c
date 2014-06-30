@@ -18,7 +18,7 @@ struct database_statement_s {
 };
 
 struct database_s {
-    hashtable_t     *statements;
+    hashtable_t     *statements; /* map<database_statement_s*> */
     sqlite3         *handle;
 };
 

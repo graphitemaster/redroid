@@ -9,7 +9,7 @@ typedef struct {
 } config_module_t;
 
 typedef struct {
-    hashtable_t *modules;    /* map<config_module_t>           */
+    hashtable_t *modules;    /* map<config_module_t*>          */
     char        *name;       /* channel name                   */
     bool         modulesall; /* module line is wildcard `*'    */
 } config_channel_t;
@@ -23,7 +23,7 @@ typedef struct {
     char        *auth;       /* auth password (NickServ)       */
     char        *database;   /* database file for IRC instance */
     bool         ssl;        /* SSL network                    */
-    hashtable_t *channels;   /* map<config_channel_t>          */
+    hashtable_t *channels;   /* map<config_channel_t*>         */
 } config_instance_t;
 
 config_channel_t *config_channel_find(config_instance_t *instance, const char *name);

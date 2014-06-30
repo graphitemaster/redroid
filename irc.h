@@ -38,7 +38,7 @@ typedef struct {
 
 typedef struct {
     char        *module;
-    hashtable_t *kvs;
+    hashtable_t *kvs; /* map<char *> */
 } irc_module_t;
 
 typedef struct {
