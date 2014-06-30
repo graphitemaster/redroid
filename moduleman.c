@@ -8,7 +8,6 @@ module_manager_t *module_manager_create(irc_t *instance) {
     manager->instance  = instance;
     manager->modules   = list_create();
     manager->unloaded  = list_create();
-    manager->whitelist = database_create("whitelist.db");
     return manager;
 }
 
@@ -16,7 +15,6 @@ void module_manager_destroy(module_manager_t *manager) {
     list_foreach(manager->modules, manager, &module_close);
     list_destroy(manager->modules);
     list_destroy(manager->unloaded);
-    database_destroy(manager->whitelist);
     free(manager);
 }
 

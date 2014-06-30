@@ -49,9 +49,6 @@ timestamp.o:
 modules/%.so: modules/%.c
 	$(LAMBDAPP) $< | $(CC) -xc $(MODULE_CFLAGS) - -o $@ $(MODULE_LDFLAGS)
 
-misc/%.o: misc/%.c
-	$(CC) -c -o $@ $< $(WHITELIST_CFLAGS)
-
 modules: $(MODULE_OBJECTS)
 
 cleanmodules:

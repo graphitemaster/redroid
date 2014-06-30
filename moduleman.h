@@ -10,7 +10,6 @@ typedef struct module_s         module_t;
 struct module_manager_s {
     list_t      *modules;
     list_t      *unloaded;
-    database_t  *whitelist;
     irc_t       *instance;
 };
 
