@@ -443,7 +443,7 @@ irc_t *irc_create(config_instance_t *instance) {
     printf("instance: %s\n", irc->name);
     printf("    nick     => %s\n", irc->nick);
     printf("    pattern  => %s\n", irc->pattern);
-    printf("    auth     => %s\n", (irc->auth) ? irc->auth : "(None)");
+    printf("    auth     => %s\n", irc->auth ? "(Yes)" : "(No)");
     printf("    database => %s\n", instance->database);
     printf("    host     => %s\n", instance->host);
     printf("    port     => %s\n", instance->port);
