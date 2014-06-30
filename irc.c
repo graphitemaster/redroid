@@ -8,6 +8,25 @@
 #include "ircman.h"
 #include "access.h"
 
+/* An implementation of explicit_bzero */
+#if __clang__
+#   pragma clang optimize push
+#   pragma clang optimize ("O0")
+#elif __GNUC__
+#   pragma GCC push_options
+#   pragma GCC optimize ("-O0")
+#endif
+__attribute__((noinline)) void explicit_bzero(void *const data, size_t size) {
+    unsigned char *base = data;
+    for (size_t i = 0; i < size; i++)
+        base[i] = 0;
+}
+#if __clang__
+#   pragma clang optimize pop
+#elif __GNUC__
+#   pragma GCC pop_options
+#endif
+
 #define isdigit(a) (((unsigned)(a)-'0') < 10)
 #define isspace(a) ({ int c = (a); !!((c >= '\t' && c <= '\r') || c == ' '); })
 
@@ -871,6 +890,11 @@ static void irc_parse(irc_t *irc, void *data) {
         if (!strcmp(irc_target_nick(prefix), "NickServ") && irc->auth) {
             if (strstr(params[1], "You are now identified")) {
                 printf("    irc      => authenticated\n");
+                /* ChanServ password isn't required anymore. Keeping it in memory
+                 * is a plassuible attack vector for a malicious module or a buffer
+                 * [over|under]flow into where the auth password is stored.
+                 */
+                explicit_bzero(irc->auth, strlen(irc->auth));
             } else if (strstr(params[1], "This nickname is registered")) {
                 sock_sendf(irc->sock, "PRIVMSG NickServ :IDENTIFY %s %s\r\n", irc->nick, irc->auth);
             }
