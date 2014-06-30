@@ -33,9 +33,8 @@ static void dur_help(irc_t *irc, const char *channel, const char *user) {
 }
 
 static void dur_reverse(irc_t *irc, const char *channel, const char *user, const char *message) {
-    unsigned long stack[dur_length][dur_length + 1];
-    size_t index = 0;
     unsigned char bits = 0;
+    unsigned long long accumulate = 0;
     for (const char *str = message; *str; str++) {
         unsigned long read = 0;
         char *find;
@@ -46,16 +45,11 @@ static void dur_reverse(irc_t *irc, const char *channel, const char *user, const
             if (bits & (1 << shift))
                 return irc_write(irc, channel, "%s: `%c' already specified in duration string", user, *find);
             bits |= 1 << shift;
-            stack[index][0] = find - dur_index;
-            stack[index][find - dur_index + 1] = read;
-            index++;
+            accumulate += dur_seconds[shift] * read;
         } else {
             return dur_help(irc, channel, user);
         }
     }
-    unsigned long long accumulate = 0;
-    for (size_t i = 0; i < index; i++)
-        accumulate += dur_seconds[stack[i][0]] * stack[i][stack[i][0] + 1];
     irc_write(irc, channel, "%s: %llu", user, accumulate);
 }
 
