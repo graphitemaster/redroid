@@ -549,7 +549,7 @@ list_t *module_api_svnlog(const char *url, size_t depth) {
     return NULL;
 }
 
-char *module_api_strdur(unsigned long long duration) {
+const char *module_api_strdur(unsigned long long duration) {
     if (!duration)
         return "0";
 
