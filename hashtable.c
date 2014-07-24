@@ -20,12 +20,10 @@ static inline size_t hashtable_pot(size_t size) {
     size |= size >> 8;
     size |= size >> 16;
 
-    /* for 64 bit size_t */
     if (sizeof(size_t) == 8)
-        size |= size >> 32;
+        size |= size >> (sizeof(size_t) * 4); /* to prevent a warning where sizeof(size_t) != 8 */
 
-    size++;
-    return size;
+    return size + 1;
 }
 
 static inline size_t hashtable_hash(const char *string) {
