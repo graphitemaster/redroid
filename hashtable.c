@@ -7,10 +7,10 @@
 #include "list.h"
 
 struct hashtable_s {
+    list_t        **table;
     size_t          elements;
     size_t          size;
     pthread_mutex_t mutex;
-    list_t        **table;
 };
 
 static inline size_t hashtable_pot(size_t size) {
@@ -44,10 +44,8 @@ typedef struct {
 
 static inline hashtable_entry_t *hashtable_entry_create(const void *key, void *value) {
     hashtable_entry_t *entry = malloc(sizeof(*entry));
-
-    entry->key       = strdup(key);
-    entry->value     = value;
-
+    entry->key   = strdup(key);
+    entry->value = value;
     return entry;
 }
 
@@ -76,7 +74,6 @@ hashtable_t *hashtable_create(size_t size) {
         return NULL;
 
     hashtable_t *hashtable = malloc(sizeof(*hashtable));
-
     hashtable->size     = hashtable_pot(size);
     hashtable->mutex    = mutex;
     hashtable->table    = malloc(sizeof(list_t*) * size);
@@ -127,6 +124,7 @@ bool hashtable_remove(hashtable_t *hashtable, const char *key) {
         goto hashtable_remove_finish;
     }
 
+    hashtable_entry_destroy(find);
     hashtable->elements--;
 
 hashtable_remove_finish:

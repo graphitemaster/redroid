@@ -1,14 +1,13 @@
-#include "string.h"
-
-#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
+#include "string.h"
+
 struct string_s {
-    char   *buffer;
-    size_t  allocated;
-    size_t  length;
+    char  *buffer;
+    size_t allocated;
+    size_t length;
 };
 
 static void string_reallocate(string_t *string) {

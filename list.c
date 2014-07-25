@@ -19,10 +19,10 @@ typedef struct {
 } list_atcache_t;
 
 struct list_s {
-    size_t         length;
     list_node_t   *head;
     list_node_t   *tail;
     list_atcache_t atcache;
+    size_t         length;
 };
 
 /* List node */
@@ -105,10 +105,11 @@ static void list_atcache_cache(list_t *list, list_node_t *node) {
 /* List */
 list_t *list_create(void) {
     list_t *list    = malloc(sizeof(*list));
-    list->length    = 0;
+    
     list->head      = NULL;
     list->tail      = NULL;
-
+    list->length    = 0;
+    
     list_atcache_create(list);
     return list;
 }

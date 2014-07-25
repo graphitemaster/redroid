@@ -2,6 +2,7 @@
 # Do not make changes here.
 
 CC               ?= clang
+LAMBDA_CC         = lambdapp/lambda-cc
 CFLAGS            = -pipe -std=c11 -D_XOPEN_SOURCE=700 -Wall -Wextra
 LDFLAGS           = -ldl -lrt -lm -lpthread -lsqlite3 -Wl,--export-dynamic
 SOURCES           = $(wildcard *.c)
@@ -12,7 +13,6 @@ MODULE_CFLAGS     = -fPIC -fno-asm -fno-builtin -ffreestanding -nostdinc -std=c9
 MODULE_LDFLAGS    = -shared -rdynamic
 MODULE_SOURCES    = $(wildcard modules/*.c)
 MODULE_OBJECTS    = $(MODULE_SOURCES:.c=.so)
-LAMBDAPP          = lambdapp/lambdapp
 STRIP             = $(shell strip)
 
 ifeq ($(GNUTLS),1)
@@ -30,24 +30,24 @@ endif
 
 all: modules $(REDROID)
 
-$(OBJECTS): $(LAMBDAPP)
+$(OBJECTS): $(LAMBDA_CC)
 
-$(MODULE_OBJECTS): $(LAMBDAPP)
+$(MODULE_OBJECTS): $(LAMBDA_CC)
 
-$(LAMBDAPP):
+$(LAMBDA_CC):
 	cd lambdapp && $(MAKE)
 
 $(REDROID): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
 
 timestamp.o:
-	$(LAMBDAPP) timestamp.c | $(CC) -xc -c $(CFLAGS) - -o timestamp.o
+	$(LAMBDA_CC) -c $(CFLAGS) timestamp.c -o timestamp.o
 
 .c.o:
-	$(LAMBDAPP) $< | $(CC) -xc -c $(CFLAGS) - -o $@
+	$(LAMBDA_CC) -c $(CFLAGS) $< -o $@
 
 modules/%.so: modules/%.c
-	$(LAMBDAPP) $< | $(CC) -xc $(MODULE_CFLAGS) - -o $@ $(MODULE_LDFLAGS)
+	$(LAMBDA_CC) $(MODULE_CFLAGS) $< -o $@ $(MODULE_LDFLAGS)
 
 modules: $(MODULE_OBJECTS)
 
