@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "default.h"
+
 typedef struct list_s list_t;
 
 /*
@@ -137,8 +139,12 @@ bool list_find(list_t *list, const void *element);
  *  This function has the same other uses as list_find. Mainly it thrashes
  *  the atcache and syncronizes it with the list.
  */
-#define list_search(LIST, PASS, PREDICATE) \
-    list_search_impl((LIST), (PASS), ((bool (*)(const void *, const void *))(PREDICATE)))
+#define list_search_2(LIST, PREDICATE) \
+    list_search_impl((LIST), NULL, (bool (*)(const void *, const void *))(PREDICATE))
+#define list_search_3(LIST, PASS, PREDICATE) \
+    list_search_impl((LIST), (void *)(PASS), (bool (*)(const void *, const void *))(PREDICATE))
+#define list_search(...) \
+    DEFAULT(list_search, __VA_ARGS__)
 
 void *list_search_impl(list_t *list, const void *pass, bool (*predicate)(const void *, const void *));
 
@@ -178,8 +184,12 @@ size_t list_length(list_t *list);
  *                get as its second argument.
  *  callback    - Pointer to function callback.
  */
-#define list_foreach(LIST, PASS, CALLBACK) \
-    list_foreach_impl((LIST), (PASS), (void (*)(void *, void *))(CALLBACK))
+#define list_foreach_2(LIST, CALLBACK) \
+    list_foreach_impl((LIST), NULL, (void (*)(void *, void *))(CALLBACK))
+#define list_foreach_3(LIST, PASS, CALLBACK) \
+    list_foreach_impl((LIST), (void *)(PASS), (void (*)(void *, void *))(CALLBACK))
+#define list_foreach(...) \
+    DEFAULT(list_foreach, __VA_ARGS__)
 
 void list_foreach_impl(list_t *list, void *pass, void (*callback)(void *, void *));
 
@@ -212,7 +222,7 @@ bool list_erase(list_t *list, void *element);
  *  This thrashes the atcache of the list.
  */
 #define list_sort(LIST, PREDICATE) \
-    list_sort_impl((LIST), ((bool (*)(const void *, const void *))(PREDICATE)))
+    list_sort_impl((LIST), (bool (*)(const void *, const void *))(PREDICATE))
 
 void list_sort_impl(list_t *list, bool (*predicate)(const void *, const void *));
 

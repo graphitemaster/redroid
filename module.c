@@ -29,7 +29,7 @@ static void module_mem_node_destroy(module_mem_node_t *node) {
 }
 
 void module_mem_destroy(module_t *module) {
-    list_foreach(module->memory, NULL, &module_mem_node_destroy);
+    list_foreach(module->memory, &module_mem_node_destroy);
     list_destroy(module->memory);
 }
 

@@ -31,7 +31,7 @@ static config_module_t *config_module_create(const char *name) {
 }
 
 static void config_module_destroy(config_module_t *module) {
-    hashtable_foreach(module->kvs, NULL, &free);
+    hashtable_foreach(module->kvs, &free);
     hashtable_destroy(module->kvs);
     free(module->name);
     free(module);
@@ -47,7 +47,7 @@ static config_channel_t *config_channel_create(const char *name) {
 }
 
 static void config_channel_destroy(config_channel_t *channel) {
-    hashtable_foreach(channel->modules, NULL, &config_module_destroy);
+    hashtable_foreach(channel->modules, &config_module_destroy);
     hashtable_destroy(channel->modules);
     free(channel->name);
     free(channel);
@@ -70,7 +70,7 @@ static void config_instance_destroy(config_instance_t *instance) {
     free(instance->database);
     free(instance->auth);
 
-    hashtable_foreach(instance->channels, NULL, &config_channel_destroy);
+    hashtable_foreach(instance->channels, &config_channel_destroy);
     hashtable_destroy(instance->channels);
 
     free(instance);
@@ -210,7 +210,7 @@ list_t *config_load(const char *file) {
 }
 
 void config_unload(list_t *list) {
-    list_foreach(list, NULL, &config_instance_destroy);
+    list_foreach(list, &config_instance_destroy);
     list_destroy(list);
 }
 

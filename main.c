@@ -225,7 +225,7 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
             irc_write(irc, channel, "%s: %s", user, line);
             free(line);
         }
-        list_foreach(errors, NULL, &free);
+        list_foreach(errors, &free);
         list_destroy(errors);
         rename(string_contents(backupname), redroid_binary);
     } else {
@@ -235,7 +235,7 @@ void redroid_recompile(irc_t *irc, const char *channel, const char *user) {
     }
 
     string_destroy(backupname);
-    list_foreach(lines, NULL, &free);
+    list_foreach(lines, &free);
     list_destroy(lines);
     return;
 

@@ -13,7 +13,7 @@ struct regexpr_s {
 
 /* regular expression cache */
 void regexpr_cache_destroy(regexpr_cache_t *cache) {
-    hashtable_foreach(cache, NULL, &regexpr_destroy);
+    hashtable_foreach(cache, &regexpr_destroy);
     hashtable_destroy(cache);
 }
 

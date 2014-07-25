@@ -32,7 +32,7 @@ static hashtable_t *module_api_irc_modules_config_copy(irc_t *irc, const char *m
 }
 
 static void module_api_irc_modules_config_destroy(hashtable_t *kvs) {
-    hashtable_foreach(kvs, NULL, &free);
+    hashtable_foreach(kvs, &free);
     hashtable_destroy(kvs);
 }
 
@@ -134,7 +134,7 @@ static svn_entry_t *module_api_svnlog_read_entry(FILE *handle) {
 }
 
 static void module_api_svnlog_destroy(list_t *list) {
-    list_foreach(list, NULL,
+    list_foreach(list,
         lambda void(svn_entry_t *entry) {
             string_destroy(entry->revision);
             string_destroy(entry->author);
@@ -184,7 +184,7 @@ static void module_api_strdur_step(strdur_context_t *ctx, unsigned long long dur
 }
 
 static void module_api_dns_destroy(list_t *data) {
-    list_foreach(data, NULL, lambda void(char *data) => free(data););
+    list_foreach(data, lambda void(char *data) => free(data););
     list_destroy(data);
 }
 

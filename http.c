@@ -121,7 +121,7 @@ static list_t *http_post_extract(char *content) {
 }
 
 static void http_post_cleanup(list_t *values) {
-    list_foreach(values, NULL, &http_post_kv_destroy);
+    list_foreach(values, &http_post_kv_destroy);
     list_destroy(values);
 }
 
@@ -431,9 +431,9 @@ void http_destroy(http_t *http) {
     http_terminate(http);
     sock_destroy(http->host, NULL);
 
-    list_foreach(http->clients, NULL, &http_client_destroy);
+    list_foreach(http->clients, &http_client_destroy);
     list_destroy(http->clients);
-    list_foreach(http->intercepts, NULL, &http_intercept_destroy);
+    list_foreach(http->intercepts, &http_intercept_destroy);
     list_destroy(http->intercepts);
 
     close(http->wakefds[0]);

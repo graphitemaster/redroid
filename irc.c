@@ -328,9 +328,9 @@ void irc_message_clear(irc_message_t *message) {
 static void irc_channel_destroy(irc_channel_t *channel) {
     free(channel->channel);
     free(channel->topic);
-    hashtable_foreach(channel->users, NULL, &irc_user_destroy);
+    hashtable_foreach(channel->users, &irc_user_destroy);
     hashtable_destroy(channel->users);
-    hashtable_foreach(channel->modules, NULL, &irc_module_destroy);
+    hashtable_foreach(channel->modules, &irc_module_destroy);
     hashtable_destroy(channel->modules);
     irc_message_destroy(&channel->message);
     free(channel);
@@ -465,7 +465,7 @@ void irc_destroy(irc_t *irc, sock_restart_t *restart, char **name) {
     database_destroy(irc->database);
     regexpr_cache_destroy(irc->regexprcache);
     module_manager_destroy(irc->moduleman);
-    hashtable_foreach(irc->channels, NULL, &irc_channel_destroy);
+    hashtable_foreach(irc->channels, &irc_channel_destroy);
     hashtable_destroy(irc->channels);
     list_destroy(irc->queue);
     free(irc->auth);
@@ -518,7 +518,7 @@ static irc_module_t *irc_module_create(config_module_t *module) {
 }
 
 static void irc_module_destroy(irc_module_t *module) {
-    hashtable_foreach(module->kvs, NULL, &free);
+    hashtable_foreach(module->kvs, &free);
     hashtable_destroy(module->kvs);
     free(module->module);
     free(module);

@@ -267,7 +267,7 @@ void web_destroy(web_t *web) {
     mt_destroy(web->rand);
     ripemd_destroy(web->ripemd);
     database_destroy(web->database);
-    list_foreach(web->sessions, NULL, &web_session_destroy);
+    list_foreach(web->sessions, &web_session_destroy);
     list_destroy(web->sessions);
 
     free(web);
